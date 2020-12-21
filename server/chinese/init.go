@@ -16,12 +16,10 @@ type DB struct {
 
 // Connect connects to the database
 func Connect() DB {
-	db, err := gorm.Open(sqlite.Open(path.Join(shared.Paths().Dir, "assets", "chinese.db")), &gorm.Config{})
+	db, err := gorm.Open(sqlite.Open(path.Join(shared.Paths().Dir, "assets", "zh.db")+"?mode=ro"), &gorm.Config{})
 	if err != nil {
 		log.Fatalln(err)
 	}
-
-	db.AutoMigrate(&Tag{}, &EntryItem{}, &Entry{}, &Deck{})
 
 	return DB{
 		Current: db,
