@@ -2,6 +2,7 @@ package db
 
 import (
 	"log"
+	"time"
 
 	"github.com/zhquiz/go-server/server/rand"
 	"gorm.io/gorm"
@@ -9,7 +10,10 @@ import (
 
 // User holds user data
 type User struct {
-	gorm.Model
+	ID        string `gorm:"primaryKey"`
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	DeletedAt gorm.DeletedAt `gorm:"index"`
 
 	Email  string  `gorm:"index:,unique;not null;check:email <> ''"`
 	Name   string  `gorm:"not null;check:name <> ''"`

@@ -8,8 +8,8 @@ import (
 type Extra struct {
 	gorm.Model
 
-	UserID uint `gorm:"index:idx_extra_user_chinese,unique;not null"`
-	User   User `gorm:"foreignKey:UserID"`
+	UserID string `gorm:"index:idx_extra_user_chinese,unique;not null"`
+	User   User   `gorm:"foreignKey:UserID"`
 
 	Chinese string `gorm:"index:idx_extra_user_chinese,unique;not null"`
 	Pinyin  string `gorm:"not null"`
