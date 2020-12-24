@@ -3,9 +3,7 @@ package api
 import (
 	"database/sql"
 	"fmt"
-	"time"
 
-	"github.com/gin-contrib/cache"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/zhquiz/go-server/server/db"
@@ -25,7 +23,7 @@ func (r tExtraRouter) init() {
 }
 
 func (r tExtraRouter) getQ() {
-	r.Router.GET("/q", cache.CachePage(store, time.Hour, func(ctx *gin.Context) {
+	r.Router.GET("/q", func(ctx *gin.Context) {
 		session := sessions.Default(ctx)
 		userID := session.Get("userID").(string)
 		if userID == "" {
@@ -114,11 +112,11 @@ func (r tExtraRouter) getQ() {
 		}
 
 		ctx.JSON(200, out)
-	}))
+	})
 }
 
 func (r tExtraRouter) getMatch() {
-	r.Router.GET("/", cache.CachePage(store, time.Hour, func(ctx *gin.Context) {
+	r.Router.GET("/", func(ctx *gin.Context) {
 		session := sessions.Default(ctx)
 		userID := session.Get("userID").(string)
 		if userID == "" {
@@ -126,7 +124,7 @@ func (r tExtraRouter) getMatch() {
 		}
 
 		var query struct {
-			Entry string
+			Entry string `binding:"required"`
 			RS    string `form:"_"`
 		}
 
@@ -174,7 +172,7 @@ func (r tExtraRouter) getMatch() {
 		}
 
 		ctx.JSON(200, out)
-	}))
+	})
 }
 
 func (r tExtraRouter) doCreate() {
@@ -342,17 +340,10 @@ func (r tExtraRouter) doUpdate() {
 			panic(e)
 		}
 
-		var it db.Extra
-
-		if r := resource.DB.Current.Where("UserID = ? AND ID = ?", userID, id).First(&it); r.Error != nil {
-			panic(r.Error)
-		}
-
-		it.Chinese = body.Chinese
-		it.Pinyin = body.Pinyin
-		it.English = body.English
-
-		if r := resource.DB.Current.Save(&it); r.Error != nil {
+		if r := resource.DB.Current.
+			Model(&db.Extra{}).
+			Where("UserID = ? AND ID = ?", userID, id).
+			Updates(body); r.Error != nil {
 			panic(r.Error)
 		}
 
@@ -375,7 +366,9 @@ func (r tExtraRouter) doDelete() {
 			ctx.AbortWithError(400, fmt.Errorf("id to update not specified"))
 		}
 
-		if r := resource.DB.Current.Where("UserID = ? AND ID = ?", userID, id).Delete(&db.Extra{}); r.Error != nil {
+		if r := resource.DB.Current.Unscoped().
+			Where("UserID = ? AND ID = ?", userID, id).
+			Delete(&db.Extra{}); r.Error != nil {
 			panic(r.Error)
 		}
 

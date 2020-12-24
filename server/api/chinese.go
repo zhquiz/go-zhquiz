@@ -1,6 +1,9 @@
 package api
 
 import (
+	"time"
+
+	"github.com/gin-contrib/cache"
 	"github.com/gin-gonic/gin"
 	"github.com/tebeka/atexit"
 	"github.com/yanyiwu/gojieba"
@@ -19,7 +22,7 @@ func (r tChineseRouter) init() {
 }
 
 func (r tChineseRouter) getJieba() {
-	r.Router.GET("/jieba", func(ctx *gin.Context) {
+	r.Router.GET("/jieba", cache.CachePage(store, time.Hour, func(ctx *gin.Context) {
 		var query struct {
 			Q string
 		}
@@ -31,5 +34,5 @@ func (r tChineseRouter) getJieba() {
 		ctx.JSON(200, gin.H{
 			"result": r.jieba.CutAll(query.Q),
 		})
-	})
+	}))
 }
