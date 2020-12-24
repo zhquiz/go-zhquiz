@@ -2,6 +2,7 @@ package api
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/tebeka/atexit"
 	"github.com/yanyiwu/gojieba"
 )
 
@@ -12,7 +13,7 @@ type tChineseRouter struct {
 
 func (r tChineseRouter) init() {
 	r.jieba = gojieba.NewJieba()
-	// defer r.jieba.Free()
+	atexit.Register(r.jieba.Free)
 
 	r.getJieba()
 }

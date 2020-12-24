@@ -6,6 +6,7 @@ import (
 	"os/signal"
 
 	"github.com/joho/godotenv"
+	"github.com/tebeka/atexit"
 	"github.com/zhquiz/go-server/desktop"
 	"github.com/zhquiz/go-server/server"
 	"github.com/zhquiz/go-server/server/api"
@@ -34,4 +35,6 @@ func main() {
 
 		<-c
 	}
+
+	atexit.Exit(0)
 }

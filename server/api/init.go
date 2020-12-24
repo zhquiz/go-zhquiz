@@ -22,6 +22,8 @@ import (
 	"gorm.io/gorm"
 )
 
+var resource Resource
+
 // Resource is a struct for reuse and cleanup.
 type Resource struct {
 	DB       db.DB
@@ -65,13 +67,15 @@ func Prepare() Resource {
 	f, _ := os.Create(filepath.Join(shared.Paths().Root, "gin.log"))
 	gin.DefaultWriter = io.MultiWriter(f, os.Stdout)
 
-	return Resource{
+	resource = Resource{
 		DB:       db.Connect(),
 		Zh:       zh.Connect(),
 		Store:    memstore.NewStore([]byte(apiSecret)),
 		FireApp:  fireApp,
 		FireAuth: fireAuth,
 	}
+
+	return resource
 }
 
 // Register registers API paths to Gin Engine.
