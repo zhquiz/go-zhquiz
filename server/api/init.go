@@ -15,9 +15,9 @@ import (
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/memstore"
 	"github.com/gin-gonic/gin"
-	"github.com/zhquiz/go-server/server/chinese"
 	"github.com/zhquiz/go-server/server/db"
 	"github.com/zhquiz/go-server/server/rand"
+	"github.com/zhquiz/go-server/server/zh"
 	"github.com/zhquiz/go-server/shared"
 	"gorm.io/gorm"
 )
@@ -25,7 +25,7 @@ import (
 // Resource is a struct for reuse and cleanup.
 type Resource struct {
 	DB       db.DB
-	Chinese  chinese.DB
+	Zh       zh.DB
 	Store    memstore.Store
 	FireApp  *firebase.App
 	FireAuth *auth.Client
@@ -67,7 +67,7 @@ func Prepare() Resource {
 
 	return Resource{
 		DB:       db.Connect(),
-		Chinese:  chinese.Connect(),
+		Zh:       zh.Connect(),
 		Store:    memstore.NewStore([]byte(apiSecret)),
 		FireApp:  fireApp,
 		FireAuth: fireAuth,

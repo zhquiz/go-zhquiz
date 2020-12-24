@@ -10,11 +10,10 @@ type tMediaRouter struct {
 }
 
 func (r tMediaRouter) init() {
-	r.upload()
+	r.doUpload()
 }
 
-// Upload is a router that uploads media
-func (r tMediaRouter) upload() {
+func (r tMediaRouter) doUpload() {
 	r.Router.POST("/upload", func(c *gin.Context) {
 		file, err := c.FormFile("file")
 		if err != nil {

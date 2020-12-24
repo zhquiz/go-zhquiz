@@ -7,6 +7,10 @@ type tAPIRouter struct {
 }
 
 func (t tAPIRouter) init() {
+	tChineseRouter{
+		Router: t.Router.Group("/chinese"),
+	}.init()
+
 	tMediaRouter{
 		Router: t.Router.Group("/media"),
 	}.init()

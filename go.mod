@@ -10,6 +10,8 @@ require (
 	github.com/gin-gonic/contrib v0.0.0-20201101042839-6a891bf89f19
 	github.com/gin-gonic/gin v1.6.3
 	github.com/joho/godotenv v1.3.0
+	github.com/mattn/go-sqlite3 v1.14.5
+	github.com/yanyiwu/gojieba v1.1.2
 	github.com/zserge/lorca v0.1.9
 	golang.org/x/oauth2 v0.0.0-20201208152858-08078c50e5b5 // indirect
 	gorm.io/driver/postgres v1.0.5
