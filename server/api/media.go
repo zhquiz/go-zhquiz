@@ -14,15 +14,15 @@ func (r tMediaRouter) init() {
 }
 
 func (r tMediaRouter) doUpload() {
-	r.Router.POST("/upload", func(c *gin.Context) {
-		file, err := c.FormFile("file")
+	r.Router.POST("/upload", func(ctx *gin.Context) {
+		file, err := ctx.FormFile("file")
 		if err != nil {
-			panic(err)
+			ctx.AbortWithError(400, err)
 		}
 
-		c.SaveUploadedFile(file, shared.Paths().MediaPath())
+		ctx.SaveUploadedFile(file, shared.Paths().MediaPath())
 
-		c.JSON(201, gin.H{
+		ctx.JSON(201, gin.H{
 			"url": "/media/" + file.Filename,
 		})
 	})

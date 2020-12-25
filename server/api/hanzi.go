@@ -28,7 +28,7 @@ func (r tHanziRouter) getMatch() {
 		}
 
 		if e := ctx.ShouldBindQuery(&query); e != nil {
-			panic(e)
+			ctx.AbortWithError(400, e)
 		}
 
 		stmt, e := resource.Zh.Current.Prepare(`
@@ -89,11 +89,11 @@ func (r tHanziRouter) getRandom() {
 		}
 
 		if e := ctx.ShouldBindQuery(&query); e != nil {
-			panic(e)
+			ctx.AbortWithError(400, e)
 		}
 
 		if e := rison.Unmarshal([]byte(query.RS), &rs, rison.Rison); e != nil {
-			panic(e)
+			ctx.AbortWithError(400, e)
 		}
 
 		if rs.Level == nil {
@@ -134,7 +134,7 @@ func (r tHanziRouter) getRandom() {
 				english,
 				hanzi_level
 			FROM token
-			WHERE entry NOT IN (%s) AND english IS NOT NULL
+			WHERE entry NOT IN (%s) AND english IS NOT NULL AND hanzi_level >= ? AND hanzi_level <= ?
 			ORDER BY RANDOM()`, string(strings.Repeat(",?", len(existing))[1:]))
 		}
 

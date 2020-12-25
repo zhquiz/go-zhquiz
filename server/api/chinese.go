@@ -28,7 +28,7 @@ func (r tChineseRouter) getJieba() {
 		}
 
 		if e := ctx.ShouldBindQuery(&query); e != nil {
-			panic(e)
+			ctx.AbortWithError(400, e)
 		}
 
 		ctx.JSON(200, gin.H{

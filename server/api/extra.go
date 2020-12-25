@@ -42,16 +42,12 @@ func (r tExtraRouter) getQ() {
 		}
 
 		if e := ctx.ShouldBindQuery(&query); e != nil {
-			panic(e)
+			ctx.AbortWithError(400, e)
 		}
 
 		if e := rison.Unmarshal([]byte(query.RS), &rs, rison.Rison); e != nil {
-			panic(e)
+			ctx.AbortWithError(400, e)
 		}
-
-		// if e := validate.Struct(&rs); e != nil {
-		// 	panic(e)
-		// }
 
 		if rs.Sort == nil {
 			*rs.Sort = "-updatedAt"
@@ -71,6 +67,7 @@ func (r tExtraRouter) getQ() {
 
 		sel := []string{}
 		sMap := map[string]string{
+			"id":      "ID",
 			"chinese": "Chinese",
 			"pinyin":  "Pinyin",
 			"english": "English",
@@ -136,11 +133,11 @@ func (r tExtraRouter) getMatch() {
 		}
 
 		if e := ctx.ShouldBindQuery(&query); e != nil {
-			panic(e)
+			ctx.AbortWithError(400, e)
 		}
 
 		if e := rison.Unmarshal([]byte(query.RS), &rs, rison.Rison); e != nil {
-			panic(e)
+			ctx.AbortWithError(400, e)
 		}
 
 		sel := []string{}
@@ -190,7 +187,7 @@ func (r tExtraRouter) doCreate() {
 		}
 
 		if e := ctx.BindJSON(&body); e != nil {
-			panic(e)
+			ctx.AbortWithError(400, e)
 		}
 
 		checkVocab := func() bool {
@@ -337,7 +334,7 @@ func (r tExtraRouter) doUpdate() {
 		}
 
 		if e := ctx.BindJSON(&body); e != nil {
-			panic(e)
+			ctx.AbortWithError(400, e)
 		}
 
 		if r := resource.DB.Current.
