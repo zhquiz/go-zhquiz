@@ -14,6 +14,7 @@ type tQuizRouter struct {
 
 func (r tQuizRouter) init() {
 	r.getMatchMany()
+	r.doMark()
 }
 
 func (r tQuizRouter) getMatchMany() {
@@ -81,5 +82,61 @@ func (r tQuizRouter) getMatchMany() {
 		ctx.JSON(200, gin.H{
 			"result": out,
 		})
+	})
+}
+
+func (r tQuizRouter) doMark() {
+	r.Router.POST("/get", func(ctx *gin.Context) {
+		session := sessions.Default(ctx)
+		userID := session.Get("userID").(string)
+		if userID == "" {
+			ctx.AbortWithStatus(401)
+		}
+
+		var query struct {
+			ID   string
+			Type string `binding:"oneof=right wrong repeat"`
+		}
+
+		if e := ctx.ShouldBindQuery(&query); e != nil {
+			ctx.AbortWithError(400, e)
+		}
+
+		var quiz db.Quiz
+		if r := resource.DB.Current.
+			Where("UserID = ? AND ID = ?", userID, query.ID).
+			First(&quiz); r.Error != nil {
+			panic(r.Error)
+		}
+
+		quiz.UpdateSRSLevel(map[string]int8{
+			"right":  1,
+			"wrong":  -1,
+			"repeat": 0,
+		}[query.Type])
+
+		if r := resource.DB.Current.Save(&quiz); r.Error != nil {
+			panic(r.Error)
+		}
+
+		ctx.JSON(201, gin.H{
+			"result": "updated",
+		})
+	})
+}
+
+func (r tQuizRouter) getAllTags() {
+	r.Router.GET("/allTags", func(ctx *gin.Context) {
+		session := sessions.Default(ctx)
+		userID := session.Get("userID").(string)
+		if userID == "" {
+			ctx.AbortWithStatus(401)
+		}
+
+		var tags []struct {
+			Name string
+		}
+
+		resource.DB.Current.Model(&db.Quiz{}).Select("tag.Name").Joins("JOIN quiz_tag ON quiz_tag.tag_id = ").Scan(&tags)
 	})
 }
