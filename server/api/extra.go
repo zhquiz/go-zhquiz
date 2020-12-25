@@ -35,10 +35,10 @@ func (r tExtraRouter) getQ() {
 		}
 
 		var rs struct {
-			Select  []string
-			Sort    *string
-			Page    *int
-			PerPage *int `json:"perPage"`
+			Select  []string `json:"select"`
+			Sort    *string  `json:"sort"`
+			Page    *int     `json:"page"`
+			PerPage *int     `json:"perPage"`
 		}
 
 		if e := ctx.ShouldBindQuery(&query); e != nil {
@@ -85,8 +85,8 @@ func (r tExtraRouter) getQ() {
 		}
 
 		var out struct {
-			result []gin.H
-			count  int
+			Result []gin.H `json:"result"`
+			Count  int     `json:"count"`
 		}
 
 		if r := resource.DB.Current.
@@ -104,7 +104,7 @@ func (r tExtraRouter) getQ() {
 			Limit(*rs.PerPage).
 			Offset((*rs.Page-1)**rs.PerPage).
 			Where("userID = ?", userID).
-			Find(&out.result); r.Error != nil {
+			Find(&out.Result); r.Error != nil {
 			panic(r.Error)
 		}
 
@@ -121,15 +121,15 @@ func (r tExtraRouter) getMatch() {
 		}
 
 		var query struct {
-			Entry string `binding:"required"`
+			Entry string `form:"entry" binding:"required"`
 			RS    string `form:"_"`
 		}
 
 		var rs struct {
-			Select  []string
-			Sort    *string
-			Page    *int
-			PerPage *int `json:"perPage"`
+			Select  []string `json:"select"`
+			Sort    *string  `json:"sort"`
+			Page    *int     `json:"page"`
+			PerPage *int     `json:"perPage"`
 		}
 
 		if e := ctx.ShouldBindQuery(&query); e != nil {
@@ -181,9 +181,9 @@ func (r tExtraRouter) doCreate() {
 		}
 
 		var body struct {
-			Chinese string `binding:"required"`
-			Pinyin  string `binding:"required"`
-			English string `binding:"required"`
+			Chinese string `json:"chinese" binding:"required"`
+			Pinyin  string `json:"pinyin" binding:"required"`
+			English string `json:"english" binding:"required"`
 		}
 
 		if e := ctx.BindJSON(&body); e != nil {
@@ -328,9 +328,9 @@ func (r tExtraRouter) doUpdate() {
 		}
 
 		var body struct {
-			Chinese string `binding:"required"`
-			Pinyin  string `binding:"required"`
-			English string `binding:"required"`
+			Chinese string `json:"chinese" binding:"required"`
+			Pinyin  string `json:"pinyin" binding:"required"`
+			English string `json:"english" binding:"required"`
 		}
 
 		if e := ctx.BindJSON(&body); e != nil {

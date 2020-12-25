@@ -8,7 +8,10 @@ import (
 
 // Quiz is the database model for quiz
 type Quiz struct {
-	gorm.Model
+	ID        string `gorm:"primaryKey"`
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	DeletedAt gorm.DeletedAt `gorm:"index"`
 
 	// Relationships
 	UserID uint  `gorm:"index:quiz_unique_idx,unique;not null"`

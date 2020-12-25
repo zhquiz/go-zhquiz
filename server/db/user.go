@@ -21,6 +21,8 @@ type User struct {
 	APIKey string  `gorm:"index,not null;check:api_key <> ''"`
 	API    UserAPI `gorm:"embedded"`
 
+	Meta UserMeta `gorm:"type:json"`
+
 	// Relations
 	Decks   []Deck   `gorm:"constraint:OnDelete:CASCADE"`
 	Entries []Entry  `gorm:"constraint:OnDelete:CASCADE"`
@@ -31,6 +33,16 @@ type User struct {
 // UserAPI holds User's API keys
 type UserAPI struct {
 	Forvo *string
+}
+
+// UserMeta holds User's settings
+type UserMeta struct {
+	Quiz struct {
+		Type      []string
+		Stage     []string
+		Direction []string
+		IsDue     bool
+	}
 }
 
 // New creates new User record

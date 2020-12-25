@@ -24,7 +24,7 @@ func (r tChineseRouter) init() {
 func (r tChineseRouter) getJieba() {
 	r.Router.GET("/jieba", cache.CachePage(store, time.Hour, func(ctx *gin.Context) {
 		var query struct {
-			Q string
+			Q string `form:"q"`
 		}
 
 		if e := ctx.ShouldBindQuery(&query); e != nil {

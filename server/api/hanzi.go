@@ -24,7 +24,7 @@ func (r tHanziRouter) init() {
 func (r tHanziRouter) getMatch() {
 	r.Router.GET("/", cache.CachePage(store, time.Hour, func(ctx *gin.Context) {
 		var query struct {
-			Entry string
+			Entry string `form:"entry"`
 		}
 
 		if e := ctx.ShouldBindQuery(&query); e != nil {
@@ -57,11 +57,11 @@ func (r tHanziRouter) getMatch() {
 		}
 
 		var out struct {
-			Sub      string
-			Sup      string
-			Variants string
-			Pinyin   string
-			English  string
+			Sub      string `json:"sub"`
+			Sup      string `json:"sup"`
+			Variants string `json:"variants"`
+			Pinyin   string `json:"pinyin"`
+			English  string `json:"english"`
 		}
 		if e := r.Scan(out.Sub, out.Sup, out.Variants, out.Pinyin, out.English); e == sql.ErrNoRows {
 			ctx.AbortWithStatus(404)
@@ -84,8 +84,8 @@ func (r tHanziRouter) getRandom() {
 		}
 
 		var rs struct {
-			Level    *int
-			LevelMin *int `json:"perPage"`
+			Level    *int `json:"level"`
+			LevelMin *int `json:"levelMin"`
 		}
 
 		if e := ctx.ShouldBindQuery(&query); e != nil {
@@ -151,9 +151,9 @@ func (r tHanziRouter) getRandom() {
 		}
 
 		var out struct {
-			Result  string
-			English string
-			Level   int
+			Result  string `json:"result"`
+			English string `json:"english"`
+			Level   int    `json:"level"`
 		}
 		if e := r.Scan(out.Result, out.English, out.Level); e == sql.ErrNoRows {
 			ctx.AbortWithStatus(404)
