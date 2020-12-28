@@ -16,3 +16,6 @@
 
 /go-server
 /go-server.app
+/gin.log
+/data.db
+.env

@@ -1,0 +1,17 @@
+build:
+  command: |
+    go build -o go-server.app
+desktop:
+  command: |
+    robo -c {{ .robo.file }} build
+    ./go-server.app
+serve:
+  command: |
+    robo -c {{ .robo.file }} build
+    ZHQUIZ_DESKTOP=0 ./go-server.app
+dev:
+  command: |
+    export PORT=3000
+    # increase the file watch limit, might be required on MacOS
+    ulimit -n 1000
+    reflex -s -r '\.go$' -- robo -c {{ .robo.file }} serve
