@@ -12,9 +12,11 @@ import (
 
 	firebase "firebase.google.com/go"
 	"firebase.google.com/go/auth"
+	"github.com/gin-contrib/cache/persistence"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/memstore"
 	"github.com/gin-gonic/gin"
+	"github.com/go-playground/validator/v10"
 	"github.com/zhquiz/go-server/server/db"
 	"github.com/zhquiz/go-server/server/rand"
 	"github.com/zhquiz/go-server/server/zh"
@@ -23,6 +25,8 @@ import (
 )
 
 var resource Resource
+var validate *validator.Validate = validator.New()
+var store *persistence.InMemoryStore = persistence.NewInMemoryStore(time.Hour)
 
 // Resource is a struct for reuse and cleanup.
 type Resource struct {
@@ -38,7 +42,7 @@ func Prepare() Resource {
 	var fireApp *firebase.App
 	var fireAuth *auth.Client
 
-	if os.Getenv("GOOGLE_APPLICATION_CREDENTIALS") != "" {
+	if os.Getenv("FIREBASE_CONFIG") != "" && os.Getenv("GOOGLE_APPLICATION_CREDENTIALS") != "" {
 		ctx := context.Background()
 
 		app, err := firebase.NewApp(context.Background(), nil)
@@ -114,9 +118,14 @@ func (res Resource) Register(r *gin.Engine) {
 		}
 	})
 
-	tAPIRouter{
-		Router: r.Group("/api"),
-	}.init()
+	firebaseConfig := os.Getenv("FIREBASE_CONFIG")
+
+	if firebaseConfig != "" {
+		r.GET("/firebase/config.json", func(ctx *gin.Context) {
+			ctx.Header("Content-Type", "application/json")
+			ctx.String(200, firebaseConfig)
+		})
+	}
 
 	// Send media files
 	r.GET("/media/:filename", func(c *gin.Context) {
@@ -128,6 +137,15 @@ func (res Resource) Register(r *gin.Engine) {
 
 		c.Status(404)
 	})
+
+	apiRouter := r.Group("/api")
+
+	routerChinese(apiRouter)
+	routerExtra(apiRouter)
+	routerHanzi(apiRouter)
+	routerMedia(apiRouter)
+	routerQuiz(apiRouter)
+	routerUser(apiRouter)
 }
 
 // Cleanup cleans up Resource.

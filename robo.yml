@@ -11,7 +11,7 @@ serve:
     ZHQUIZ_DESKTOP=0 ./go-server.app
 dev:
   command: |
-    export PORT=3000
+    export PORT=${SERVER_PORT:-5000}
     # increase the file watch limit, might be required on MacOS
     ulimit -n 1000
     reflex -s -r '\.go$' -- robo -c {{ .robo.file }} serve

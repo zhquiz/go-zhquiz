@@ -14,19 +14,10 @@ import (
 	"gopkg.in/sakura-internet/go-rison.v3"
 )
 
-type tQuizRouter struct {
-	Router *gin.RouterGroup
-}
+func routerQuiz(apiRouter *gin.RouterGroup) {
+	r := apiRouter.Group("/quiz")
 
-func (r tQuizRouter) init() {
-	r.getMatchMany()
-	r.doMark()
-	r.getAllTags()
-	r.initQuiz()
-}
-
-func (r tQuizRouter) getMatchMany() {
-	r.Router.POST("/get", func(ctx *gin.Context) {
+	r.POST("/get", func(ctx *gin.Context) {
 		session := sessions.Default(ctx)
 		userID := session.Get("userID").(string)
 		if userID == "" {
@@ -91,10 +82,8 @@ func (r tQuizRouter) getMatchMany() {
 			"result": out,
 		})
 	})
-}
 
-func (r tQuizRouter) doMark() {
-	r.Router.POST("/get", func(ctx *gin.Context) {
+	r.PATCH("/mark", func(ctx *gin.Context) {
 		session := sessions.Default(ctx)
 		userID := session.Get("userID").(string)
 		if userID == "" {
@@ -131,10 +120,8 @@ func (r tQuizRouter) doMark() {
 			"result": "updated",
 		})
 	})
-}
 
-func (r tQuizRouter) getAllTags() {
-	r.Router.GET("/allTags", func(ctx *gin.Context) {
+	r.GET("/allTags", func(ctx *gin.Context) {
 		session := sessions.Default(ctx)
 		userID := session.Get("userID").(string)
 		if userID == "" {
@@ -163,10 +150,8 @@ func (r tQuizRouter) getAllTags() {
 			"result": result,
 		})
 	})
-}
 
-func (r tQuizRouter) initQuiz() {
-	r.Router.GET("/init", func(ctx *gin.Context) {
+	r.GET("/init", func(ctx *gin.Context) {
 		session := sessions.Default(ctx)
 		userID := session.Get("userID").(string)
 		if userID == "" {

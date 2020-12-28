@@ -9,20 +9,13 @@ import (
 	"github.com/yanyiwu/gojieba"
 )
 
-type tChineseRouter struct {
-	Router *gin.RouterGroup
-	jieba  *gojieba.Jieba
-}
+func routerChinese(apiRouter *gin.RouterGroup) {
+	jieba := gojieba.NewJieba()
+	atexit.Register(jieba.Free)
 
-func (r tChineseRouter) init() {
-	r.jieba = gojieba.NewJieba()
-	atexit.Register(r.jieba.Free)
+	r := apiRouter.Group("/chinese")
 
-	r.getJieba()
-}
-
-func (r tChineseRouter) getJieba() {
-	r.Router.GET("/jieba", cache.CachePage(store, time.Hour, func(ctx *gin.Context) {
+	r.GET("/jieba", cache.CachePage(store, time.Hour, func(ctx *gin.Context) {
 		var query struct {
 			Q string `form:"q"`
 		}
@@ -32,7 +25,7 @@ func (r tChineseRouter) getJieba() {
 		}
 
 		ctx.JSON(200, gin.H{
-			"result": r.jieba.CutAll(query.Q),
+			"result": jieba.CutAll(query.Q),
 		})
 	}))
 }

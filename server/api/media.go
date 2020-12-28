@@ -5,16 +5,10 @@ import (
 	"github.com/zhquiz/go-server/shared"
 )
 
-type tMediaRouter struct {
-	Router *gin.RouterGroup
-}
+func routerMedia(apiRouter *gin.RouterGroup) {
+	r := apiRouter.Group("/media")
 
-func (r tMediaRouter) init() {
-	r.doUpload()
-}
-
-func (r tMediaRouter) doUpload() {
-	r.Router.POST("/upload", func(ctx *gin.Context) {
+	r.POST("/upload", func(ctx *gin.Context) {
 		file, err := ctx.FormFile("file")
 		if err != nil {
 			ctx.AbortWithError(400, err)

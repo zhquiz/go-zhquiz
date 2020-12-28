@@ -13,16 +13,10 @@ import (
 	"gopkg.in/sakura-internet/go-rison.v3"
 )
 
-type tHanziRouter struct {
-	Router *gin.RouterGroup
-}
+func routerHanzi(apiRouter *gin.RouterGroup) {
+	r := apiRouter.Group("/hanzi")
 
-func (r tHanziRouter) init() {
-	r.getMatch()
-}
-
-func (r tHanziRouter) getMatch() {
-	r.Router.GET("/", cache.CachePage(store, time.Hour, func(ctx *gin.Context) {
+	r.GET("/", cache.CachePage(store, time.Hour, func(ctx *gin.Context) {
 		var query struct {
 			Entry string `form:"entry"`
 		}
@@ -69,10 +63,8 @@ func (r tHanziRouter) getMatch() {
 
 		ctx.JSON(200, out)
 	}))
-}
 
-func (r tHanziRouter) getRandom() {
-	r.Router.GET("/random", func(ctx *gin.Context) {
+	r.GET("/random", func(ctx *gin.Context) {
 		session := sessions.Default(ctx)
 		userID := session.Get("userID").(string)
 		if userID == "" {

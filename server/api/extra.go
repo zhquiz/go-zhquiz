@@ -10,20 +10,10 @@ import (
 	"gopkg.in/sakura-internet/go-rison.v3"
 )
 
-type tExtraRouter struct {
-	Router *gin.RouterGroup
-}
+func routerExtra(apiRouter *gin.RouterGroup) {
+	r := apiRouter.Group(("/extra"))
 
-func (r tExtraRouter) init() {
-	r.getQ()
-	r.getMatch()
-	r.doCreate()
-	r.doUpdate()
-	r.doDelete()
-}
-
-func (r tExtraRouter) getQ() {
-	r.Router.GET("/q", func(ctx *gin.Context) {
+	r.GET("/q", func(ctx *gin.Context) {
 		session := sessions.Default(ctx)
 		userID := session.Get("userID").(string)
 		if userID == "" {
@@ -110,10 +100,8 @@ func (r tExtraRouter) getQ() {
 
 		ctx.JSON(200, out)
 	})
-}
 
-func (r tExtraRouter) getMatch() {
-	r.Router.GET("/", func(ctx *gin.Context) {
+	r.GET("/", func(ctx *gin.Context) {
 		session := sessions.Default(ctx)
 		userID := session.Get("userID").(string)
 		if userID == "" {
@@ -170,10 +158,8 @@ func (r tExtraRouter) getMatch() {
 
 		ctx.JSON(200, out)
 	})
-}
 
-func (r tExtraRouter) doCreate() {
-	r.Router.PUT("/", func(ctx *gin.Context) {
+	r.PUT("/", func(ctx *gin.Context) {
 		session := sessions.Default(ctx)
 		userID := session.Get("userID").(string)
 		if userID == "" {
@@ -312,10 +298,8 @@ func (r tExtraRouter) doCreate() {
 			"id": it.ID,
 		})
 	})
-}
 
-func (r tExtraRouter) doUpdate() {
-	r.Router.PUT("/", func(ctx *gin.Context) {
+	r.PATCH("/", func(ctx *gin.Context) {
 		session := sessions.Default(ctx)
 		userID := session.Get("userID").(string)
 		if userID == "" {
@@ -348,10 +332,8 @@ func (r tExtraRouter) doUpdate() {
 			"result": "updated",
 		})
 	})
-}
 
-func (r tExtraRouter) doDelete() {
-	r.Router.PUT("/", func(ctx *gin.Context) {
+	r.DELETE("/", func(ctx *gin.Context) {
 		session := sessions.Default(ctx)
 		userID := session.Get("userID").(string)
 		if userID == "" {
