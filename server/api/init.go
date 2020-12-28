@@ -1,17 +1,19 @@
 package api
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
+	"io/ioutil"
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
-	firebase "firebase.google.com/go"
-	"firebase.google.com/go/auth"
 	"github.com/gin-contrib/cache/persistence"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/memstore"
@@ -30,36 +32,13 @@ var store *persistence.InMemoryStore = persistence.NewInMemoryStore(time.Hour)
 
 // Resource is a struct for reuse and cleanup.
 type Resource struct {
-	DB       db.DB
-	Zh       zh.DB
-	Store    memstore.Store
-	FireApp  *firebase.App
-	FireAuth *auth.Client
+	DB    db.DB
+	Zh    zh.DB
+	Store memstore.Store
 }
 
 // Prepare initializes Resource for reuse and cleanup.
 func Prepare() Resource {
-	var fireApp *firebase.App
-	var fireAuth *auth.Client
-
-	if os.Getenv("FIREBASE_CONFIG") != "" && os.Getenv("GOOGLE_APPLICATION_CREDENTIALS") != "" {
-		ctx := context.Background()
-
-		app, err := firebase.NewApp(context.Background(), nil)
-		if err != nil {
-			log.Fatalf("error initializing app: %v\n", err)
-		}
-
-		fireApp = app
-
-		client, err := app.Auth(ctx)
-		if err != nil {
-			log.Fatalf("error getting Auth client: %v\n", err)
-		}
-
-		fireAuth = client
-	}
-
 	apiSecret := shared.GetenvOrDefaultFn("ZHQUIZ_API_SECRET", func() string {
 		s, err := rand.GenerateRandomString(64)
 		if err != nil {
@@ -72,11 +51,9 @@ func Prepare() Resource {
 	gin.DefaultWriter = io.MultiWriter(f, os.Stdout)
 
 	resource = Resource{
-		DB:       db.Connect(),
-		Zh:       zh.Connect(),
-		Store:    memstore.NewStore([]byte(apiSecret)),
-		FireApp:  fireApp,
-		FireAuth: fireAuth,
+		DB:    db.Connect(),
+		Zh:    zh.Connect(),
+		Store: memstore.NewStore([]byte(apiSecret)),
 	}
 
 	return resource
@@ -86,44 +63,82 @@ func Prepare() Resource {
 func (res Resource) Register(r *gin.Engine) {
 	r.Use(sessions.Sessions("session", res.Store))
 
-	r.Use(func(c *gin.Context) {
-		session := sessions.Default(c)
+	cotterAPIKey := os.Getenv("COTTER_API_KEY")
 
-		if strings.HasPrefix(c.Request.URL.Path, "/api/") {
-			authorization := c.GetHeader("Authorization")
-			if res.FireAuth != nil && strings.HasPrefix(authorization, "Bearer ") {
-				ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(30*time.Second))
-				defer cancel()
+	if cotterAPIKey != "" {
+		r.Use(func(c *gin.Context) {
+			session := sessions.Default(c)
 
-				idToken := strings.Split(authorization, " ")[1]
-				if token, err := res.FireAuth.VerifyIDToken(ctx, idToken); err == nil {
-					if u, err := res.FireAuth.GetUser(ctx, token.UID); err == nil {
+			if strings.HasPrefix(c.Request.URL.Path, "/api/") {
+				authorization := c.GetHeader("Authorization")
+				userName := c.GetHeader("X-User")
+
+				if strings.HasPrefix(authorization, "Bearer ") {
+					idToken := strings.Split(authorization, " ")[1]
+
+					ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(30*time.Second))
+					defer cancel()
+
+					reqBody, err := json.Marshal(map[string]string{
+						"oauth_token": idToken,
+					})
+					if err != nil {
+						panic(err)
+					}
+
+					client := &http.Client{}
+					req, err := http.NewRequestWithContext(ctx, "POST", "https://worker.cotter.app/verify", bytes.NewBuffer(reqBody))
+					if err != nil {
+						panic(err)
+					}
+
+					req.Header.Add("API_KEY_ID", cotterAPIKey)
+					req.Header.Add("Content-Type", "application/json")
+
+					res, err := client.Do(req)
+					if err != nil {
+						panic(err)
+					}
+
+					defer res.Body.Close()
+
+					resBody, err := ioutil.ReadAll(res.Body)
+					if err != nil {
+						panic(err)
+					}
+
+					var resObj struct {
+						Success bool
+					}
+
+					if err := json.Unmarshal(resBody, &resObj); err != nil {
+						panic(err)
+					}
+
+					if resObj.Success {
 						var dbUser db.User
 
-						if r := res.DB.Current.Where("email = ?", u.Email).First(&dbUser); errors.Is(r.Error, gorm.ErrRecordNotFound) {
-							dbUser.New(u.Email, u.DisplayName, u.PhotoURL)
-							if dbUser.Image == "" {
-								dbUser.Image = "https://www.gravatar.com/avatar/0?d=mp"
-							}
+						if r := resource.DB.Current.Where("email = ?", userName).First(&dbUser); errors.Is(r.Error, gorm.ErrRecordNotFound) {
+							dbUser.New(userName)
 
-							if r := res.DB.Current.Create(&dbUser); r.Error != nil {
+							if r := resource.DB.Current.Create(&dbUser); r.Error != nil {
 								panic(r.Error)
 							}
 						}
 
 						session.Set("userId", dbUser.ID)
+						return
 					}
 				}
 			}
-		}
-	})
 
-	firebaseConfig := os.Getenv("FIREBASE_CONFIG")
+			session.Set("userId", "")
+		})
 
-	if firebaseConfig != "" {
-		r.GET("/firebase/config.json", func(ctx *gin.Context) {
-			ctx.Header("Content-Type", "application/json")
-			ctx.String(200, firebaseConfig)
+		r.GET("/server/auth/cotter", func(ctx *gin.Context) {
+			ctx.JSON(200, gin.H{
+				"apiKey": cotterAPIKey,
+			})
 		})
 	}
 

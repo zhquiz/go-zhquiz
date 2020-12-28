@@ -15,11 +15,8 @@ type User struct {
 	UpdatedAt time.Time
 	DeletedAt gorm.DeletedAt `gorm:"index"`
 
-	Email  string  `gorm:"index:,unique;not null;check:email <> ''"`
-	Name   string  `gorm:"not null;check:name <> ''"`
-	Image  string  `gorm:"not null;check:image <> ''"`
-	APIKey string  `gorm:"index,not null;check:api_key <> ''"`
-	API    UserAPI `gorm:"embedded"`
+	Email  string `gorm:"index:,unique;not null;check:email <> ''"`
+	APIKey string `gorm:"index,not null;check:api_key <> ''"`
 
 	Meta UserMeta `gorm:"type:json"`
 
@@ -30,14 +27,12 @@ type User struct {
 	Quizzes []Quiz   `gorm:"constraint:OnDelete:CASCADE"`
 }
 
-// UserAPI holds User's API keys
-type UserAPI struct {
-	Forvo *string
-}
-
 // UserMeta holds User's settings
 type UserMeta struct {
-	Quiz struct {
+	Forvo    *string
+	Level    *uint
+	LevelMin *uint
+	Quiz     struct {
 		Type      []string
 		Stage     []string
 		Direction []string
@@ -46,10 +41,8 @@ type UserMeta struct {
 }
 
 // New creates new User record
-func (u *User) New(email string, name string, image string) {
+func (u *User) New(email string) {
 	u.Email = email
-	u.Name = name
-	u.Image = image
 
 	u.NewAPIKey()
 }
