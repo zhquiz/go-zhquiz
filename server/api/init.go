@@ -122,75 +122,73 @@ func CotterAuthMiddleware() gin.HandlerFunc {
 
 		session := sessions.Default(c)
 
-		if strings.HasPrefix(c.Request.URL.Path, "/api/") {
-			authorization := c.GetHeader("Authorization")
-			userName := c.GetHeader("X-User")
+		authorization := c.GetHeader("Authorization")
+		userName := c.GetHeader("X-User")
 
-			if strings.HasPrefix(authorization, "Bearer ") {
-				idToken := strings.Split(authorization, " ")[1]
+		if strings.HasPrefix(authorization, "Bearer ") {
+			idToken := strings.Split(authorization, " ")[1]
 
-				ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(30*time.Second))
-				defer cancel()
+			ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(30*time.Second))
+			defer cancel()
 
-				reqBody, err := json.Marshal(gin.H{
-					"oauth_token": gin.H{
-						"access_token": idToken,
-					},
-				})
-				if err != nil {
-					panic(err)
-				}
+			reqBody, err := json.Marshal(gin.H{
+				"oauth_token": gin.H{
+					"access_token": idToken,
+				},
+			})
+			if err != nil {
+				panic(err)
+			}
 
-				client := &http.Client{}
-				req, err := http.NewRequestWithContext(ctx, "POST", "https://worker.cotter.app/verify", bytes.NewBuffer(reqBody))
-				if err != nil {
-					panic(err)
-				}
+			client := &http.Client{}
+			req, err := http.NewRequestWithContext(ctx, "POST", "https://worker.cotter.app/verify", bytes.NewBuffer(reqBody))
+			if err != nil {
+				panic(err)
+			}
 
-				req.Header.Add("API_KEY_ID", cotterAPIKey)
-				req.Header.Add("Content-Type", "application/json")
+			req.Header.Add("API_KEY_ID", cotterAPIKey)
+			req.Header.Add("Content-Type", "application/json")
 
-				res, err := client.Do(req)
-				if err != nil {
-					panic(err)
-				}
+			res, err := client.Do(req)
+			if err != nil {
+				panic(err)
+			}
 
-				defer res.Body.Close()
+			defer res.Body.Close()
 
-				resBody, err := ioutil.ReadAll(res.Body)
-				if err != nil {
-					panic(err)
-				}
+			resBody, err := ioutil.ReadAll(res.Body)
+			if err != nil {
+				panic(err)
+			}
 
-				var resObj struct {
-					Success bool
-				}
+			var resObj struct {
+				Success bool
+			}
 
-				if err := json.Unmarshal(resBody, &resObj); err != nil {
-					panic(err)
-				}
+			if err := json.Unmarshal(resBody, &resObj); err != nil {
+				panic(err)
+			}
 
-				log.Println(resObj)
+			log.Println(resObj)
 
-				if resObj.Success {
-					var dbUser db.User
+			if resObj.Success {
+				var dbUser db.User
 
-					r := resource.DB.Current.Where("email = ?", userName).First(&dbUser)
+				r := resource.DB.Current.Where("email = ?", userName).First(&dbUser)
 
-					if errors.Is(r.Error, gorm.ErrRecordNotFound) {
-						dbUser = db.User{}
-						dbUser.New(resource.NewULID(), userName)
+				if errors.Is(r.Error, gorm.ErrRecordNotFound) {
+					dbUser = db.User{}
+					dbUser.New(resource.NewULID(), userName)
 
-						if rCreate := resource.DB.Current.Create(&dbUser); rCreate.Error != nil {
-							panic(rCreate.Error)
-						}
-					} else if r.Error != nil {
-						panic(r.Error)
+					if rCreate := resource.DB.Current.Create(&dbUser); rCreate.Error != nil {
+						panic(rCreate.Error)
 					}
-
-					session.Set("userID", dbUser.ID)
-					return
+				} else if r.Error != nil {
+					panic(r.Error)
 				}
+
+				session.Set("userID", dbUser.ID)
+				return
 			}
 		}
 

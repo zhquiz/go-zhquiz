@@ -3,14 +3,13 @@ package api
 import (
 	"database/sql"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/gin-contrib/cache"
-	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/zhquiz/go-server/server/db"
-	"gopkg.in/sakura-internet/go-rison.v3"
 )
 
 func routerHanzi(apiRouter *gin.RouterGroup) {
@@ -18,11 +17,12 @@ func routerHanzi(apiRouter *gin.RouterGroup) {
 
 	r.GET("/", cache.CachePage(persist, time.Hour, func(ctx *gin.Context) {
 		var query struct {
-			Entry string `form:"entry"`
+			Entry string `form:"entry" binding:"required"`
 		}
 
 		if e := ctx.ShouldBindQuery(&query); e != nil {
 			ctx.AbortWithError(400, e)
+			return
 		}
 
 		stmt, e := resource.Zh.Current.Prepare(`
@@ -65,40 +65,47 @@ func routerHanzi(apiRouter *gin.RouterGroup) {
 	}))
 
 	r.GET("/random", func(ctx *gin.Context) {
-		session := sessions.Default(ctx)
-		userID := session.Get("userID").(string)
+		userID := getUserID(ctx)
 		if userID == "" {
 			ctx.AbortWithStatus(401)
+			return
 		}
 
 		var query struct {
-			RS string `form:"_"`
-		}
-
-		var rs struct {
-			Level    *int `json:"level"`
-			LevelMin *int `json:"levelMin"`
+			Level    *string `json:"level"`
+			LevelMin *string `json:"levelMin"`
 		}
 
 		if e := ctx.ShouldBindQuery(&query); e != nil {
 			ctx.AbortWithError(400, e)
+			return
 		}
 
-		if e := rison.Unmarshal([]byte(query.RS), &rs, rison.Rison); e != nil {
-			ctx.AbortWithError(400, e)
+		level := 60
+
+		if query.Level != nil {
+			v, e := strconv.Atoi(*query.Level)
+			if e != nil {
+				ctx.AbortWithError(400, e)
+				return
+			}
+			level = v
 		}
 
-		if rs.Level == nil {
-			*rs.Level = 60
-		}
+		levelMin := 1
 
-		if rs.LevelMin == nil {
-			*rs.LevelMin = 1
+		if query.LevelMin != nil {
+			v, e := strconv.Atoi(*query.LevelMin)
+			if e != nil {
+				ctx.AbortWithError(400, e)
+				return
+			}
+			levelMin = v
 		}
 
 		var existing []db.Quiz
 		if e := resource.DB.Current.
-			Where("UserID = ? AND [type] = 'hanzi' AND SRSLevel IS NOT NULL AND NextReview IS NOT NULL", userID).
+			Where("user_id = ? AND [type] = 'hanzi' AND srs_level IS NOT NULL AND next_review IS NOT NULL", userID).
 			Find(&existing); e != nil {
 			panic(e)
 		}
@@ -108,7 +115,7 @@ func routerHanzi(apiRouter *gin.RouterGroup) {
 			its = append(its, it.Entry)
 		}
 
-		its = append(its, *rs.LevelMin, *rs.Level)
+		its = append(its, levelMin, level)
 
 		sqlString := `
 		SELECT
@@ -149,6 +156,7 @@ func routerHanzi(apiRouter *gin.RouterGroup) {
 		}
 		if e := r.Scan(out.Result, out.English, out.Level); e == sql.ErrNoRows {
 			ctx.AbortWithStatus(404)
+			return
 		}
 
 		ctx.JSON(200, out)

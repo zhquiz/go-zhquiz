@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/zhquiz/go-server/server/db"
 	"github.com/zhquiz/go-server/server/util"
@@ -18,10 +17,10 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 	r := apiRouter.Group("/quiz")
 
 	r.POST("/get", func(ctx *gin.Context) {
-		session := sessions.Default(ctx)
-		userID := session.Get("userID").(string)
+		userID := getUserID(ctx)
 		if userID == "" {
 			ctx.AbortWithStatus(401)
+			return
 		}
 
 		var body struct {
@@ -56,6 +55,7 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 
 		if len(sel) == 0 {
 			ctx.AbortWithError(400, fmt.Errorf("not enough select"))
+			return
 		}
 
 		var out []gin.H
@@ -63,19 +63,20 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 		if len(body.IDs) > 0 {
 			if r := resource.DB.Current.Model(&db.Quiz{}).
 				Select(sel).
-				Where("UserID = ? AND ID IN ?", userID, body.IDs).
+				Where("user_id = ? AND id IN ?", userID, body.IDs).
 				Find(&out); r.Error != nil {
 				panic(r.Error)
 			}
 		} else if len(body.Entries) > 0 && body.Type != "" {
 			if r := resource.DB.Current.Model(&db.Quiz{}).
 				Select(sel).
-				Where("UserID = ? AND [Type] = ? AND Entry IN ?", userID, body.Type, body.Entries).
+				Where("user_id = ? AND [type] = ? AND entry IN ?", userID, body.Type, body.Entries).
 				Find(&out); r.Error != nil {
 				panic(r.Error)
 			}
 		} else {
 			ctx.AbortWithError(400, fmt.Errorf("either IDs or Entries must be specified"))
+			return
 		}
 
 		ctx.JSON(200, gin.H{
@@ -84,24 +85,25 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 	})
 
 	r.PATCH("/mark", func(ctx *gin.Context) {
-		session := sessions.Default(ctx)
-		userID := session.Get("userID").(string)
+		userID := getUserID(ctx)
 		if userID == "" {
 			ctx.AbortWithStatus(401)
+			return
 		}
 
 		var query struct {
-			ID   string `form:"id"`
-			Type string `form:"type" binding:"oneof=right wrong repeat"`
+			ID   string `form:"id" binding:"required"`
+			Type string `form:"type" binding:"required;oneof=right wrong repeat"`
 		}
 
 		if e := ctx.ShouldBindQuery(&query); e != nil {
 			ctx.AbortWithError(400, e)
+			return
 		}
 
 		var quiz db.Quiz
 		if r := resource.DB.Current.
-			Where("UserID = ? AND ID = ?", userID, query.ID).
+			Where("user_id = ? AND id = ?", userID, query.ID).
 			First(&quiz); r.Error != nil {
 			panic(r.Error)
 		}
@@ -122,10 +124,10 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 	})
 
 	r.GET("/allTags", func(ctx *gin.Context) {
-		session := sessions.Default(ctx)
-		userID := session.Get("userID").(string)
+		userID := getUserID(ctx)
 		if userID == "" {
 			ctx.AbortWithStatus(401)
+			return
 		}
 
 		var tagEls []struct {
@@ -152,10 +154,10 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 	})
 
 	r.GET("/init", func(ctx *gin.Context) {
-		session := sessions.Default(ctx)
-		userID := session.Get("userID").(string)
+		userID := getUserID(ctx)
 		if userID == "" {
 			ctx.AbortWithStatus(401)
+			return
 		}
 
 		var query struct {
@@ -172,14 +174,17 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 
 		if e := ctx.ShouldBindQuery(&query); e != nil {
 			ctx.AbortWithError(400, e)
+			return
 		}
 
 		if e := rison.Unmarshal([]byte(query.RS), &rs, rison.Rison); e != nil {
 			ctx.AbortWithError(400, e)
+			return
 		}
 
 		if e := validate.Struct(&rs); e != nil {
 			ctx.AbortWithError(400, e)
+			return
 		}
 
 		// No need to await
@@ -218,10 +223,14 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 			orCond = append(orCond, "SRSLevel >= 3")
 		}
 
-		q := resource.DB.Current.Where("UserID = ? AND [Type] IN ? AND Direction IN ?", userID, rs.Type, rs.Direction)
+		q := resource.DB.Current.
+			Model(&db.Quiz{}).
+			Joins("LEFT JOIN quiz_tag ON quiz_tag.quiz_id = quiz.id").
+			Joins("LEFT JOIN tag ON tag.id = quiz_tag.tag_id").
+			Where("user_id = ? AND [type] IN ? AND direction IN ?", userID, rs.Type, rs.Direction)
 
 		if len(rs.Tag) > 0 {
-			q = q.Where("Tag IN ?", rs.Tag)
+			q = q.Where("tag.name IN ?", rs.Tag)
 		}
 
 		if len(orCond) > 0 {
@@ -230,7 +239,7 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 
 		var quizzes []db.Quiz
 
-		if r := q.Find(&quizzes); r.Error != nil {
+		if r := q.Group("quiz.id").Find(&quizzes); r.Error != nil {
 			panic(r.Error)
 		}
 

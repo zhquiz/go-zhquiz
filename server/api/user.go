@@ -28,6 +28,7 @@ func routerUser(apiRouter *gin.RouterGroup) {
 
 		if e := ctx.ShouldBindQuery(&query); e != nil {
 			ctx.AbortWithError(400, e)
+			return
 		}
 
 		qSel := strings.Split(query.Select, ",")
