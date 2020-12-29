@@ -13,7 +13,7 @@ require (
 	github.com/gorilla/sessions v1.2.0 // indirect
 	github.com/joho/godotenv v1.3.0
 	github.com/kr/pretty v0.1.0 // indirect
-	github.com/mattn/go-sqlite3 v2.0.3+incompatible
+	github.com/mattn/go-sqlite3 v2.0.3+incompatible // indirect
 	github.com/oklog/ulid/v2 v2.0.2
 	github.com/tebeka/atexit v0.3.0
 	github.com/yanyiwu/gojieba v1.1.2

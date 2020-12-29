@@ -3,14 +3,13 @@ package api
 import (
 	"database/sql"
 	"errors"
-	"fmt"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/gin-contrib/cache"
 	"github.com/gin-gonic/gin"
 	"github.com/zhquiz/go-server/server/db"
+	"github.com/zhquiz/go-server/server/zh"
 )
 
 func routerHanzi(apiRouter *gin.RouterGroup) {
@@ -26,31 +25,6 @@ func routerHanzi(apiRouter *gin.RouterGroup) {
 			return
 		}
 
-		stmt, e := resource.Zh.Current.Prepare(`
-		SELECT
-			GROUP_CONCAT(token_sub.child, '') sub,
-			GROUP_CONCAT(token_sup.child, '') sup,
-			GROUP_CONCAT(token_var.child, '') variants,
-			pinyin,
-			english
-		FROM token
-		LEFT JOIN token_sub ON token_sub.parent = entry
-		LEFT JOIN token_sup ON token_sup.parent = entry
-		LEFT JOIN token_var ON token_var.parent = entry
-		WHERE entry = ?
-		GROUP BY entry
-		`)
-
-		if e != nil {
-			panic(e)
-		}
-
-		r := stmt.QueryRow(query.Entry)
-
-		if e := r.Err(); e != nil {
-			panic(e)
-		}
-
 		var out struct {
 			Sub      string `json:"sub"`
 			Sup      string `json:"sup"`
@@ -58,8 +32,24 @@ func routerHanzi(apiRouter *gin.RouterGroup) {
 			Pinyin   string `json:"pinyin"`
 			English  string `json:"english"`
 		}
-		if e := r.Scan(out.Sub, out.Sup, out.Variants, out.Pinyin, out.English); e == sql.ErrNoRows {
-			ctx.AbortWithStatus(404)
+
+		if r := resource.Zh.Current.Model(&zh.Token{}).Select(`
+		GROUP_CONCAT(token_sub.child, '') sub,
+		GROUP_CONCAT(token_sup.child, '') sup,
+		GROUP_CONCAT(token_var.child, '') variants,
+		pinyin,
+		english
+		`).Joins(`
+		LEFT JOIN token_sub ON token_sub.parent = entry
+		LEFT JOIN token_sup ON token_sup.parent = entry
+		LEFT JOIN token_var ON token_var.parent = entry
+		`).Where("entry = ?", query.Entry).Group("entry").First(&out); r.Error != nil {
+			if errors.Is(r.Error, sql.ErrNoRows) {
+				ctx.AbortWithStatus(404)
+				return
+			}
+
+			panic(r.Error)
 		}
 
 		ctx.JSON(200, out)
@@ -111,44 +101,20 @@ func routerHanzi(apiRouter *gin.RouterGroup) {
 			panic(r.Error)
 		}
 
-		var its []interface{}
+		var entries []interface{}
 		for _, it := range existing {
-			its = append(its, it.Entry)
+			entries = append(entries, it.Entry)
 		}
 
-		entries := its
-		its = append(its, levelMin, level)
+		params := map[string]interface{}{
+			"entries":  entries,
+			"levelMin": levelMin,
+			"level":    level,
+		}
 
-		sqlString := `
-		SELECT
-			entry,
-			english,
-			hanzi_level
-		FROM token
-		WHERE english IS NOT NULL AND hanzi_level >= ? AND hanzi_level <= ?
-		ORDER BY RANDOM()`
-
+		where := "english IS NOT NULL AND hanzi_level >= @levelMin AND hanzi_level <= @level"
 		if len(entries) > 0 {
-			sqlString = fmt.Sprintf(`
-			SELECT
-				entry,
-				english,
-				hanzi_level
-			FROM token
-			WHERE entry NOT IN (%s) AND english IS NOT NULL AND hanzi_level >= ? AND hanzi_level <= ?
-			ORDER BY RANDOM()`, string(strings.Repeat(",?", len(entries))[1:]))
-		}
-
-		stmt, e := resource.Zh.Current.Prepare(sqlString)
-
-		if e != nil {
-			panic(e)
-		}
-
-		r := stmt.QueryRow(its...)
-
-		if e := r.Err(); e != nil {
-			panic(e)
+			where = "entry NOT IN @entries AND " + where
 		}
 
 		var out struct {
@@ -156,42 +122,34 @@ func routerHanzi(apiRouter *gin.RouterGroup) {
 			English string `json:"english"`
 			Level   int    `json:"level"`
 		}
-		if e := r.Scan(&out.Result, &out.English, &out.Level); errors.Is(e, sql.ErrNoRows) {
-			sqlString := `
-			SELECT
-				entry,
-				english,
-				hanzi_level
-			FROM token
-			WHERE english IS NOT NULL
-			ORDER BY RANDOM()`
 
-			if len(entries) > 0 {
-				sqlString = fmt.Sprintf(`
-				SELECT
-					entry,
-					english,
-					hanzi_level
-				FROM token
-				WHERE entry NOT IN (%s) AND english IS NOT NULL
-				ORDER BY RANDOM()`, string(strings.Repeat(",?", len(entries))[1:]))
-			}
+		if r := resource.Zh.Current.
+			Model(&zh.Token{}).
+			Select("entry Result", "english", "hanzi_level level").
+			Where(where, params).
+			Order("RANDOM()").
+			First(&out); r.Error != nil {
+			if errors.Is(r.Error, sql.ErrNoRows) {
+				where := "english IS NOT NULL"
+				if len(entries) > 0 {
+					where = "entry NOT IN @entries AND " + where
+				}
 
-			stmt, e := resource.Zh.Current.Prepare(sqlString)
+				if r := resource.Zh.Current.
+					Model(&zh.Token{}).
+					Select("entry Result", "english", "hanzi_level level").
+					Where(where, params).
+					Order("RANDOM()").
+					First(&out); r.Error != nil {
+					if errors.Is(r.Error, sql.ErrNoRows) {
+						ctx.AbortWithStatus(404)
+						return
+					}
 
-			if e != nil {
-				panic(e)
-			}
-
-			r := stmt.QueryRow(entries...)
-
-			if e := r.Err(); e != nil {
-				panic(e)
-			}
-
-			if e := r.Scan(&out.Result, &out.English, &out.Level); errors.Is(e, sql.ErrNoRows) {
-				ctx.AbortWithStatus(404)
-				return
+					panic(r.Error)
+				}
+			} else {
+				panic(r.Error)
 			}
 		}
 

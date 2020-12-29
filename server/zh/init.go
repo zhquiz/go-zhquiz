@@ -4,21 +4,24 @@ import (
 	"log"
 	"path"
 
-	"database/sql"
-
-	// go sqlite3
-	_ "github.com/mattn/go-sqlite3"
 	"github.com/zhquiz/go-server/shared"
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
+	"gorm.io/gorm/schema"
 )
 
 // DB holds storage for current DB
 type DB struct {
-	Current *sql.DB
+	Current *gorm.DB
 }
 
 // Connect connects to the database
 func Connect() DB {
-	db, err := sql.Open("sqlite3", path.Join(shared.Paths().Dir, "assets", "zh.db")+"?mode=ro")
+	db, err := gorm.Open(sqlite.Open(path.Join(shared.Paths().Dir, "assets", "zh.db")+"?mode=ro"), &gorm.Config{
+		NamingStrategy: schema.NamingStrategy{
+			SingularTable: true,
+		},
+	})
 	if err != nil {
 		log.Fatalln(err)
 	}

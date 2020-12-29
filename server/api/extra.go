@@ -2,12 +2,14 @@ package api
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/zhquiz/go-server/server/db"
+	"github.com/zhquiz/go-server/server/zh"
 )
 
 func routerExtra(apiRouter *gin.RouterGroup) {
@@ -197,30 +199,19 @@ func routerExtra(apiRouter *gin.RouterGroup) {
 		}
 
 		checkVocab := func() bool {
-			stmt, e := resource.Zh.Current.Prepare(`
-			SELECT simplified FROM cedict
-			WHERE simplified = ? OR traditional = ?
-			`)
+			var zhCedict zh.Cedict
 
-			if e != nil {
-				panic(e)
-			}
-
-			r := stmt.QueryRow(body.Chinese, body.Chinese)
-
-			if e := r.Err(); e != nil {
-				panic(e)
-			}
-
-			var entry string
-			if e := r.Scan(entry); e == sql.ErrNoRows {
-				return false
+			if r := resource.Zh.Current.Where("simplified = ? OR traditional = ?", body.Chinese, body.Chinese).First(&zhCedict); r.Error != nil {
+				if errors.Is(r.Error, sql.ErrNoRows) {
+					return false
+				}
+				panic(r.Error)
 			}
 
 			ctx.JSON(200, gin.H{
 				"existing": gin.H{
 					"type":  "vocab",
-					"entry": entry,
+					"entry": zhCedict.Simplified,
 				},
 			})
 
@@ -228,30 +219,20 @@ func routerExtra(apiRouter *gin.RouterGroup) {
 		}
 
 		checkHanzi := func() bool {
-			stmt, e := resource.Zh.Current.Prepare(`
-			SELECT entry FROM token
-			WHERE entry = ? AND english IS NOT NULL
-			`)
+			var zhToken zh.Token
 
-			if e != nil {
-				panic(e)
-			}
+			if r := resource.Zh.Current.Where("entry = ? AND english IS NOT NULL", body.Chinese).First(&zhToken); r.Error != nil {
+				if errors.Is(r.Error, sql.ErrNoRows) {
+					return false
+				}
 
-			r := stmt.QueryRow(body.Chinese)
-
-			if e := r.Err(); e != nil {
-				panic(e)
-			}
-
-			var entry string
-			if e := r.Scan(entry); e == sql.ErrNoRows {
-				return false
+				panic(r.Error)
 			}
 
 			ctx.JSON(200, gin.H{
 				"existing": gin.H{
 					"type":  "hanzi",
-					"entry": entry,
+					"entry": zhToken.Entry,
 				},
 			})
 
@@ -259,30 +240,20 @@ func routerExtra(apiRouter *gin.RouterGroup) {
 		}
 
 		checkSentence := func() bool {
-			stmt, e := resource.Zh.Current.Prepare(`
-			SELECT chinese FROM sentence
-			WHERE chinese = ?
-			`)
+			var zhSentence zh.Sentence
 
-			if e != nil {
-				panic(e)
-			}
+			if r := resource.Zh.Current.Where("chinese = ?", body.Chinese).First(&zhSentence); r.Error != nil {
+				if errors.Is(r.Error, sql.ErrNoRows) {
+					return false
+				}
 
-			r := stmt.QueryRow(body.Chinese)
-
-			if e := r.Err(); e != nil {
-				panic(e)
-			}
-
-			var entry string
-			if e := r.Scan(entry); e == sql.ErrNoRows {
-				return false
+				panic(r.Error)
 			}
 
 			ctx.JSON(200, gin.H{
 				"existing": gin.H{
 					"type":  "sentence",
-					"entry": entry,
+					"entry": zhSentence.Chinese,
 				},
 			})
 
@@ -368,7 +339,7 @@ func routerExtra(apiRouter *gin.RouterGroup) {
 			return
 		}
 
-		if r := resource.DB.Current.Unscoped().
+		if r := resource.DB.Current.
 			Where("user_id = ? AND id = ?", userID, id).
 			Delete(&db.Extra{}); r.Error != nil {
 			panic(r.Error)

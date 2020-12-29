@@ -6,13 +6,15 @@ import (
 
 // Quiz is the database model for quiz
 type Quiz struct {
-	ID        string `gorm:"primaryKey"`
+	ID        string `gorm:"primaryKey;check:length(id) > 0"`
 	CreatedAt time.Time
 	UpdatedAt time.Time
 
 	// Relationships
-	UserID uint  `gorm:"index:quiz_unique_idx,unique;not null"`
-	Tags   []Tag `gorm:"many2many:quiz_tag"`
+	UserID uint `gorm:"index:quiz_unique_idx,unique;not null"`
+	User   User
+
+	Tags []Tag `gorm:"many2many:quiz_tag"`
 
 	// Entry references
 	Entry     string `gorm:"index:quiz_unique_idx,unique;not null;check:length(entry) > 0"`
@@ -33,6 +35,15 @@ type Quiz struct {
 	WrongStreak *uint      `gorm:"index"`
 	MaxRight    *uint      `gorm:"index"`
 	MaxWrong    *uint      `gorm:"index"`
+}
+
+// QuizTag is joint table for Quiz-Tag
+// @internal
+type QuizTag struct {
+	QuizID string `gorm:"primaryKey"`
+	TagID  string `gorm:"primaryKey"`
+	Quiz   Quiz
+	Tag    Tag
 }
 
 // New creates a new quiz item

@@ -7,6 +7,7 @@ import (
 	"github.com/zhquiz/go-server/shared"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
+	"gorm.io/gorm/schema"
 )
 
 // DB is the storage for current DB
@@ -28,7 +29,11 @@ func Connect() DB {
 
 	output := DB{}
 
-	db, err := gorm.Open(sqlite.Open(databaseURL), &gorm.Config{})
+	db, err := gorm.Open(sqlite.Open(databaseURL), &gorm.Config{
+		NamingStrategy: schema.NamingStrategy{
+			SingularTable: true,
+		},
+	})
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -38,7 +43,17 @@ func Connect() DB {
 		Type:    "sqlite",
 	}
 
-	output.Current.AutoMigrate(&User{}, &Tag{}, &Quiz{}, &Entry{}, &EntryItem{}, &Preset{}, &Extra{})
+	output.Current.AutoMigrate(
+		&User{},
+		&Tag{},
+		&Quiz{},
+		&QuizTag{},
+		&Entry{},
+		&EntryTag{},
+		&EntryItem{},
+		&Preset{},
+		&Extra{},
+	)
 
 	return output
 }

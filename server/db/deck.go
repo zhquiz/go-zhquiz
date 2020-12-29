@@ -9,6 +9,7 @@ type Deck struct {
 	UpdatedAt time.Time
 
 	UserID uint `gorm:"index:deck_unique_idx,unique;not null"`
+	User   User
 
 	Name string `gorm:"index:deck_unique_idx,unique;not null;check:length(name) > 0"`
 	Q    string `gorm:"not null"`

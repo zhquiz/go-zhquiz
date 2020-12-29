@@ -2,8 +2,6 @@ package db
 
 import (
 	"time"
-
-	"github.com/zhquiz/go-server/server/types"
 )
 
 // Preset holds deck states
@@ -13,12 +11,13 @@ type Preset struct {
 	UpdatedAt time.Time
 
 	UserID uint `gorm:"index:preset_unique_idx,unique;not null"`
+	User   User
 
-	Name     string            `gorm:"index:preset_unique_idx,unique;not null;length(name) > 0"`
-	Q        string            `gorm:"not null"`
-	Status   PresetStatus      `gorm:"embedded"`
-	Selected types.StringArray `gorm:"type:text;not null"`
-	Opened   types.StringArray `gorm:"type:text;not null"`
+	Name     string       `gorm:"index:preset_unique_idx,unique;not null;length(name) > 0"`
+	Q        string       `gorm:"not null"`
+	Status   PresetStatus `gorm:"embedded"`
+	Selected StringArray  `gorm:"type:text;not null"`
+	Opened   StringArray  `gorm:"type:text;not null"`
 }
 
 // PresetStatus (internal) holds status of a Preset

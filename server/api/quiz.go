@@ -135,10 +135,10 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 		}
 
 		if r := resource.DB.Current.Model(&db.Quiz{}).
-			Select("tags.Name").
-			Joins("JOIN quiz_tag ON quiz_tag.quiz_id = quizzes.id").
-			Joins("JOIN tags ON quiz_tag.tag_id = tags.id").
-			Group("tags.Name").
+			Select("tag.Name").
+			Joins("JOIN quiz_tag ON quiz_tag.quiz_id = quiz.id").
+			Joins("JOIN tag ON quiz_tag.tag_id = tag.id").
+			Group("tag.Name").
 			Scan(&tagEls); r.Error != nil {
 			panic(r.Error)
 		}
@@ -225,12 +225,12 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 
 		q := resource.DB.Current.
 			Model(&db.Quiz{}).
-			Joins("LEFT JOIN quiz_tag ON quiz_tag.quiz_id = quizzes.id").
-			Joins("LEFT JOIN tags ON tags.id = quiz_tag.tag_id").
+			Joins("LEFT JOIN quiz_tag ON quiz_tag.quiz_id = quiz.id").
+			Joins("LEFT JOIN tag ON tag.id = quiz_tag.tag_id").
 			Where("user_id = ? AND [type] IN ? AND direction IN ?", userID, rs.Type, rs.Direction)
 
 		if len(rs.Tag) > 0 {
-			q = q.Where("tags.name IN ?", rs.Tag)
+			q = q.Where("tag.name IN ?", rs.Tag)
 		}
 
 		if len(orCond) > 0 {

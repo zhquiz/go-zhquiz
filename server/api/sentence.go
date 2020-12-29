@@ -3,14 +3,13 @@ package api
 import (
 	"database/sql"
 	"errors"
-	"fmt"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/gin-contrib/cache"
 	"github.com/gin-gonic/gin"
 	"github.com/zhquiz/go-server/server/db"
+	"github.com/zhquiz/go-server/server/zh"
 )
 
 func routerSentence(apiRouter *gin.RouterGroup) {
@@ -26,34 +25,21 @@ func routerSentence(apiRouter *gin.RouterGroup) {
 			return
 		}
 
-		stmt, e := resource.Zh.Current.Prepare(`
-		SELECT
-			Chinese,
-			English
-		FROM sentence
-		WHERE Chinese = ?
-		ORDER BY frequency DESC
-		`)
+		var zhSentence zh.Sentence
 
-		if e != nil {
-			panic(e)
+		if r := resource.Zh.Current.First(&zhSentence); r.Error != nil {
+			if errors.Is(r.Error, sql.ErrNoRows) {
+				ctx.AbortWithStatus(404)
+				return
+			}
+
+			panic(r.Error)
 		}
 
-		r := stmt.QueryRow(query.Entry)
-
-		if e := r.Err(); e != nil {
-			panic(e)
-		}
-
-		var out struct {
-			Chinese string
-			English string
-		}
-		if e := r.Scan(&out); e == sql.ErrNoRows {
-			ctx.AbortWithStatus(404)
-		}
-
-		ctx.JSON(200, out)
+		ctx.JSON(200, gin.H{
+			"chinese": zhSentence.Chinese,
+			"english": zhSentence.English,
+		})
 	}))
 
 	r.GET("/random", func(ctx *gin.Context) {
@@ -102,38 +88,14 @@ func routerSentence(apiRouter *gin.RouterGroup) {
 			panic(r.Error)
 		}
 
-		var its []interface{}
+		var entries []interface{}
 		for _, it := range existing {
-			its = append(its, it.Entry)
+			entries = append(entries, it.Entry)
 		}
 
-		sqlString := `
-		SELECT
-			Chinese,
-			English
-		FROM sentence
-		ORDER BY RANDOM()`
-
-		if len(its) > 0 {
-			sqlString = fmt.Sprintf(`
-			SELECT
-				Chinese,
-				English
-			FROM sentence
-			WHERE Chinese NOT IN (%s)
-			ORDER BY RANDOM()`, string(strings.Repeat(",?", len(its))[1:]))
-		}
-
-		stmt, e := resource.Zh.Current.Prepare(sqlString)
-
-		if e != nil {
-			panic(e)
-		}
-
-		r := stmt.QueryRow(its...)
-
-		if e := r.Err(); e != nil {
-			panic(e)
+		r := resource.Zh.Current.Model(&zh.Sentence{}).Select("chinese AS Result", "english")
+		if len(entries) > 0 {
+			r = r.Where("chinese NOT IN ?", entries)
 		}
 
 		var out struct {
@@ -141,9 +103,14 @@ func routerSentence(apiRouter *gin.RouterGroup) {
 			English string `json:"english"`
 			Level   int    `json:"level"`
 		}
-		if e := r.Scan(&out.Result, &out.English); errors.Is(e, sql.ErrNoRows) {
-			ctx.AbortWithStatus(404)
-			return
+
+		if r1 := r.Order("RANDOM()").First(&out); r1.Error != nil {
+			if errors.Is(r.Error, sql.ErrNoRows) {
+				ctx.AbortWithStatus(404)
+				return
+			}
+
+			panic(r.Error)
 		}
 
 		out.Level = level + levelMin
