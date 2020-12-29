@@ -103,7 +103,9 @@ func (res Resource) Register(r *gin.Engine) {
 	routerHanzi(apiRouter)
 	routerMedia(apiRouter)
 	routerQuiz(apiRouter)
+	routerSentence(apiRouter)
 	routerUser(apiRouter)
+	routerVocab(apiRouter)
 }
 
 // Cleanup cleans up Resource.

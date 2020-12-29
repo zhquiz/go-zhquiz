@@ -36,6 +36,7 @@ func routerUser(apiRouter *gin.RouterGroup) {
 			"level":    "Meta",
 			"levelMin": "Meta",
 			"forvo":    "Meta",
+			"quiz":     "Meta",
 			"apiKey":   "APIKey",
 		}
 
@@ -62,6 +63,7 @@ func routerUser(apiRouter *gin.RouterGroup) {
 			"level":    func() interface{} { return dbUser.Meta.Level },
 			"levelMin": func() interface{} { return dbUser.Meta.LevelMin },
 			"forvo":    func() interface{} { return *dbUser.Meta.Forvo },
+			"quiz":     func() interface{} { return dbUser.Meta.Quiz },
 			"apiKey":   func() interface{} { return dbUser.APIKey },
 		}
 

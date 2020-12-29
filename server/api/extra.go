@@ -21,10 +21,10 @@ func routerExtra(apiRouter *gin.RouterGroup) {
 		}
 
 		var query struct {
-			Select  string
-			Sort    *string
-			Page    *string
-			PerPage *string
+			Select  string  `form:"select"`
+			Sort    string  `form:"sort"`
+			Page    *string `form:"page"`
+			PerPage *string `form:"perPage"`
 		}
 
 		if e := ctx.ShouldBindQuery(&query); e != nil {
@@ -32,15 +32,15 @@ func routerExtra(apiRouter *gin.RouterGroup) {
 			return
 		}
 
-		if query.Sort == nil {
-			*query.Sort = "-updatedAt"
+		if query.Sort == "" {
+			query.Sort = "-updatedAt"
 		}
 
-		sorter := *query.Sort
+		sorter := query.Sort
 		sortDirection := ""
 
-		if string((*query.Sort)[0]) == "-" {
-			sorter = string((*query.Sort)[1:])
+		if string((query.Sort)[0]) == "-" {
+			sorter = string((query.Sort)[1:])
 			sortDirection = " desc"
 		}
 
@@ -93,17 +93,23 @@ func routerExtra(apiRouter *gin.RouterGroup) {
 			sel = []string{"Chinese", "Pinyin", "English"}
 		}
 
-		var out struct {
-			Result []gin.H `json:"result"`
-			Count  int     `json:"count"`
+		var getCount struct {
+			Count int
 		}
 
 		if r := resource.DB.Current.
 			Model(&db.Extra{}).
 			Select("COUNT(ID) AS [Count]").
 			Where("user_id = ?", userID).
-			Find(&out); r.Error != nil {
+			Scan(&getCount); r.Error != nil {
 			panic(r.Error)
+		}
+
+		out := struct {
+			Result []gin.H `json:"result"`
+			Count  int     `json:"count"`
+		}{
+			Count: getCount.Count,
 		}
 
 		if r := resource.DB.Current.
@@ -113,8 +119,12 @@ func routerExtra(apiRouter *gin.RouterGroup) {
 			Limit(perPage).
 			Offset((page-1)*perPage).
 			Where("user_id = ?", userID).
-			Find(&out.Result); r.Error != nil {
+			Scan(&out.Result); r.Error != nil {
 			panic(r.Error)
+		}
+
+		if len(out.Result) == 0 {
+			out.Result = make([]gin.H, 0)
 		}
 
 		ctx.JSON(200, out)

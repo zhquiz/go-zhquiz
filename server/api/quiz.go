@@ -135,10 +135,10 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 		}
 
 		if r := resource.DB.Current.Model(&db.Quiz{}).
-			Select("tag.Name").
-			Joins("JOIN quiz_tag ON quiz_tag.quiz_id = quiz.id").
-			Joins("JOIN tag ON quiz_tag.tag_id = tag.id").
-			Group("tag.Name").
+			Select("tags.Name").
+			Joins("JOIN quiz_tag ON quiz_tag.quiz_id = quizzes.id").
+			Joins("JOIN tags ON quiz_tag.tag_id = tags.id").
+			Group("tags.Name").
 			Scan(&tagEls); r.Error != nil {
 			panic(r.Error)
 		}
@@ -190,7 +190,7 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 		// No need to await
 		go func() {
 			var user db.User
-			if r := resource.DB.Current.First(&user, userID); r.Error != nil {
+			if r := resource.DB.Current.Where("id = ?", userID).First(&user); r.Error != nil {
 				panic(r.Error)
 			}
 
@@ -208,29 +208,29 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 
 		stageSet := util.MakeSet(rs.Stage)
 		if stageSet["new"] {
-			orCond = append(orCond, "SRSLevel IS NULL")
+			orCond = append(orCond, "srs_level IS NULL")
 		}
 
 		if stageSet["leech"] {
-			orCond = append(orCond, "WrongStreak >= 3")
+			orCond = append(orCond, "wrong_streak >= 3")
 		}
 
 		if stageSet["learning"] {
-			orCond = append(orCond, "SRSLevel < 3")
+			orCond = append(orCond, "srs_level < 3")
 		}
 
 		if stageSet["graduated"] {
-			orCond = append(orCond, "SRSLevel >= 3")
+			orCond = append(orCond, "srs_level >= 3")
 		}
 
 		q := resource.DB.Current.
 			Model(&db.Quiz{}).
-			Joins("LEFT JOIN quiz_tag ON quiz_tag.quiz_id = quiz.id").
-			Joins("LEFT JOIN tag ON tag.id = quiz_tag.tag_id").
+			Joins("LEFT JOIN quiz_tag ON quiz_tag.quiz_id = quizzes.id").
+			Joins("LEFT JOIN tags ON tags.id = quiz_tag.tag_id").
 			Where("user_id = ? AND [type] IN ? AND direction IN ?", userID, rs.Type, rs.Direction)
 
 		if len(rs.Tag) > 0 {
-			q = q.Where("tag.name IN ?", rs.Tag)
+			q = q.Where("tags.name IN ?", rs.Tag)
 		}
 
 		if len(orCond) > 0 {
@@ -239,7 +239,7 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 
 		var quizzes []db.Quiz
 
-		if r := q.Group("quiz.id").Find(&quizzes); r.Error != nil {
+		if r := q.Group("quizzes.id").Find(&quizzes); r.Error != nil {
 			panic(r.Error)
 		}
 
@@ -280,6 +280,14 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 		})
 
 		sort.Sort(quizInitOutputList(upcoming))
+
+		if len(quiz) == 0 {
+			quiz = make([]quizInitOutput, 0)
+		}
+
+		if len(upcoming) == 0 {
+			upcoming = make([]quizInitOutput, 0)
+		}
 
 		ctx.JSON(200, gin.H{
 			"quiz":     quiz,

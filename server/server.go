@@ -18,10 +18,10 @@ import (
 // Serve starts the server.
 // Runs `go func` by default.
 func Serve(res *api.Resource) *gin.Engine {
-	r := gin.Default()
+	app := gin.Default()
 
 	p := shared.Paths()
-	r.Use(func(c *gin.Context) {
+	app.Use(func(c *gin.Context) {
 		if c.Request.Method == "GET" {
 			if strings.HasPrefix(c.Request.URL.Path, "/docs/") || c.Request.URL.Path == "/docs" {
 				static.Serve("/docs", static.LocalFile(filepath.Join(p.Dir, "docs"), true))(c)
@@ -40,18 +40,27 @@ func Serve(res *api.Resource) *gin.Engine {
 	})
 
 	if _, err := os.Stat(filepath.Join(p.Dir, "public")); os.IsNotExist(err) {
-		r.GET("/", func(c *gin.Context) {
+		app.GET("/", func(c *gin.Context) {
 			c.Redirect(http.StatusTemporaryRedirect, "/docs")
+		})
+	} else {
+		app.NoRoute(func(ctx *gin.Context) {
+			method := ctx.Request.Method
+			if method == "GET" {
+				ctx.File(filepath.Join(p.Dir, "public", "index.html"))
+			} else {
+				ctx.Next()
+			}
 		})
 	}
 
-	res.Register(r)
+	res.Register(app)
 
 	port := shared.Port()
 	fmt.Printf("Server running at http://localhost:%s\n", port)
 	srv := &http.Server{
 		Addr:    ":" + port,
-		Handler: r,
+		Handler: app,
 	}
 
 	go func() {
@@ -60,5 +69,5 @@ func Serve(res *api.Resource) *gin.Engine {
 		}
 	}()
 
-	return r
+	return app
 }
