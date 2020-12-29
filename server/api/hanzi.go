@@ -73,8 +73,8 @@ func routerHanzi(apiRouter *gin.RouterGroup) {
 		}
 
 		var query struct {
-			Level    *string `json:"level"`
-			LevelMin *string `json:"levelMin"`
+			Level    *string
+			LevelMin *string
 		}
 
 		if e := ctx.ShouldBindQuery(&query); e != nil {
@@ -105,10 +105,10 @@ func routerHanzi(apiRouter *gin.RouterGroup) {
 		}
 
 		var existing []db.Quiz
-		if e := resource.DB.Current.
+		if r := resource.DB.Current.
 			Where("user_id = ? AND [type] = 'hanzi' AND srs_level IS NOT NULL AND next_review IS NOT NULL", userID).
-			Find(&existing); e != nil {
-			panic(e)
+			Find(&existing); r.Error != nil {
+			panic(r.Error)
 		}
 
 		var its []interface{}
@@ -156,7 +156,7 @@ func routerHanzi(apiRouter *gin.RouterGroup) {
 			English string `json:"english"`
 			Level   int    `json:"level"`
 		}
-		if e := r.Scan(out.Result, out.English, out.Level); errors.Is(e, sql.ErrNoRows) {
+		if e := r.Scan(&out.Result, &out.English, &out.Level); errors.Is(e, sql.ErrNoRows) {
 			sqlString := `
 			SELECT
 				entry,
@@ -189,7 +189,7 @@ func routerHanzi(apiRouter *gin.RouterGroup) {
 				panic(e)
 			}
 
-			if e := r.Scan(out.Result, out.English, out.Level); errors.Is(e, sql.ErrNoRows) {
+			if e := r.Scan(&out.Result, &out.English, &out.Level); errors.Is(e, sql.ErrNoRows) {
 				ctx.AbortWithStatus(404)
 				return
 			}

@@ -3,7 +3,6 @@ package api
 import (
 	"errors"
 	"fmt"
-	"log"
 	"strings"
 
 	"github.com/gin-contrib/sessions"
@@ -72,8 +71,6 @@ func routerUser(apiRouter *gin.RouterGroup) {
 				out[s] = v()
 			}
 		}
-
-		log.Println(out)
 
 		ctx.JSON(200, out)
 	})

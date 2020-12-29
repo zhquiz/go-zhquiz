@@ -169,8 +169,6 @@ func CotterAuthMiddleware() gin.HandlerFunc {
 				panic(err)
 			}
 
-			log.Println(resObj)
-
 			if resObj.Success {
 				var dbUser db.User
 
