@@ -10,9 +10,11 @@ require (
 	github.com/go-playground/validator/v10 v10.4.1
 	github.com/golang/protobuf v1.4.3 // indirect
 	github.com/google/go-cmp v0.5.4 // indirect
+	github.com/gorilla/sessions v1.2.0 // indirect
 	github.com/joho/godotenv v1.3.0
 	github.com/kr/pretty v0.1.0 // indirect
-	github.com/mattn/go-sqlite3 v1.14.5
+	github.com/mattn/go-sqlite3 v2.0.3+incompatible
+	github.com/oklog/ulid/v2 v2.0.2
 	github.com/tebeka/atexit v0.3.0
 	github.com/yanyiwu/gojieba v1.1.2
 	github.com/zserge/lorca v0.1.9

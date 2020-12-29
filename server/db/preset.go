@@ -1,17 +1,20 @@
 package db
 
 import (
+	"time"
+
 	"github.com/zhquiz/go-server/server/types"
-	"gorm.io/gorm"
 )
 
 // Preset holds deck states
 type Preset struct {
-	gorm.Model
+	ID        uint `gorm:"primarykey"`
+	CreatedAt time.Time
+	UpdatedAt time.Time
 
 	UserID uint `gorm:"index:preset_unique_idx,unique;not null"`
 
-	Name     string            `gorm:"index:preset_unique_idx,unique;not null;name <> ''"`
+	Name     string            `gorm:"index:preset_unique_idx,unique;not null;length(name) > 0"`
 	Q        string            `gorm:"not null"`
 	Status   PresetStatus      `gorm:"embedded"`
 	Selected types.StringArray `gorm:"type:text;not null"`

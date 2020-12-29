@@ -1,6 +1,6 @@
 build:
   command: |
-    go build -o go-server.app
+    go build --tags "sqlite_json1" -o go-server.app
 desktop:
   command: |
     robo -c {{ .robo.file }} build

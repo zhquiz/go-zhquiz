@@ -16,7 +16,7 @@ import (
 func routerHanzi(apiRouter *gin.RouterGroup) {
 	r := apiRouter.Group("/hanzi")
 
-	r.GET("/", cache.CachePage(store, time.Hour, func(ctx *gin.Context) {
+	r.GET("/", cache.CachePage(persist, time.Hour, func(ctx *gin.Context) {
 		var query struct {
 			Entry string `form:"entry"`
 		}

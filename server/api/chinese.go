@@ -15,7 +15,7 @@ func routerChinese(apiRouter *gin.RouterGroup) {
 
 	r := apiRouter.Group("/chinese")
 
-	r.GET("/jieba", cache.CachePage(store, time.Hour, func(ctx *gin.Context) {
+	r.GET("/jieba", cache.CachePage(persist, time.Hour, func(ctx *gin.Context) {
 		var query struct {
 			Q string `form:"q"`
 		}

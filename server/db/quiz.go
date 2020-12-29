@@ -2,8 +2,6 @@ package db
 
 import (
 	"time"
-
-	"gorm.io/gorm"
 )
 
 // Quiz is the database model for quiz
@@ -11,14 +9,13 @@ type Quiz struct {
 	ID        string `gorm:"primaryKey"`
 	CreatedAt time.Time
 	UpdatedAt time.Time
-	DeletedAt gorm.DeletedAt `gorm:"index"`
 
 	// Relationships
 	UserID uint  `gorm:"index:quiz_unique_idx,unique;not null"`
 	Tags   []Tag `gorm:"many2many:quiz_tag"`
 
 	// Entry references
-	Entry     string `gorm:"index:quiz_unique_idx,unique;not null;check:entry <> ''"`
+	Entry     string `gorm:"index:quiz_unique_idx,unique;not null;check:length(entry) > 0"`
 	Type      string `gorm:"index:quiz_unique_idx,unique;not null;check:[type] in ('hanzi','vocab','sentence')"`
 	Direction string `gorm:"index:quiz_unique_idx,unique;not null;check:direction in ('ce','ec','te')"`
 

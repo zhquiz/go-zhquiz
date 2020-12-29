@@ -1,14 +1,19 @@
 package db
 
 import (
+	"time"
+
 	"github.com/zhquiz/go-server/server/types"
 	"gorm.io/gorm"
 )
 
 // EntryItem (internal) are items of an entry
 type EntryItem struct {
-	gorm.Model
-	Name    string `gorm:"index:name_entryId_idx,unique;not null;check:name <> ''"`
+	ID        uint `gorm:"primarykey"`
+	CreatedAt time.Time
+	UpdatedAt time.Time
+
+	Name    string `gorm:"index:name_entryId_idx,unique;not null;check:length(name) > 0"`
 	EntryID uint   `gorm:"index:name_entryId_idx,unique;not null"`
 }
 
