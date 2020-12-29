@@ -2,6 +2,7 @@ package api
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -115,6 +116,7 @@ func routerHanzi(apiRouter *gin.RouterGroup) {
 			its = append(its, it.Entry)
 		}
 
+		entries := its
 		its = append(its, levelMin, level)
 
 		sqlString := `
@@ -126,7 +128,7 @@ func routerHanzi(apiRouter *gin.RouterGroup) {
 		WHERE english IS NOT NULL AND hanzi_level >= ? AND hanzi_level <= ?
 		ORDER BY RANDOM()`
 
-		if len(existing) > 0 {
+		if len(entries) > 0 {
 			sqlString = fmt.Sprintf(`
 			SELECT
 				entry,
@@ -134,7 +136,7 @@ func routerHanzi(apiRouter *gin.RouterGroup) {
 				hanzi_level
 			FROM token
 			WHERE entry NOT IN (%s) AND english IS NOT NULL AND hanzi_level >= ? AND hanzi_level <= ?
-			ORDER BY RANDOM()`, string(strings.Repeat(",?", len(existing))[1:]))
+			ORDER BY RANDOM()`, string(strings.Repeat(",?", len(entries))[1:]))
 		}
 
 		stmt, e := resource.Zh.Current.Prepare(sqlString)
@@ -154,9 +156,43 @@ func routerHanzi(apiRouter *gin.RouterGroup) {
 			English string `json:"english"`
 			Level   int    `json:"level"`
 		}
-		if e := r.Scan(out.Result, out.English, out.Level); e == sql.ErrNoRows {
-			ctx.AbortWithStatus(404)
-			return
+		if e := r.Scan(out.Result, out.English, out.Level); errors.Is(e, sql.ErrNoRows) {
+			sqlString := `
+			SELECT
+				entry,
+				english,
+				hanzi_level
+			FROM token
+			WHERE english IS NOT NULL
+			ORDER BY RANDOM()`
+
+			if len(entries) > 0 {
+				sqlString = fmt.Sprintf(`
+				SELECT
+					entry,
+					english,
+					hanzi_level
+				FROM token
+				WHERE entry NOT IN (%s) AND english IS NOT NULL
+				ORDER BY RANDOM()`, string(strings.Repeat(",?", len(entries))[1:]))
+			}
+
+			stmt, e := resource.Zh.Current.Prepare(sqlString)
+
+			if e != nil {
+				panic(e)
+			}
+
+			r := stmt.QueryRow(entries...)
+
+			if e := r.Err(); e != nil {
+				panic(e)
+			}
+
+			if e := r.Scan(out.Result, out.English, out.Level); errors.Is(e, sql.ErrNoRows) {
+				ctx.AbortWithStatus(404)
+				return
+			}
 		}
 
 		ctx.JSON(200, out)
