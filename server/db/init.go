@@ -13,7 +13,6 @@ import (
 // DB is the storage for current DB
 type DB struct {
 	Current *gorm.DB
-	Type    string
 }
 
 // Connect connects to DATABASE_URL
@@ -40,7 +39,6 @@ func Connect() DB {
 
 	output = DB{
 		Current: db,
-		Type:    "sqlite",
 	}
 
 	output.Current.AutoMigrate(

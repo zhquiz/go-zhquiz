@@ -63,8 +63,8 @@ func routerHanzi(apiRouter *gin.RouterGroup) {
 		}
 
 		var query struct {
-			Level    *string
-			LevelMin *string
+			Level    string `form:"level"`
+			LevelMin string `form:"levelMin"`
 		}
 
 		if e := ctx.ShouldBindQuery(&query); e != nil {
@@ -74,8 +74,8 @@ func routerHanzi(apiRouter *gin.RouterGroup) {
 
 		level := 60
 
-		if query.Level != nil {
-			v, e := strconv.Atoi(*query.Level)
+		if query.Level != "" {
+			v, e := strconv.Atoi(query.Level)
 			if e != nil {
 				ctx.AbortWithError(400, e)
 				return
@@ -85,8 +85,8 @@ func routerHanzi(apiRouter *gin.RouterGroup) {
 
 		levelMin := 1
 
-		if query.LevelMin != nil {
-			v, e := strconv.Atoi(*query.LevelMin)
+		if query.LevelMin != "" {
+			v, e := strconv.Atoi(query.LevelMin)
 			if e != nil {
 				ctx.AbortWithError(400, e)
 				return
@@ -125,7 +125,7 @@ func routerHanzi(apiRouter *gin.RouterGroup) {
 
 		if r := resource.Zh.Current.
 			Model(&zh.Token{}).
-			Select("entry Result", "english", "hanzi_level level").
+			Select("entry Result, English, hanzi_level Level").
 			Where(where, params).
 			Order("RANDOM()").
 			First(&out); r.Error != nil {
@@ -137,7 +137,7 @@ func routerHanzi(apiRouter *gin.RouterGroup) {
 
 				if r := resource.Zh.Current.
 					Model(&zh.Token{}).
-					Select("entry Result", "english", "hanzi_level level").
+					Select("entry Result, English, hanzi_level level").
 					Where(where, params).
 					Order("RANDOM()").
 					First(&out); r.Error != nil {

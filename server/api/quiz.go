@@ -16,21 +16,21 @@ import (
 func routerQuiz(apiRouter *gin.RouterGroup) {
 	r := apiRouter.Group("/quiz")
 
-	r.POST("/get", func(ctx *gin.Context) {
+	r.GET("/many", func(ctx *gin.Context) {
 		userID := getUserID(ctx)
 		if userID == "" {
 			ctx.AbortWithStatus(401)
 			return
 		}
 
-		var body struct {
-			IDs     []string `json:"ids"`
-			Entries []string `json:"entries"`
-			Type    string   `json:"type"`
-			Select  []string `json:"select" binding:"required,min=1"`
+		var query struct {
+			IDs     string `form:"ids"`
+			Entries string `form:"entries"`
+			Type    string `form:"type" binding:"oneof=hanzi vocab sentence extra"`
+			Select  string `form:"select"`
 		}
 
-		if e := ctx.BindJSON(&body); e != nil {
+		if e := ctx.BindQuery(&query); e != nil {
 			panic(e)
 		}
 
@@ -38,18 +38,18 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 		sMap := map[string]string{
 			"id":        "ID",
 			"tag":       "Tag",
-			"entry":     "Entry",
-			"type":      "Type",
+			"entry":     "[Entry]",
+			"type":      "[Type]",
 			"direction": "Direction",
 			"front":     "Front",
 			"back":      "Back",
 			"mnemonic":  "Mnemonic",
 		}
 
-		for _, s := range body.Select {
+		for _, s := range strings.Split(query.Select, ",") {
 			k := sMap[s]
 			if k != "" {
-				sel = append(sel, "["+k+"]")
+				sel = append(sel, k)
 			}
 		}
 
@@ -60,17 +60,20 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 
 		var out []gin.H
 
-		if len(body.IDs) > 0 {
+		ids := strings.Split(query.IDs, ",")
+		entries := strings.Split(query.Entries, ",")
+
+		if len(ids) > 0 {
 			if r := resource.DB.Current.Model(&db.Quiz{}).
 				Select(sel).
-				Where("user_id = ? AND id IN ?", userID, body.IDs).
+				Where("user_id = ? AND id IN ?", userID, ids).
 				Find(&out); r.Error != nil {
 				panic(r.Error)
 			}
-		} else if len(body.Entries) > 0 && body.Type != "" {
+		} else if len(entries) > 0 && query.Type != "" {
 			if r := resource.DB.Current.Model(&db.Quiz{}).
 				Select(sel).
-				Where("user_id = ? AND [type] = ? AND entry IN ?", userID, body.Type, body.Entries).
+				Where("user_id = ? AND [Type] = ? AND entry IN ?", userID, query.Type, entries).
 				Find(&out); r.Error != nil {
 				panic(r.Error)
 			}
