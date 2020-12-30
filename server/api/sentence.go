@@ -50,8 +50,8 @@ func routerSentence(apiRouter *gin.RouterGroup) {
 		}
 
 		var query struct {
-			Level    *string
-			LevelMin *string
+			Level    string `form:"level"`
+			LevelMin string `form:"levelMin"`
 		}
 
 		if e := ctx.ShouldBindQuery(&query); e != nil {
@@ -61,8 +61,8 @@ func routerSentence(apiRouter *gin.RouterGroup) {
 
 		level := 60
 
-		if query.Level != nil {
-			v, e := strconv.Atoi(*query.Level)
+		if query.Level != "" {
+			v, e := strconv.Atoi(query.Level)
 			if e != nil {
 				ctx.AbortWithError(400, e)
 				return
@@ -72,8 +72,8 @@ func routerSentence(apiRouter *gin.RouterGroup) {
 
 		levelMin := 1
 
-		if query.LevelMin != nil {
-			v, e := strconv.Atoi(*query.LevelMin)
+		if query.LevelMin != "" {
+			v, e := strconv.Atoi(query.LevelMin)
 			if e != nil {
 				ctx.AbortWithError(400, e)
 				return
@@ -93,9 +93,15 @@ func routerSentence(apiRouter *gin.RouterGroup) {
 			entries = append(entries, it.Entry)
 		}
 
-		r := resource.Zh.Current.Model(&zh.Sentence{}).Select("chinese AS Result", "english")
+		where := "[level] >= @levelMin AND [level] <= @level"
+		cond := map[string]interface{}{
+			"entries":  entries,
+			"levelMin": levelMin,
+			"level":    level,
+		}
+
 		if len(entries) > 0 {
-			r = r.Where("chinese NOT IN ?", entries)
+			where = "chinese NOT IN @entries AND " + where
 		}
 
 		var out struct {
@@ -104,16 +110,30 @@ func routerSentence(apiRouter *gin.RouterGroup) {
 			Level   int    `json:"level"`
 		}
 
-		if r1 := r.Order("RANDOM()").First(&out); r1.Error != nil {
-			if errors.Is(r.Error, sql.ErrNoRows) {
-				ctx.AbortWithStatus(404)
-				return
+		if r1 := resource.Zh.Current.
+			Model(&zh.Sentence{}).
+			Select("chinese AS Result", "english").
+			Where(where, cond).
+			Order("RANDOM()").
+			First(&out); r1.Error != nil {
+			if errors.Is(r1.Error, sql.ErrNoRows) {
+				if r2 := resource.Zh.Current.
+					Model(&zh.Sentence{}).
+					Select("chinese AS Result", "english").
+					Where("chinese NOT IN @entries", cond).
+					Order("RANDOM()").
+					First(&out); r2.Error != nil {
+					if errors.Is(r2.Error, sql.ErrNoRows) {
+						ctx.AbortWithStatus(404)
+						return
+					}
+
+					panic(r2.Error)
+				}
 			}
 
-			panic(r.Error)
+			panic(r1.Error)
 		}
-
-		out.Level = level + levelMin
 
 		ctx.JSON(200, out)
 	})

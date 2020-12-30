@@ -7,18 +7,9 @@ type Sentence struct {
 	Pinyin    string
 	English   string
 	Frequency float64
-	Level     int
+	Level     float64
 
-	Token []Token `gorm:"many2many:sentence_token"`
-	Tag   []Tag   `gorm:"many2many:sentence_tag"`
-}
-
-// SentenceToken is joint Table for Sentence-Token
-// @internal
-type SentenceToken struct {
-	SentenceID int    `gorm:"primaryKey"`
-	Entry      string `gorm:"primaryKey"`
-	Sentence   Sentence
+	Tag []Tag `gorm:"many2many:sentence_tag"`
 }
 
 // SentenceTag is joint Table for Sentence-Tag
