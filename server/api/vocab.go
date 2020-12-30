@@ -1,8 +1,8 @@
 package api
 
 import (
-	"database/sql"
-	"errors"
+	"fmt"
+	"math/rand"
 	"strconv"
 	"time"
 
@@ -109,7 +109,7 @@ func routerVocab(apiRouter *gin.RouterGroup) {
 			sqlString = "entry NOT IN @entries AND " + sqlString
 		}
 
-		var out struct {
+		var items []struct {
 			Result  string `json:"result"`
 			English string `json:"english"`
 			Level   int    `json:"level"`
@@ -121,35 +121,32 @@ func routerVocab(apiRouter *gin.RouterGroup) {
 			Joins("LEFT JOIN cedict ON cedict.simplified = entry").
 			Where(sqlString, cond).
 			Group("entry").
-			Order("RANDOM()").
-			First(&out); r.Error != nil {
-			if errors.Is(r.Error, sql.ErrNoRows) {
-				sqlString := "cedict.english IS NOT NULL"
+			Find(&items); r.Error != nil {
+			panic(r.Error)
+		}
 
-				if len(entries) > 0 {
-					sqlString = "entry NOT IN @entries AND " + sqlString
-				}
+		if len(items) < 1 {
+			sqlString := "cedict.english IS NOT NULL"
 
-				if r := resource.Zh.Current.
-					Model(&zh.Token{}).
-					Select("entry AS Result", "cedict.english AS English", "vocab_level AS Level").
-					Joins("LEFT JOIN cedict ON cedict.simplified = entry").
-					Where(sqlString, cond).
-					Group("entry").
-					Order("RANDOM()").
-					First(&out); r.Error != nil {
-					if errors.Is(r.Error, sql.ErrNoRows) {
-						ctx.AbortWithStatus(404)
-					} else {
-						panic(r.Error)
-					}
-					return
-				}
-			} else {
+			if len(entries) > 0 {
+				sqlString = "entry NOT IN @entries AND " + sqlString
+			}
+
+			if r := resource.Zh.Current.
+				Model(&zh.Token{}).
+				Select("entry AS Result", "cedict.english AS English", "vocab_level AS Level").
+				Joins("LEFT JOIN cedict ON cedict.simplified = entry").
+				Where(sqlString, cond).
+				Group("entry").
+				Find(&items); r.Error != nil {
 				panic(r.Error)
 			}
 		}
 
-		ctx.JSON(200, out)
+		if len(items) < 1 {
+			ctx.AbortWithError(404, fmt.Errorf("no matched entries found"))
+		}
+
+		ctx.JSON(200, items[rand.Intn(len(items))])
 	})
 }

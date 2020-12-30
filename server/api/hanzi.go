@@ -3,6 +3,8 @@ package api
 import (
 	"database/sql"
 	"errors"
+	"fmt"
+	"math/rand"
 	"strconv"
 	"time"
 
@@ -117,7 +119,7 @@ func routerHanzi(apiRouter *gin.RouterGroup) {
 			where = "entry NOT IN @entries AND " + where
 		}
 
-		var out struct {
+		var items []struct {
 			Result  string `json:"result"`
 			English string `json:"english"`
 			Level   int    `json:"level"`
@@ -127,32 +129,30 @@ func routerHanzi(apiRouter *gin.RouterGroup) {
 			Model(&zh.Token{}).
 			Select("entry Result, English, hanzi_level Level").
 			Where(where, params).
-			Order("RANDOM()").
-			First(&out); r.Error != nil {
-			if errors.Is(r.Error, sql.ErrNoRows) {
-				where := "english IS NOT NULL"
-				if len(entries) > 0 {
-					where = "entry NOT IN @entries AND " + where
-				}
+			Find(&items); r.Error != nil {
+			panic(r.Error)
+		}
 
-				if r := resource.Zh.Current.
-					Model(&zh.Token{}).
-					Select("entry Result, English, hanzi_level level").
-					Where(where, params).
-					Order("RANDOM()").
-					First(&out); r.Error != nil {
-					if errors.Is(r.Error, sql.ErrNoRows) {
-						ctx.AbortWithStatus(404)
-						return
-					}
+		if len(items) < 1 {
+			where := "english IS NOT NULL"
+			if len(entries) > 0 {
+				where = "entry NOT IN @entries AND " + where
+			}
 
-					panic(r.Error)
-				}
-			} else {
+			if r := resource.Zh.Current.
+				Model(&zh.Token{}).
+				Select("entry Result, English, hanzi_level level").
+				Where(where, params).
+				Find(&items); r.Error != nil {
 				panic(r.Error)
 			}
 		}
 
-		ctx.JSON(200, out)
+		if len(items) < 1 {
+			ctx.AbortWithError(404, fmt.Errorf("no matching entries found"))
+			return
+		}
+
+		ctx.JSON(200, items[rand.Intn(len(items))])
 	})
 }

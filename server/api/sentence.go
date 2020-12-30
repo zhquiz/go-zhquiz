@@ -3,6 +3,8 @@ package api
 import (
 	"database/sql"
 	"errors"
+	"fmt"
+	"math/rand"
 	"strconv"
 	"time"
 
@@ -104,37 +106,35 @@ func routerSentence(apiRouter *gin.RouterGroup) {
 			where = "chinese NOT IN @entries AND " + where
 		}
 
-		var out struct {
+		var items []struct {
 			Result  string `json:"result"`
 			English string `json:"english"`
 			Level   int    `json:"level"`
 		}
 
-		if r1 := resource.Zh.Current.
+		if r := resource.Zh.Current.
 			Model(&zh.Sentence{}).
 			Select("chinese AS Result", "english").
 			Where(where, cond).
-			Order("RANDOM()").
-			First(&out); r1.Error != nil {
-			if errors.Is(r1.Error, sql.ErrNoRows) {
-				if r2 := resource.Zh.Current.
-					Model(&zh.Sentence{}).
-					Select("chinese AS Result", "english").
-					Where("chinese NOT IN @entries", cond).
-					Order("RANDOM()").
-					First(&out); r2.Error != nil {
-					if errors.Is(r2.Error, sql.ErrNoRows) {
-						ctx.AbortWithStatus(404)
-						return
-					}
-
-					panic(r2.Error)
-				}
-			}
-
-			panic(r1.Error)
+			Find(&items); r.Error != nil {
+			panic(r.Error)
 		}
 
-		ctx.JSON(200, out)
+		if len(items) < 1 {
+			if r := resource.Zh.Current.
+				Model(&zh.Sentence{}).
+				Select("chinese AS Result", "english").
+				Where("chinese NOT IN @entries", cond).
+				Find(&items); r.Error != nil {
+				panic(r.Error)
+			}
+		}
+
+		if len(items) < 1 {
+			ctx.AbortWithError(404, fmt.Errorf("no matching entries found"))
+			return
+		}
+
+		ctx.JSON(200, items[rand.Intn(len(items))])
 	})
 }
