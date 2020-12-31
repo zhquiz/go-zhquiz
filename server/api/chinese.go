@@ -1,9 +1,6 @@
 package api
 
 import (
-	"time"
-
-	"github.com/gin-contrib/cache"
 	"github.com/gin-gonic/gin"
 	"github.com/tebeka/atexit"
 	"github.com/yanyiwu/gojieba"
@@ -15,7 +12,7 @@ func routerChinese(apiRouter *gin.RouterGroup) {
 
 	r := apiRouter.Group("/chinese")
 
-	r.GET("/jieba", cache.CachePage(persist, time.Hour, func(ctx *gin.Context) {
+	r.GET("/jieba", func(ctx *gin.Context) {
 		var query struct {
 			Q string `form:"q" binding:"required"`
 		}
@@ -28,5 +25,5 @@ func routerChinese(apiRouter *gin.RouterGroup) {
 		ctx.JSON(200, gin.H{
 			"result": jieba.CutAll(query.Q),
 		})
-	}))
+	})
 }

@@ -6,9 +6,7 @@ import (
 	"fmt"
 	"math/rand"
 	"strconv"
-	"time"
 
-	"github.com/gin-contrib/cache"
 	"github.com/gin-gonic/gin"
 	"github.com/zhquiz/go-server/server/db"
 	"github.com/zhquiz/go-server/server/zh"
@@ -17,7 +15,7 @@ import (
 func routerHanzi(apiRouter *gin.RouterGroup) {
 	r := apiRouter.Group("/hanzi")
 
-	r.GET("/", cache.CachePage(persist, time.Hour, func(ctx *gin.Context) {
+	r.GET("/", func(ctx *gin.Context) {
 		var query struct {
 			Entry string `form:"entry" binding:"required"`
 		}
@@ -36,9 +34,15 @@ func routerHanzi(apiRouter *gin.RouterGroup) {
 		}
 
 		if r := resource.Zh.Current.Model(&zh.Token{}).Select(`
-		GROUP_CONCAT(token_sub.child, '') sub,
-		GROUP_CONCAT(token_sup.child, '') sup,
-		GROUP_CONCAT(token_var.child, '') variants,
+		(
+			SELECT GROUP_CONCAT(child, '') FROM token_sub WHERE parent = entry GROUP BY parent
+		) sub,
+		(
+			SELECT GROUP_CONCAT(child, '') FROM token_sup WHERE parent = entry GROUP BY parent
+		) sup,
+		(
+			SELECT GROUP_CONCAT(child, '') FROM token_var WHERE parent = entry GROUP BY parent
+		) variants,
 		pinyin,
 		english
 		`).Joins(`
@@ -55,7 +59,7 @@ func routerHanzi(apiRouter *gin.RouterGroup) {
 		}
 
 		ctx.JSON(200, out)
-	}))
+	})
 
 	r.GET("/random", func(ctx *gin.Context) {
 		userID := getUserID(ctx)

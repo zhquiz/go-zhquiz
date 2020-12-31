@@ -4,9 +4,7 @@ import (
 	"fmt"
 	"math/rand"
 	"strconv"
-	"time"
 
-	"github.com/gin-contrib/cache"
 	"github.com/gin-gonic/gin"
 	"github.com/zhquiz/go-server/server/db"
 	"github.com/zhquiz/go-server/server/zh"
@@ -15,7 +13,7 @@ import (
 func routerVocab(apiRouter *gin.RouterGroup) {
 	r := apiRouter.Group("/vocab")
 
-	r.GET("/", cache.CachePage(persist, time.Hour, func(ctx *gin.Context) {
+	r.GET("/", func(ctx *gin.Context) {
 		var query struct {
 			Entry string `form:"entry" binding:"required"`
 		}
@@ -59,10 +57,60 @@ func routerVocab(apiRouter *gin.RouterGroup) {
 			result = make([]Result, 0)
 		}
 
-		ctx.AsciiJSON(200, gin.H{
+		ctx.JSON(200, gin.H{
 			"result": result,
 		})
-	}))
+	})
+
+	r.GET("/q", func(ctx *gin.Context) {
+		var query struct {
+			Q string `form:"q" binding:"required"`
+		}
+
+		if e := ctx.ShouldBindQuery(&query); e != nil {
+			ctx.AbortWithError(400, e)
+			return
+		}
+
+		type Result struct {
+			Simplified  string `json:"simplified"`
+			Traditional string `json:"traditional"`
+			Pinyin      string `json:"pinyin"`
+			English     string `json:"english"`
+		}
+
+		preresult := []zh.Cedict{}
+
+		if r := resource.Zh.Current.
+			Model(&zh.Cedict{}).
+			Joins("LEFT JOIN token ON token.entry = simplified").
+			Where("Simplified LIKE '%'||'%' OR Traditional = '%'||?||'%'", query.Q, query.Q).
+			Group("cedict.ROWID").
+			Order("token.frequency desc").
+			Find(&preresult).
+			Limit(10); r.Error != nil {
+			panic(r.Error)
+		}
+
+		var result []Result
+
+		for _, r := range preresult {
+			result = append(result, Result{
+				Simplified:  r.Simplified,
+				Traditional: r.Traditional,
+				Pinyin:      r.Pinyin,
+				English:     r.English,
+			})
+		}
+
+		if len(result) == 0 {
+			result = make([]Result, 0)
+		}
+
+		ctx.JSON(200, gin.H{
+			"result": result,
+		})
+	})
 
 	r.GET("/random", func(ctx *gin.Context) {
 		userID := getUserID(ctx)

@@ -11,9 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
-	"github.com/gin-contrib/cache/persistence"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
@@ -30,7 +28,6 @@ import (
 
 var resource Resource
 var validate *validator.Validate = validator.New()
-var persist *persistence.InMemoryStore = persistence.NewInMemoryStore(time.Hour)
 
 // Resource is a struct for reuse and cleanup.
 type Resource struct {
