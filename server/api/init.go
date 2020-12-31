@@ -2,7 +2,6 @@ package api
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -24,6 +23,8 @@ import (
 	"github.com/zhquiz/go-server/server/rand"
 	"github.com/zhquiz/go-server/server/zh"
 	"github.com/zhquiz/go-server/shared"
+	"gopkg.in/square/go-jose.v2"
+	"gopkg.in/square/go-jose.v2/jwt"
 	"gorm.io/gorm"
 )
 
@@ -115,9 +116,79 @@ func (res Resource) Cleanup() {
 
 // CotterAuthMiddleware middleware for auth with Cotter
 func CotterAuthMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		cotterAPIKey := os.Getenv("COTTER_API_KEY")
+	const JWKSURL = "https://www.cotter.app/api/v0/token/jwks"
+	const JWKSLookupKeyID = "SPACE_JWT_PUBLIC:8028AAA3-EC2D-4BAA-BE7A-7C8359CCB9F9"
 
+	cotterAPIKey := os.Getenv("COTTER_API_KEY")
+
+	var jwksKey []byte
+	// Fetch the key from the JWKS URL
+	getKey := func() []byte {
+		if len(jwksKey) > 0 {
+			return jwksKey
+		}
+
+		// Fetch the JWT Public Key from the URL
+		resp, err := http.Get(JWKSURL)
+		if err != nil {
+			log.Fatalln(err)
+		}
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			log.Fatalln(err)
+		}
+		// Parse the response into our keys struct
+		keyset := make(map[string][]map[string]interface{})
+		err = json.Unmarshal(body, &keyset)
+		if err != nil {
+			log.Fatalln(err)
+		}
+		// It's a Key Set = there might be multiple keys
+		// Find the key with kid = JWKSLookupKeyID
+		if len(keyset["keys"]) <= 0 {
+			log.Fatalln(errors.New("Key set is empty"))
+		}
+		for _, k := range keyset["keys"] {
+			if k["kid"] == JWKSLookupKeyID {
+				key, err := json.Marshal(k)
+				if err != nil {
+					log.Fatalln(err)
+				}
+
+				jwksKey = key
+				return key
+			}
+		}
+
+		log.Fatalln(errors.New("Cannot find key with kid"))
+		return []byte{}
+	}
+
+	// validateClientAccessToken validates access token created above
+	validateClientAccessToken := func(accessToken string) (map[string]interface{}, error) {
+		tok, err := jwt.ParseSigned(accessToken)
+		if err != nil {
+			return nil, errors.New("Fail parsing access token")
+		}
+		keys := getKey()
+		key := jose.JSONWebKey{}
+		key.UnmarshalJSON(keys)
+		token := make(map[string]interface{})
+		if err := tok.Claims(key, &token); err != nil {
+			return nil, errors.New("Fail parsing access token to claims")
+		}
+		// Check that the aud is our API KEY ID
+		apiKeyID, ok := token["aud"].(string)
+		if !ok {
+			return nil, errors.New("fail asserting aud from jwt.MapClaims")
+		}
+		if apiKeyID != cotterAPIKey {
+			return nil, errors.New("Invalid aud, not meant for this api key id")
+		}
+		return token, nil
+	}
+
+	return func(c *gin.Context) {
 		if cotterAPIKey == "" {
 			return
 		}
@@ -125,53 +196,20 @@ func CotterAuthMiddleware() gin.HandlerFunc {
 		session := sessions.Default(c)
 
 		authorization := c.GetHeader("Authorization")
-		userName := c.GetHeader("X-User")
 
 		if strings.HasPrefix(authorization, "Bearer ") {
-			idToken := strings.Split(authorization, " ")[1]
+			accessToken := strings.Split(authorization, " ")[1]
 
-			ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(30*time.Second))
-			defer cancel()
-
-			reqBody, err := json.Marshal(gin.H{
-				"oauth_token": gin.H{
-					"access_token": idToken,
-				},
-			})
+			// Validate that the access token and signature is valid
+			token, err := validateClientAccessToken(accessToken)
 			if err != nil {
-				panic(err)
+				session.Set("userID", "")
+				return
 			}
 
-			client := &http.Client{}
-			req, err := http.NewRequestWithContext(ctx, "POST", "https://worker.cotter.app/verify", bytes.NewBuffer(reqBody))
-			if err != nil {
-				panic(err)
-			}
+			userName := token["identifier"].(string)
 
-			req.Header.Add("API_KEY_ID", cotterAPIKey)
-			req.Header.Add("Content-Type", "application/json")
-
-			res, err := client.Do(req)
-			if err != nil {
-				panic(err)
-			}
-
-			defer res.Body.Close()
-
-			resBody, err := ioutil.ReadAll(res.Body)
-			if err != nil {
-				panic(err)
-			}
-
-			var resObj struct {
-				Success bool
-			}
-
-			if err := json.Unmarshal(resBody, &resObj); err != nil {
-				panic(err)
-			}
-
-			if resObj.Success {
+			if userName != "" {
 				var dbUser db.User
 
 				r := resource.DB.Current.Where("email = ?", userName).First(&dbUser)

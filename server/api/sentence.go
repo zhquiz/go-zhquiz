@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/rand"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-contrib/cache"
@@ -29,7 +30,7 @@ func routerSentence(apiRouter *gin.RouterGroup) {
 
 		var zhSentence zh.Sentence
 
-		if r := resource.Zh.Current.First(&zhSentence); r.Error != nil {
+		if r := resource.Zh.Current.Where("chinese = ?", query.Entry).First(&zhSentence); r.Error != nil {
 			if errors.Is(r.Error, sql.ErrNoRows) {
 				ctx.AbortWithStatus(404)
 				return
@@ -41,6 +42,48 @@ func routerSentence(apiRouter *gin.RouterGroup) {
 		ctx.JSON(200, gin.H{
 			"chinese": zhSentence.Chinese,
 			"english": zhSentence.English,
+		})
+	}))
+
+	r.GET("/q", cache.CachePage(persist, time.Hour, func(ctx *gin.Context) {
+		var query struct {
+			Q string `form:"q" binding:"required"`
+		}
+
+		if e := ctx.ShouldBindQuery(&query); e != nil {
+			ctx.AbortWithError(400, e)
+			return
+		}
+
+		var preresult []zh.Sentence
+
+		if r := resource.Zh.Current.
+			Where("chinese LIKE '%'||?||'%'", query.Q).
+			Order("level,frequency desc").Limit(10).
+			Find(&preresult); r.Error != nil {
+			panic(r.Error)
+		}
+
+		type Result struct {
+			Chinese string `json:"chinese"`
+			English string `json:"english"`
+		}
+
+		var result []Result
+
+		for _, r := range preresult {
+			result = append(result, Result{
+				Chinese: r.Chinese,
+				English: strings.Split(r.English, "\u001f")[0],
+			})
+		}
+
+		if len(result) == 0 {
+			result = make([]Result, 0)
+		}
+
+		ctx.AsciiJSON(200, gin.H{
+			"result": result,
 		})
 	}))
 

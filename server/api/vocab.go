@@ -25,7 +25,14 @@ func routerVocab(apiRouter *gin.RouterGroup) {
 			return
 		}
 
-		result := []zh.Cedict{}
+		type Result struct {
+			Simplified  string `json:"simplified"`
+			Traditional string `json:"traditional"`
+			Pinyin      string `json:"pinyin"`
+			English     string `json:"english"`
+		}
+
+		preresult := []zh.Cedict{}
 
 		if r := resource.Zh.Current.
 			Model(&zh.Cedict{}).
@@ -33,15 +40,26 @@ func routerVocab(apiRouter *gin.RouterGroup) {
 			Where("Simplified = ? OR Traditional = ?", query.Entry, query.Entry).
 			Group("cedict.ROWID").
 			Order("token.frequency desc").
-			Find(&result); r.Error != nil {
+			Find(&preresult); r.Error != nil {
 			panic(r.Error)
 		}
 
-		if len(result) == 0 {
-			result = make([]zh.Cedict, 0)
+		var result []Result
+
+		for _, r := range preresult {
+			result = append(result, Result{
+				Simplified:  r.Simplified,
+				Traditional: r.Traditional,
+				Pinyin:      r.Pinyin,
+				English:     r.English,
+			})
 		}
 
-		ctx.JSON(200, gin.H{
+		if len(result) == 0 {
+			result = make([]Result, 0)
+		}
+
+		ctx.AsciiJSON(200, gin.H{
 			"result": result,
 		})
 	}))
