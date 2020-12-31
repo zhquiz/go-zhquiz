@@ -1,13 +1,14 @@
 package api
 
 import (
+	"database/sql"
+	"errors"
 	"fmt"
 	"math/rand"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/zhquiz/go-server/server/db"
-	"github.com/zhquiz/go-server/server/zh"
 )
 
 func routerVocab(apiRouter *gin.RouterGroup) {
@@ -30,31 +31,21 @@ func routerVocab(apiRouter *gin.RouterGroup) {
 			English     string `json:"english"`
 		}
 
-		preresult := []zh.Cedict{}
-
-		if r := resource.Zh.Current.
-			Model(&zh.Cedict{}).
-			Joins("LEFT JOIN token ON token.entry = simplified").
-			Where("Simplified = ? OR Traditional = ?", query.Entry, query.Entry).
-			Group("cedict.ROWID").
-			Order("token.frequency desc").
-			Find(&preresult); r.Error != nil {
-			panic(r.Error)
-		}
-
 		var result []Result
 
-		for _, r := range preresult {
-			result = append(result, Result{
-				Simplified:  r.Simplified,
-				Traditional: r.Traditional,
-				Pinyin:      r.Pinyin,
-				English:     r.English,
-			})
-		}
-
-		if len(result) == 0 {
-			result = make([]Result, 0)
+		if r := resource.Zh.Current.Raw(`
+		SELECT Simplified, Traditional, cedict.Pinyin, cedict.English English
+		FROM cedict
+		LEFT JOIN token ON token.entry = simplified
+		WHERE Simplified = ? OR Traditional = ?
+		GROUP BY cedict.ROWID
+		ORDER BY token.frequency DESC
+		`, query.Entry, query.Entry).Find(&result); r.Error != nil {
+			if errors.Is(r.Error, sql.ErrNoRows) {
+				result = make([]Result, 0)
+			} else {
+				panic(r.Error)
+			}
 		}
 
 		ctx.JSON(200, gin.H{
@@ -79,28 +70,17 @@ func routerVocab(apiRouter *gin.RouterGroup) {
 			English     string `json:"english"`
 		}
 
-		preresult := []zh.Cedict{}
-
-		if r := resource.Zh.Current.
-			Model(&zh.Cedict{}).
-			Joins("LEFT JOIN token ON token.entry = simplified").
-			Where("Simplified LIKE '%'||'%' OR Traditional = '%'||?||'%'", query.Q, query.Q).
-			Group("cedict.ROWID").
-			Order("token.frequency desc").
-			Find(&preresult).
-			Limit(10); r.Error != nil {
-			panic(r.Error)
-		}
-
 		var result []Result
 
-		for _, r := range preresult {
-			result = append(result, Result{
-				Simplified:  r.Simplified,
-				Traditional: r.Traditional,
-				Pinyin:      r.Pinyin,
-				English:     r.English,
-			})
+		if r := resource.Zh.Current.Raw(`
+		SELECT Simplified, Traditional, cedict.Pinyin, cedict.english English
+		FROM cedict
+		LEFT JOIN token ON token.entry = simplified
+		WHERE simplified LIKE '%'||?||'%' OR traditional LIKE '%'||?||'%'
+		GROUP BY cedict.ROWID
+		ORDER BY token.frequency DESC
+		`, query.Q, query.Q).Find(&result); r.Error != nil {
+			panic(r.Error)
 		}
 
 		if len(result) == 0 {
@@ -175,36 +155,39 @@ func routerVocab(apiRouter *gin.RouterGroup) {
 			sqlString = "entry NOT IN @entries AND " + sqlString
 		}
 
-		var items []struct {
+		type Item struct {
 			Result  string `json:"result"`
 			English string `json:"english"`
 			Level   int    `json:"level"`
 		}
+		var items []Item
 
-		if r := resource.Zh.Current.
-			Model(&zh.Token{}).
-			Select("entry AS Result", "cedict.english AS English", "vocab_level AS Level").
-			Joins("LEFT JOIN cedict ON cedict.simplified = entry").
-			Where(sqlString, cond).
-			Group("entry").
-			Find(&items); r.Error != nil {
+		if r := resource.Zh.Current.Raw(fmt.Sprintf(`
+		SELECT entry Result, cedict.english English, vocab_level Level
+		FROM token
+		LEFT JOIN cedict ON cedict.simplified = entry
+		WHERE %s
+		GROUP BY entry
+		`, sqlString), cond).Find(&items); r.Error != nil {
 			panic(r.Error)
 		}
 
 		if len(items) < 1 {
+			items = []Item{}
+
 			sqlString := "cedict.english IS NOT NULL"
 
 			if len(entries) > 0 {
 				sqlString = "entry NOT IN @entries AND " + sqlString
 			}
 
-			if r := resource.Zh.Current.
-				Model(&zh.Token{}).
-				Select("entry AS Result", "cedict.english AS English", "vocab_level AS Level").
-				Joins("LEFT JOIN cedict ON cedict.simplified = entry").
-				Where(sqlString, cond).
-				Group("entry").
-				Find(&items); r.Error != nil {
+			if r := resource.Zh.Current.Raw(fmt.Sprintf(`
+			SELECT entry Result, cedict.english English, vocab_level Level
+			FROM token
+			LEFT JOIN cedict ON cedict.simplified = entry
+			WHERE %s
+			GROUP BY entry
+			`, sqlString), cond).Find(&items); r.Error != nil {
 				panic(r.Error)
 			}
 		}
@@ -213,6 +196,8 @@ func routerVocab(apiRouter *gin.RouterGroup) {
 			ctx.AbortWithError(404, fmt.Errorf("no matched entries found"))
 		}
 
-		ctx.JSON(200, items[rand.Intn(len(items))])
+		item := items[rand.Intn(len(items))]
+
+		ctx.JSON(200, item)
 	})
 }

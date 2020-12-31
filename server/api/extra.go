@@ -9,7 +9,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/zhquiz/go-server/server/db"
-	"github.com/zhquiz/go-server/server/zh"
 )
 
 func routerExtra(apiRouter *gin.RouterGroup) {
@@ -199,9 +198,14 @@ func routerExtra(apiRouter *gin.RouterGroup) {
 		}
 
 		checkVocab := func() bool {
-			var zhCedict zh.Cedict
+			var simplified string
 
-			if r := resource.Zh.Current.Where("simplified = ? OR traditional = ?", body.Chinese, body.Chinese).First(&zhCedict); r.Error != nil {
+			if r := resource.Zh.Current.Raw(`
+			SELECT simplified
+			FROM cedict_q
+			WHERE simplified = ? OR traditional = ?
+			LIMIT 1
+			`, body.Chinese, body.Chinese).First(&simplified); r.Error != nil {
 				if errors.Is(r.Error, sql.ErrNoRows) {
 					return false
 				}
@@ -211,7 +215,7 @@ func routerExtra(apiRouter *gin.RouterGroup) {
 			ctx.JSON(200, gin.H{
 				"existing": gin.H{
 					"type":  "vocab",
-					"entry": zhCedict.Simplified,
+					"entry": simplified,
 				},
 			})
 
@@ -219,9 +223,13 @@ func routerExtra(apiRouter *gin.RouterGroup) {
 		}
 
 		checkHanzi := func() bool {
-			var zhToken zh.Token
-
-			if r := resource.Zh.Current.Where("entry = ? AND english IS NOT NULL", body.Chinese).First(&zhToken); r.Error != nil {
+			var entry string
+			if r := resource.Zh.Current.Raw(`
+			SELECT [entry]
+			FROM token
+			WHERE [entry] = ? AND english IS NOT NULL
+			LIMIT 1
+			`, body.Chinese).First(&entry); r.Error != nil {
 				if errors.Is(r.Error, sql.ErrNoRows) {
 					return false
 				}
@@ -232,7 +240,7 @@ func routerExtra(apiRouter *gin.RouterGroup) {
 			ctx.JSON(200, gin.H{
 				"existing": gin.H{
 					"type":  "hanzi",
-					"entry": zhToken.Entry,
+					"entry": entry,
 				},
 			})
 
@@ -240,9 +248,13 @@ func routerExtra(apiRouter *gin.RouterGroup) {
 		}
 
 		checkSentence := func() bool {
-			var zhSentence zh.Sentence
-
-			if r := resource.Zh.Current.Where("chinese = ?", body.Chinese).First(&zhSentence); r.Error != nil {
+			var chinese string
+			if r := resource.Zh.Current.Raw(`
+			SELECT chinese
+			FROM sentence_q
+			WHERE chinese = ?
+			LIMIT 1
+			`, body.Chinese).First(&chinese); r.Error != nil {
 				if errors.Is(r.Error, sql.ErrNoRows) {
 					return false
 				}
@@ -253,7 +265,7 @@ func routerExtra(apiRouter *gin.RouterGroup) {
 			ctx.JSON(200, gin.H{
 				"existing": gin.H{
 					"type":  "sentence",
-					"entry": zhSentence.Chinese,
+					"entry": chinese,
 				},
 			})
 

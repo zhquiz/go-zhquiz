@@ -6,11 +6,9 @@ import (
 	"fmt"
 	"math/rand"
 	"strconv"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/zhquiz/go-server/server/db"
-	"github.com/zhquiz/go-server/server/zh"
 )
 
 func routerSentence(apiRouter *gin.RouterGroup) {
@@ -26,9 +24,17 @@ func routerSentence(apiRouter *gin.RouterGroup) {
 			return
 		}
 
-		var zhSentence zh.Sentence
+		type Result struct {
+			Chinese string `json:"chinese"`
+			English string `json:"english"`
+		}
+		var result Result
 
-		if r := resource.Zh.Current.Where("chinese = ?", query.Entry).First(&zhSentence); r.Error != nil {
+		if r := resource.Zh.Current.Raw(`
+		SELECT Chinese, English
+		FROM sentence
+		WHERE chinese = ?
+		`).First(&result); r.Error != nil {
 			if errors.Is(r.Error, sql.ErrNoRows) {
 				ctx.AbortWithStatus(404)
 				return
@@ -37,10 +43,7 @@ func routerSentence(apiRouter *gin.RouterGroup) {
 			panic(r.Error)
 		}
 
-		ctx.JSON(200, gin.H{
-			"chinese": zhSentence.Chinese,
-			"english": zhSentence.English,
-		})
+		ctx.JSON(200, result)
 	})
 
 	r.GET("/q", func(ctx *gin.Context) {
@@ -53,27 +56,20 @@ func routerSentence(apiRouter *gin.RouterGroup) {
 			return
 		}
 
-		var preresult []zh.Sentence
-
-		if r := resource.Zh.Current.
-			Where("chinese LIKE '%'||?||'%'", query.Q).
-			Order("level,frequency desc").Limit(10).
-			Find(&preresult); r.Error != nil {
-			panic(r.Error)
-		}
-
 		type Result struct {
 			Chinese string `json:"chinese"`
 			English string `json:"english"`
 		}
-
 		var result []Result
 
-		for _, r := range preresult {
-			result = append(result, Result{
-				Chinese: r.Chinese,
-				English: strings.Split(r.English, "\u001f")[0],
-			})
+		if r := resource.Zh.Current.Raw(`
+		SELECT Chinese, English
+		FROM sentence
+		WHERE chinese LIKE '%'||?||'%'
+		ORDER BY level, frequency DESC
+		LIMIT 10
+		`, query.Q).Find(&result); r.Error != nil {
+			panic(r.Error)
 		}
 
 		if len(result) == 0 {
@@ -147,35 +143,40 @@ func routerSentence(apiRouter *gin.RouterGroup) {
 			where = "chinese NOT IN @entries AND " + where
 		}
 
-		var items []struct {
-			Result  string `json:"result"`
-			English string `json:"english"`
-			Level   int    `json:"level"`
+		type Result struct {
+			Result  string  `json:"result"`
+			English string  `json:"english"`
+			Level   float64 `json:"level"`
 		}
+		var result []Result
 
-		if r := resource.Zh.Current.
-			Model(&zh.Sentence{}).
-			Select("chinese AS Result", "english").
-			Where(where, cond).
-			Find(&items); r.Error != nil {
+		if r := resource.Zh.Current.Raw(fmt.Sprintf(`
+		SELECT chinese Result, English, Level
+		FROM sentence
+		WHERE %s
+		`, where), cond).Find(&result); r.Error != nil {
 			panic(r.Error)
 		}
 
-		if len(items) < 1 {
-			if r := resource.Zh.Current.
-				Model(&zh.Sentence{}).
-				Select("chinese AS Result", "english").
-				Where("chinese NOT IN @entries", cond).
-				Find(&items); r.Error != nil {
+		if len(result) < 1 {
+			result = []Result{}
+
+			if r := resource.Zh.Current.Raw(fmt.Sprintf(`
+			SELECT chinese Result, English, Level
+			FROM sentence
+			WHERE %s
+			`, where), cond).Find(&result); r.Error != nil {
 				panic(r.Error)
 			}
 		}
 
-		if len(items) < 1 {
+		if len(result) < 1 {
 			ctx.AbortWithError(404, fmt.Errorf("no matching entries found"))
 			return
 		}
 
-		ctx.JSON(200, items[rand.Intn(len(items))])
+		r := result[rand.Intn(len(result))]
+
+		ctx.JSON(200, r)
 	})
 }

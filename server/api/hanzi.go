@@ -9,7 +9,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/zhquiz/go-server/server/db"
-	"github.com/zhquiz/go-server/server/zh"
 )
 
 func routerHanzi(apiRouter *gin.RouterGroup) {
@@ -33,23 +32,22 @@ func routerHanzi(apiRouter *gin.RouterGroup) {
 			English  string `json:"english"`
 		}
 
-		if r := resource.Zh.Current.Model(&zh.Token{}).Select(`
-		(
-			SELECT GROUP_CONCAT(child, '') FROM token_sub WHERE parent = entry GROUP BY parent
-		) sub,
-		(
-			SELECT GROUP_CONCAT(child, '') FROM token_sup WHERE parent = entry GROUP BY parent
-		) sup,
-		(
-			SELECT GROUP_CONCAT(child, '') FROM token_var WHERE parent = entry GROUP BY parent
-		) variants,
-		pinyin,
-		english
-		`).Joins(`
-		LEFT JOIN token_sub ON token_sub.parent = entry
-		LEFT JOIN token_sup ON token_sup.parent = entry
-		LEFT JOIN token_var ON token_var.parent = entry
-		`).Where("entry = ?", query.Entry).Group("entry").First(&out); r.Error != nil {
+		if r := resource.Zh.Current.Raw(`
+		SELECT
+			(
+				SELECT GROUP_CONCAT(child, '') FROM token_sub WHERE parent = entry GROUP BY parent
+			) Sub,
+			(
+				SELECT GROUP_CONCAT(child, '') FROM token_sup WHERE parent = entry GROUP BY parent
+			) Sup,
+			(
+				SELECT GROUP_CONCAT(child, '') FROM token_var WHERE parent = entry GROUP BY parent
+			) Variants,
+			Pinyin,
+			English
+		FROM token
+		WHERE [entry] = ?
+		`, query.Entry).First(&out); r.Error != nil {
 			if errors.Is(r.Error, sql.ErrNoRows) {
 				ctx.AbortWithStatus(404)
 				return
@@ -123,17 +121,18 @@ func routerHanzi(apiRouter *gin.RouterGroup) {
 			where = "entry NOT IN @entries AND " + where
 		}
 
-		var items []struct {
+		type Item struct {
 			Result  string `json:"result"`
 			English string `json:"english"`
 			Level   int    `json:"level"`
 		}
+		var items []Item
 
-		if r := resource.Zh.Current.
-			Model(&zh.Token{}).
-			Select("entry Result, English, hanzi_level Level").
-			Where(where, params).
-			Find(&items); r.Error != nil {
+		if r := resource.Zh.Current.Raw(fmt.Sprintf(`
+		SELECT entry Result, English, hanzi_level Level
+		FROM token
+		WHERE %s
+		`, where), params).Find(&items); r.Error != nil {
 			panic(r.Error)
 		}
 
@@ -143,11 +142,11 @@ func routerHanzi(apiRouter *gin.RouterGroup) {
 				where = "entry NOT IN @entries AND " + where
 			}
 
-			if r := resource.Zh.Current.
-				Model(&zh.Token{}).
-				Select("entry Result, English, hanzi_level level").
-				Where(where, params).
-				Find(&items); r.Error != nil {
+			if r := resource.Zh.Current.Raw(fmt.Sprintf(`
+			SELECT entry Result, English, hanzi_level Level
+			FROM token
+			WHERE %s
+			`, where), params).Find(&items); r.Error != nil {
 				panic(r.Error)
 			}
 		}
