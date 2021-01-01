@@ -127,8 +127,10 @@ func routerSentence(apiRouter *gin.RouterGroup) {
 
 	r.GET("/all", func(ctx *gin.Context) {
 		var query struct {
-			Page    *string `form:"page"`
-			PerPage *string `form:"perPage"`
+			Page     string `form:"page" binding:"required"`
+			PerPage  string `form:"perPage" binding:"required"`
+			Level    string `form:"level" binding:"required"`
+			LevelMin string `form:"levelMin" binding:"required"`
 		}
 
 		if e := ctx.ShouldBindQuery(&query); e != nil {
@@ -137,8 +139,8 @@ func routerSentence(apiRouter *gin.RouterGroup) {
 		}
 
 		page := 1
-		if query.Page != nil {
-			i, err := strconv.Atoi(*query.Page)
+		{
+			i, err := strconv.Atoi(query.Page)
 			if err != nil {
 				ctx.AbortWithError(400, errors.New("page must be int"))
 				return
@@ -148,8 +150,8 @@ func routerSentence(apiRouter *gin.RouterGroup) {
 
 		isCount := false
 		perPage := 5
-		if query.PerPage != nil {
-			i, err := strconv.Atoi(*query.PerPage)
+		{
+			i, err := strconv.Atoi(query.PerPage)
 			if err != nil {
 				ctx.AbortWithError(400, errors.New("perPage must be int"))
 				return
@@ -158,18 +160,44 @@ func routerSentence(apiRouter *gin.RouterGroup) {
 			isCount = true
 		}
 
+		level := 60
+		{
+			i, err := strconv.Atoi(query.Level)
+			if err != nil {
+				ctx.AbortWithError(400, errors.New("level must be int"))
+				return
+			}
+			level = i
+		}
+
+		levelMin := 1
+		{
+			i, err := strconv.Atoi(query.LevelMin)
+			if err != nil {
+				ctx.AbortWithError(400, errors.New("levelMin must be int"))
+				return
+			}
+			levelMin = i
+		}
+
 		type Result struct {
 			Chinese string `json:"chinese"`
 			English string `json:"english"`
 		}
 		var result []Result
 
+		cond := map[string]interface{}{
+			"level":    level,
+			"levelMin": levelMin,
+		}
+
 		if r := resource.Zh.Current.Raw(fmt.Sprintf(`
 		SELECT Chinese, English
 		FROM sentence
+		WHERE level <= @level AND level >= @levelMin
 		ORDER BY level, frequency DESC
 		LIMIT %d OFFSET %d
-		`, perPage, (page-1)*perPage)).Find(&result); r.Error != nil {
+		`, perPage, (page-1)*perPage), cond).Find(&result); r.Error != nil {
 			panic(r.Error)
 		}
 
@@ -191,7 +219,8 @@ func routerSentence(apiRouter *gin.RouterGroup) {
 			if r := resource.Zh.Current.Raw(`
 			SELECT COUNT(*) Count
 			FROM sentence
-			`).Scan(&count); r.Error != nil {
+			WHERE level <= @level AND level >= @levelMin
+			`, cond).Scan(&count); r.Error != nil {
 				panic(r.Error)
 			}
 			out.Count = &count

@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/zhquiz/go-server/server/rand"
+	"gorm.io/gorm"
+	"gorm.io/gorm/schema"
 )
 
 // User holds user data
@@ -20,7 +22,7 @@ type User struct {
 	Email  string `gorm:"index:,unique;not null;check:length(email) > 4"`
 	APIKey string `gorm:"index,not null;check:length(api_key) > 20"`
 
-	Meta UserMeta `gorm:"type:json"`
+	Meta UserMeta
 
 	// Relations
 	Decks   []Deck   `gorm:"constraint:OnDelete:CASCADE"`
@@ -63,6 +65,17 @@ func (j *UserMeta) Scan(value interface{}) error {
 // Value return json value, implement driver.Valuer interface
 func (j UserMeta) Value() (driver.Value, error) {
 	return json.Marshal(j)
+}
+
+// GormDBDataType represents UserMeta's data type
+func (UserMeta) GormDBDataType(db *gorm.DB, _ *schema.Field) string {
+	switch db.Dialector.Name() {
+	case "mysql", "sqlite":
+		return "JSON"
+	case "postgres":
+		return "JSONB"
+	}
+	return "TEXT"
 }
 
 // New creates new User record

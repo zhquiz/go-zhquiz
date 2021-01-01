@@ -1,14 +1,12 @@
 package api
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/zhquiz/go-server/server/db"
-	"gorm.io/gorm"
 )
 
 func routerUser(apiRouter *gin.RouterGroup) {
@@ -55,7 +53,7 @@ func routerUser(apiRouter *gin.RouterGroup) {
 
 		var dbUser db.User
 
-		if r := resource.DB.Current.Select(sel).Where("ID = ?", userID).First(&dbUser); errors.Is(r.Error, gorm.ErrRecordNotFound) {
+		if r := resource.DB.Current.Select(sel).Where("ID = ?", userID).First(&dbUser); r.Error != nil {
 			panic(r.Error)
 		}
 
@@ -77,6 +75,46 @@ func routerUser(apiRouter *gin.RouterGroup) {
 		}
 
 		ctx.JSON(200, out)
+	})
+
+	r.PATCH("/", func(ctx *gin.Context) {
+		userID := getUserID(ctx)
+		if userID == "" {
+			ctx.AbortWithStatus(401)
+			return
+		}
+
+		var body struct {
+			LevelMin *uint `json:"levelMin"`
+			Level    *uint `json:"level"`
+		}
+
+		if e := ctx.ShouldBindJSON(&body); e != nil {
+			ctx.AbortWithError(400, e)
+			return
+		}
+
+		var dbUser db.User
+
+		if r := resource.DB.Current.Where("ID = ?", userID).First(&dbUser); r.Error != nil {
+			panic(r.Error)
+		}
+
+		if body.Level != nil {
+			dbUser.Meta.Level = body.Level
+		}
+
+		if body.LevelMin != nil {
+			dbUser.Meta.LevelMin = body.LevelMin
+		}
+
+		if r := resource.DB.Current.Save(&dbUser); r.Error != nil {
+			panic(r.Error)
+		}
+
+		ctx.JSON(201, gin.H{
+			"result": "updated",
+		})
 	})
 
 	r.DELETE("/signOut", func(ctx *gin.Context) {
