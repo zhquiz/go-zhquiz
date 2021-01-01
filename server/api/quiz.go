@@ -79,7 +79,7 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 			where = where + " AND id IN @ids"
 			cond["ids"] = ids
 		} else if len(entries) > 0 {
-			where = where + " AND entries IN @entries"
+			where = where + " AND [entry] IN @entries"
 			cond["entries"] = entries
 		} else {
 			ctx.AbortWithError(400, fmt.Errorf("either IDs or Entries must be specified"))
@@ -87,7 +87,7 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 		}
 
 		if query.Type != "" {
-			where = where + " AND [Type] IN @type"
+			where = where + " AND [Type] = @type"
 			cond["type"] = query.Type
 		}
 
@@ -101,7 +101,7 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 			panic(r.Error)
 		}
 
-		var out []gin.H
+		out := make([]gin.H, 0)
 		getMap := map[string]func(q *db.Quiz) interface{}{
 			"id":        func(q *db.Quiz) interface{} { return q.ID },
 			"entry":     func(q *db.Quiz) interface{} { return q.Entry },
@@ -155,7 +155,7 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 
 		var query struct {
 			ID   string `form:"id" binding:"required"`
-			Type string `form:"type" binding:"required;oneof=right wrong repeat"`
+			Type string `form:"type" binding:"required,oneof=right wrong repeat"`
 		}
 
 		if e := ctx.ShouldBindQuery(&query); e != nil {
@@ -337,6 +337,7 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 			}
 		}
 
+		rand.Seed(time.Now().UnixNano())
 		rand.Shuffle(len(quiz), func(i, j int) {
 			quiz[i], quiz[j] = quiz[j], quiz[i]
 		})
@@ -414,7 +415,7 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 			for _, d := range directions {
 				if lookupDir[d].ID == "" {
 					newQ = append(newQ, db.Quiz{
-						ID:        resource.NewULID(),
+						ID:        NewULID(),
 						UserID:    userID,
 						Entry:     entry,
 						Type:      body.Type,

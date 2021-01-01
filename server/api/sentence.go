@@ -35,7 +35,7 @@ func routerSentence(apiRouter *gin.RouterGroup) {
 		SELECT Chinese, English
 		FROM sentence
 		WHERE chinese = ?
-		`).First(&result); r.Error != nil {
+		`, query.Entry).First(&result); r.Error != nil {
 			if errors.Is(r.Error, sql.ErrNoRows) {
 				ctx.AbortWithStatus(404)
 				return

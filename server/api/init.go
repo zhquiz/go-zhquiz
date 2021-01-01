@@ -1,7 +1,6 @@
 package api
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"io"
@@ -16,7 +15,6 @@ import (
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
-	"github.com/oklog/ulid/v2"
 	"github.com/zhquiz/go-server/server/db"
 	"github.com/zhquiz/go-server/server/rand"
 	"github.com/zhquiz/go-server/server/zh"
@@ -31,14 +29,8 @@ var validate *validator.Validate = validator.New()
 
 // Resource is a struct for reuse and cleanup.
 type Resource struct {
-	DB          db.DB
-	Zh          zh.DB
-	ulidEntropy io.Reader
-}
-
-// NewULID generates new ULID
-func (res Resource) NewULID() string {
-	return ulid.MustNew(ulid.Now(), res.ulidEntropy).String()
+	DB db.DB
+	Zh zh.DB
 }
 
 // Prepare initializes Resource for reuse and cleanup.
@@ -46,15 +38,9 @@ func Prepare() Resource {
 	f, _ := os.Create(filepath.Join(shared.Paths().Root, "gin.log"))
 	gin.DefaultWriter = io.MultiWriter(f, os.Stdout)
 
-	entropy, err := rand.GenerateRandomBytes(64)
-	if err != nil {
-		log.Fatalln(err)
-	}
-
 	resource = Resource{
-		DB:          db.Connect(),
-		Zh:          zh.Connect(),
-		ulidEntropy: bytes.NewReader(entropy),
+		DB: db.Connect(),
+		Zh: zh.Connect(),
 	}
 
 	return resource
@@ -213,7 +199,7 @@ func CotterAuthMiddleware() gin.HandlerFunc {
 
 				if errors.Is(r.Error, gorm.ErrRecordNotFound) {
 					dbUser = db.User{}
-					dbUser.New(resource.NewULID(), userName)
+					dbUser.New(NewULID(), userName)
 
 					if rCreate := resource.DB.Current.Create(&dbUser); rCreate.Error != nil {
 						panic(rCreate.Error)

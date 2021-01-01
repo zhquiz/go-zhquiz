@@ -69,28 +69,31 @@ func getNextReview(srsLevel int8) time.Time {
 func (q *Quiz) UpdateSRSLevel(dSRSLevel int8) {
 	if dSRSLevel > 0 {
 		if q.RightStreak == nil {
-			*q.RightStreak = 0
+			var s uint = 0
+			q.RightStreak = &s
 		}
 
 		*q.RightStreak++
 
 		if q.MaxRight == nil || *q.MaxRight < *q.RightStreak {
-			*q.MaxRight = *q.RightStreak
+			q.MaxRight = q.RightStreak
 		}
 	} else if dSRSLevel < 0 {
 		if q.WrongStreak == nil {
-			*q.WrongStreak = 0
+			var s uint = 0
+			q.WrongStreak = &s
 		}
 
 		*q.WrongStreak++
 
 		if q.MaxWrong == nil || *q.MaxWrong < *q.WrongStreak {
-			*q.MaxWrong = *q.WrongStreak
+			q.MaxWrong = q.WrongStreak
 		}
 	}
 
 	if q.SRSLevel == nil {
-		*q.SRSLevel = 0
+		var s int8 = 0
+		q.SRSLevel = &s
 	}
 
 	*q.SRSLevel += dSRSLevel
@@ -101,8 +104,10 @@ func (q *Quiz) UpdateSRSLevel(dSRSLevel int8) {
 
 	if *q.SRSLevel < 0 {
 		*q.SRSLevel = 0
-		*q.NextReview = getNextReview(-1)
+		nextReview := getNextReview(-1)
+		q.NextReview = &nextReview
 	} else {
-		*q.NextReview = getNextReview(*q.SRSLevel)
+		nextReview := getNextReview(*q.SRSLevel)
+		q.NextReview = &nextReview
 	}
 }

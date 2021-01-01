@@ -107,7 +107,7 @@ func routerVocab(apiRouter *gin.RouterGroup) {
 			panic(r.Error)
 		}
 
-		var srsLevelMap map[string]*int8
+		srsLevelMap := map[string]*int8{}
 		for _, it := range existing {
 			srsLevelMap[it.Entry] = it.SRSLevel
 		}
