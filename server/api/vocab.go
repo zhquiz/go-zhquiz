@@ -79,6 +79,7 @@ func routerVocab(apiRouter *gin.RouterGroup) {
 		WHERE simplified LIKE '%'||?||'%' OR traditional LIKE '%'||?||'%'
 		GROUP BY cedict.ROWID
 		ORDER BY token.frequency DESC
+		LIMIT 10
 		`, query.Q, query.Q).Find(&result); r.Error != nil {
 			panic(r.Error)
 		}
@@ -89,6 +90,49 @@ func routerVocab(apiRouter *gin.RouterGroup) {
 
 		ctx.JSON(200, gin.H{
 			"result": result,
+		})
+	})
+
+	r.GET("/level", func(ctx *gin.Context) {
+		userID := getUserID(ctx)
+		if userID == "" {
+			ctx.AbortWithStatus(401)
+			return
+		}
+
+		var existing []db.Quiz
+		if r := resource.DB.Current.
+			Where("user_id = ? AND [type] = 'vocab' AND srs_level IS NOT NULL", userID).
+			Find(&existing); r.Error != nil {
+			panic(r.Error)
+		}
+
+		var srsLevelMap map[string]*int8
+		for _, it := range existing {
+			srsLevelMap[it.Entry] = it.SRSLevel
+		}
+
+		type Item struct {
+			Entry    string `json:"entry"`
+			Level    int    `json:"level"`
+			SRSLevel *int8  `json:"srs_level"`
+		}
+		var items []Item
+
+		if r := resource.Zh.Current.Raw(`
+		SELECT Entry, vocab_level Level
+		FROM token
+		WHERE vocab_level IS NOT NULL
+		`).Find(&items); r.Error != nil {
+			panic(r.Error)
+		}
+
+		for i, it := range items {
+			items[i].SRSLevel = srsLevelMap[it.Entry]
+		}
+
+		ctx.JSON(200, gin.H{
+			"result": items,
 		})
 	})
 

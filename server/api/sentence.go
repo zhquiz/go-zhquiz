@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/rand"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/zhquiz/go-server/server/db"
@@ -48,12 +49,36 @@ func routerSentence(apiRouter *gin.RouterGroup) {
 
 	r.GET("/q", func(ctx *gin.Context) {
 		var query struct {
-			Q string `form:"q" binding:"required"`
+			Q       string  `form:"q" binding:"required"`
+			Page    *string `form:"page"`
+			PerPage *string `form:"perPage"`
 		}
 
 		if e := ctx.ShouldBindQuery(&query); e != nil {
 			ctx.AbortWithError(400, e)
 			return
+		}
+
+		page := 1
+		if query.Page != nil {
+			i, err := strconv.Atoi(*query.Page)
+			if err != nil {
+				ctx.AbortWithError(400, errors.New("page must be int"))
+				return
+			}
+			page = i
+		}
+
+		isCount := false
+		perPage := 5
+		if query.PerPage != nil {
+			i, err := strconv.Atoi(*query.PerPage)
+			if err != nil {
+				ctx.AbortWithError(400, errors.New("perPage must be int"))
+				return
+			}
+			perPage = i
+			isCount = true
 		}
 
 		type Result struct {
@@ -62,23 +87,117 @@ func routerSentence(apiRouter *gin.RouterGroup) {
 		}
 		var result []Result
 
-		if r := resource.Zh.Current.Raw(`
+		if r := resource.Zh.Current.Raw(fmt.Sprintf(`
 		SELECT Chinese, English
 		FROM sentence
-		WHERE chinese LIKE '%'||?||'%'
+		WHERE chinese LIKE '%%'||?||'%%'
 		ORDER BY level, frequency DESC
-		LIMIT 10
-		`, query.Q).Find(&result); r.Error != nil {
+		LIMIT %d OFFSET %d
+		`, perPage, (page-1)*perPage), query.Q).Find(&result); r.Error != nil {
 			panic(r.Error)
 		}
 
-		if len(result) == 0 {
-			result = make([]Result, 0)
+		for i, it := range result {
+			result[i].English = strings.Split(it.English, "\u001f")[0]
 		}
 
-		ctx.JSON(200, gin.H{
-			"result": result,
-		})
+		out := struct {
+			Result []Result `json:"result"`
+			Count  *int     `json:"count"`
+		}{
+			Result: result,
+		}
+
+		if len(out.Result) == 0 {
+			out.Result = make([]Result, 0)
+		} else if isCount {
+			var count int
+			if r := resource.Zh.Current.Raw(`
+			SELECT COUNT(*)
+			FROM sentence
+			WHERE chinese LIKE '%'||?||'%'
+			`, query.Q).Scan(&count); r.Error != nil {
+				panic(r.Error)
+			}
+			out.Count = &count
+		}
+
+		ctx.JSON(200, out)
+	})
+
+	r.GET("/all", func(ctx *gin.Context) {
+		var query struct {
+			Page    *string `form:"page"`
+			PerPage *string `form:"perPage"`
+		}
+
+		if e := ctx.ShouldBindQuery(&query); e != nil {
+			ctx.AbortWithError(400, e)
+			return
+		}
+
+		page := 1
+		if query.Page != nil {
+			i, err := strconv.Atoi(*query.Page)
+			if err != nil {
+				ctx.AbortWithError(400, errors.New("page must be int"))
+				return
+			}
+			page = i
+		}
+
+		isCount := false
+		perPage := 5
+		if query.PerPage != nil {
+			i, err := strconv.Atoi(*query.PerPage)
+			if err != nil {
+				ctx.AbortWithError(400, errors.New("perPage must be int"))
+				return
+			}
+			perPage = i
+			isCount = true
+		}
+
+		type Result struct {
+			Chinese string `json:"chinese"`
+			English string `json:"english"`
+		}
+		var result []Result
+
+		if r := resource.Zh.Current.Raw(fmt.Sprintf(`
+		SELECT Chinese, English
+		FROM sentence
+		ORDER BY level, frequency DESC
+		LIMIT %d OFFSET %d
+		`, perPage, (page-1)*perPage)).Find(&result); r.Error != nil {
+			panic(r.Error)
+		}
+
+		for i, it := range result {
+			result[i].English = strings.Split(it.English, "\u001f")[0]
+		}
+
+		out := struct {
+			Result []Result `json:"result"`
+			Count  *int     `json:"count"`
+		}{
+			Result: result,
+		}
+
+		if len(out.Result) == 0 {
+			out.Result = make([]Result, 0)
+		} else if isCount {
+			var count int
+			if r := resource.Zh.Current.Raw(`
+			SELECT COUNT(*) Count
+			FROM sentence
+			`).Scan(&count); r.Error != nil {
+				panic(r.Error)
+			}
+			out.Count = &count
+		}
+
+		ctx.JSON(200, out)
 	})
 
 	r.GET("/random", func(ctx *gin.Context) {

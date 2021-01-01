@@ -197,10 +197,10 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 				panic(r.Error)
 			}
 
-			user.Meta.Quiz.Direction = rs.Direction
-			user.Meta.Quiz.Stage = rs.Stage
-			user.Meta.Quiz.Type = rs.Type
-			user.Meta.Quiz.IsDue = rs.IsDue
+			user.Meta.Settings.Quiz.Direction = rs.Direction
+			user.Meta.Settings.Quiz.Stage = rs.Stage
+			user.Meta.Settings.Quiz.Type = rs.Type
+			user.Meta.Settings.Quiz.IsDue = rs.IsDue
 
 			if r := resource.DB.Current.Save(&user); r.Error != nil {
 				panic(r.Error)
@@ -242,7 +242,7 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 
 		var quizzes []db.Quiz
 
-		if r := q.Group("quizzes.id").Find(&quizzes); r.Error != nil {
+		if r := q.Group("quiz.id").Find(&quizzes); r.Error != nil {
 			panic(r.Error)
 		}
 

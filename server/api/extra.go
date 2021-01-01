@@ -190,6 +190,7 @@ func routerExtra(apiRouter *gin.RouterGroup) {
 			Chinese string `json:"chinese" binding:"required"`
 			Pinyin  string `json:"pinyin" binding:"required"`
 			English string `json:"english" binding:"required"`
+			Forced  bool   `json:"forced"`
 		}
 
 		if e := ctx.BindJSON(&body); e != nil {
@@ -272,17 +273,19 @@ func routerExtra(apiRouter *gin.RouterGroup) {
 			return true
 		}
 
-		if checkVocab() {
-			return
-		}
-
-		if len([]rune(body.Chinese)) == 1 {
-			if checkHanzi() {
+		if !body.Forced {
+			if checkVocab() {
 				return
 			}
-		} else {
-			if checkSentence() {
-				return
+
+			if len([]rune(body.Chinese)) == 1 {
+				if checkHanzi() {
+					return
+				}
+			} else {
+				if checkSentence() {
+					return
+				}
 			}
 		}
 

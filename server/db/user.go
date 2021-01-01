@@ -34,11 +34,16 @@ type UserMeta struct {
 	Forvo    *string
 	Level    *uint
 	LevelMin *uint
-	Quiz     struct {
-		Type      []string
-		Stage     []string
-		Direction []string
-		IsDue     bool
+	Settings struct {
+		Level struct {
+			WhatToShow []string
+		}
+		Quiz struct {
+			Type      []string
+			Stage     []string
+			Direction []string
+			IsDue     bool
+		}
 	}
 }
 

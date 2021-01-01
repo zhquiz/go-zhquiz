@@ -33,11 +33,12 @@ func routerUser(apiRouter *gin.RouterGroup) {
 		qSel := strings.Split(query.Select, ",")
 		sel := []string{}
 		sMap := map[string]string{
-			"level":    "Meta",
-			"levelMin": "Meta",
-			"forvo":    "Meta",
-			"quiz":     "Meta",
-			"apiKey":   "APIKey",
+			"level":                     "Meta",
+			"levelMin":                  "Meta",
+			"forvo":                     "Meta",
+			"apiKey":                    "APIKey",
+			"settings.quiz":             "Meta",
+			"settings.level.whatToShow": "Meta",
 		}
 
 		for _, s := range qSel {
@@ -60,11 +61,12 @@ func routerUser(apiRouter *gin.RouterGroup) {
 
 		out := gin.H{}
 		outMap := map[string]func() interface{}{
-			"level":    func() interface{} { return dbUser.Meta.Level },
-			"levelMin": func() interface{} { return dbUser.Meta.LevelMin },
-			"forvo":    func() interface{} { return *dbUser.Meta.Forvo },
-			"quiz":     func() interface{} { return dbUser.Meta.Quiz },
-			"apiKey":   func() interface{} { return dbUser.APIKey },
+			"level":                     func() interface{} { return dbUser.Meta.Level },
+			"levelMin":                  func() interface{} { return dbUser.Meta.LevelMin },
+			"forvo":                     func() interface{} { return *dbUser.Meta.Forvo },
+			"apiKey":                    func() interface{} { return dbUser.APIKey },
+			"settings.quiz":             func() interface{} { return dbUser.Meta.Settings.Quiz },
+			"settings.level.whatToShow": func() interface{} { return dbUser.Meta.Settings.Level.WhatToShow },
 		}
 
 		for _, s := range qSel {
