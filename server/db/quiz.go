@@ -11,7 +11,7 @@ type Quiz struct {
 	UpdatedAt time.Time
 
 	// Relationships
-	UserID uint `gorm:"index:quiz_unique_idx,unique;not null"`
+	UserID string `gorm:"index:quiz_unique_idx,unique;not null"`
 	User   User
 
 	Tags []Tag `gorm:"many2many:quiz_tag"`
@@ -19,7 +19,7 @@ type Quiz struct {
 	// Entry references
 	Entry     string `gorm:"index:quiz_unique_idx,unique;not null;check:length(entry) > 0"`
 	Type      string `gorm:"index:quiz_unique_idx,unique;not null;check:[type] in ('hanzi','vocab','sentence')"`
-	Direction string `gorm:"index:quiz_unique_idx,unique;not null;check:direction in ('ce','ec','te')"`
+	Direction string `gorm:"index:quiz_unique_idx,unique;not null;check:direction in ('se','ec','te')"`
 
 	// Quiz annotations
 	Front    *string
@@ -44,14 +44,6 @@ type QuizTag struct {
 	TagID  string `gorm:"primaryKey"`
 	Quiz   Quiz
 	Tag    Tag
-}
-
-// New creates a new quiz item
-func (q *Quiz) New(userID uint, entry string, typing string, direction string) {
-	q.UserID = userID
-	q.Entry = entry
-	q.Type = typing
-	q.Direction = direction
 }
 
 var srsMap []time.Duration = []time.Duration{

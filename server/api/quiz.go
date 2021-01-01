@@ -1,6 +1,8 @@
 package api
 
 import (
+	"database/sql"
+	"errors"
 	"fmt"
 	"math/rand"
 	"sort"
@@ -10,6 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/zhquiz/go-server/server/db"
 	"github.com/zhquiz/go-server/server/util"
+	"github.com/zhquiz/go-server/server/zh"
 	"gopkg.in/sakura-internet/go-rison.v3"
 )
 
@@ -26,7 +29,7 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 		var query struct {
 			IDs     string `form:"ids"`
 			Entries string `form:"entries"`
-			Type    string `form:"type" binding:"oneof=hanzi vocab sentence extra"`
+			Type    string `form:"type" binding:"oneof=hanzi vocab sentence extra ''"`
 			Select  string `form:"select"`
 		}
 
@@ -37,7 +40,6 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 		sel := []string{}
 		sMap := map[string]string{
 			"id":        "ID",
-			"tag":       "Tag",
 			"entry":     "[Entry]",
 			"type":      "[Type]",
 			"direction": "Direction",
@@ -48,7 +50,7 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 
 		for _, s := range strings.Split(query.Select, ",") {
 			k := sMap[s]
-			if k != "" {
+			if k != "" && k != "_" {
 				sel = append(sel, k)
 			}
 		}
@@ -58,28 +60,85 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 			return
 		}
 
-		var out []gin.H
+		var ids []string
+		if query.IDs != "" {
+			ids = strings.Split(query.IDs, ",")
+		}
 
-		ids := strings.Split(query.IDs, ",")
-		entries := strings.Split(query.Entries, ",")
+		var entries []string
+		if query.Entries != "" {
+			entries = strings.Split(query.Entries, ",")
+		}
+
+		where := "user_id = @userID"
+		cond := map[string]interface{}{
+			"userID": userID,
+		}
 
 		if len(ids) > 0 {
-			if r := resource.DB.Current.Model(&db.Quiz{}).
-				Select(sel).
-				Where("user_id = ? AND id IN ?", userID, ids).
-				Find(&out); r.Error != nil {
-				panic(r.Error)
-			}
-		} else if len(entries) > 0 && query.Type != "" {
-			if r := resource.DB.Current.Model(&db.Quiz{}).
-				Select(sel).
-				Where("user_id = ? AND [Type] = ? AND entry IN ?", userID, query.Type, entries).
-				Find(&out); r.Error != nil {
-				panic(r.Error)
-			}
+			where = where + " AND id IN @ids"
+			cond["ids"] = ids
+		} else if len(entries) > 0 {
+			where = where + " AND entries IN @entries"
+			cond["entries"] = entries
 		} else {
 			ctx.AbortWithError(400, fmt.Errorf("either IDs or Entries must be specified"))
 			return
+		}
+
+		if query.Type != "" {
+			where = where + " AND [Type] IN @type"
+			cond["type"] = query.Type
+		}
+
+		var quizzes []db.Quiz
+
+		clause := resource.DB.Current.Model(&db.Quiz{}).
+			Select(sel).
+			Where(where, cond)
+
+		if r := clause.Find(&quizzes); r.Error != nil {
+			panic(r.Error)
+		}
+
+		var out []gin.H
+		getMap := map[string]func(q *db.Quiz) interface{}{
+			"id":        func(q *db.Quiz) interface{} { return q.ID },
+			"entry":     func(q *db.Quiz) interface{} { return q.Entry },
+			"type":      func(q *db.Quiz) interface{} { return q.Type },
+			"direction": func(q *db.Quiz) interface{} { return q.Direction },
+			"front":     func(q *db.Quiz) interface{} { return q.Front },
+			"back":      func(q *db.Quiz) interface{} { return q.Back },
+			"mnemonic":  func(q *db.Quiz) interface{} { return q.Mnemonic },
+			"tag": func(q *db.Quiz) interface{} {
+				tag := make([]string, 0)
+
+				var ts []db.Tag
+				if r := resource.DB.Current.
+					Joins("JOIN quiz_tag ON quiz_tag.tag_id = tag.id").
+					Where("quiz_id = ?", q.ID).
+					Find(&ts); r.Error != nil {
+					panic(r.Error)
+				}
+
+				for _, t := range ts {
+					tag = append(tag, t.Name)
+				}
+
+				return tag
+			},
+		}
+
+		for _, q := range quizzes {
+			it := gin.H{}
+			for _, s := range strings.Split(query.Select, ",") {
+				k := getMap[s]
+				if k != nil {
+					it[s] = k(&q)
+				}
+			}
+
+			out = append(out, it)
 		}
 
 		ctx.JSON(200, gin.H{
@@ -295,6 +354,95 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 		ctx.JSON(200, gin.H{
 			"quiz":     quiz,
 			"upcoming": upcoming,
+		})
+	})
+
+	r.PUT("/", func(ctx *gin.Context) {
+		userID := getUserID(ctx)
+		if userID == "" {
+			ctx.AbortWithStatus(401)
+			return
+		}
+
+		var body struct {
+			Entries []string `json:"entries" binding:"required,min=1"`
+			Type    string   `json:"type" binding:"required,oneof=hanzi vocab sentence extra"`
+		}
+		if e := ctx.ShouldBindJSON(&body); e != nil {
+			ctx.AbortWithError(400, e)
+		}
+
+		var newQ []db.Quiz
+		var existingQ []db.Quiz
+
+		if r := resource.DB.Current.
+			Where("user_id = ? AND entry IN ? AND type = ?", userID, body.Entries, body.Type).
+			Find(&existingQ); r.Error != nil {
+			panic(r.Error)
+		}
+
+		var lookup map[string]map[string]db.Quiz
+
+		for _, it := range existingQ {
+			if lookup[it.Entry] == nil {
+				lookup[it.Entry] = map[string]db.Quiz{}
+			}
+			lookup[it.Entry][it.Direction] = it
+		}
+
+		for _, entry := range body.Entries {
+			directions := []string{"se", "ec"}
+			if body.Type == "vocab" {
+				r := resource.Zh.Current.
+					Where("(simplified = ? OR traditional = ?) AND traditional IS NOT NULL", entry, entry).
+					First(&zh.Cedict{})
+
+				if r.Error != nil {
+					if !errors.Is(r.Error, sql.ErrNoRows) {
+						panic(r.Error)
+					}
+				} else {
+					directions = append(directions, "te")
+				}
+			}
+
+			lookupDir := lookup[entry]
+			if lookupDir == nil {
+				lookupDir = map[string]db.Quiz{}
+			}
+
+			for _, d := range directions {
+				if lookupDir[d].ID == "" {
+					newQ = append(newQ, db.Quiz{
+						ID:        resource.NewULID(),
+						UserID:    userID,
+						Entry:     entry,
+						Type:      body.Type,
+						Direction: d,
+					})
+				}
+			}
+		}
+
+		if len(newQ) > 0 {
+			if r := resource.DB.Current.CreateInBatches(newQ, 10); r.Error != nil {
+				panic(r.Error)
+			}
+		}
+
+		ids := make([]string, 0)
+		for _, q := range newQ {
+			ids = append(ids, q.ID)
+		}
+
+		existing := make([]string, 0)
+		for _, q := range existingQ {
+			existing = append(existing, q.ID)
+		}
+
+		ctx.JSON(201, gin.H{
+			"ids":      ids,
+			"existing": existing,
 		})
 	})
 }
