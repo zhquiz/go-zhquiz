@@ -37,6 +37,9 @@ func routerUser(apiRouter *gin.RouterGroup) {
 			"apiKey":                    "APIKey",
 			"settings.quiz":             "Meta",
 			"settings.level.whatToShow": "Meta",
+			"settings.sentence.length":  "Meta",
+			"settings.sentence.min":     "Meta",
+			"settings.sentence.max":     "Meta",
 		}
 
 		for _, s := range qSel {
@@ -65,6 +68,8 @@ func routerUser(apiRouter *gin.RouterGroup) {
 			"apiKey":                    func() interface{} { return dbUser.APIKey },
 			"settings.quiz":             func() interface{} { return dbUser.Meta.Settings.Quiz },
 			"settings.level.whatToShow": func() interface{} { return dbUser.Meta.Settings.Level.WhatToShow },
+			"settings.sentence.min":     func() interface{} { return dbUser.Meta.Settings.Sentence.Min },
+			"settings.sentence.max":     func() interface{} { return dbUser.Meta.Settings.Sentence.Max },
 		}
 
 		for _, s := range qSel {
@@ -85,8 +90,10 @@ func routerUser(apiRouter *gin.RouterGroup) {
 		}
 
 		var body struct {
-			LevelMin *uint `json:"levelMin"`
-			Level    *uint `json:"level"`
+			LevelMin    *uint `json:"levelMin"`
+			Level       *uint `json:"level"`
+			SentenceMin *uint `json:"sentenceMin"`
+			SentenceMax *uint `json:"sentenceMax"`
 		}
 
 		if e := ctx.ShouldBindJSON(&body); e != nil {
@@ -106,6 +113,18 @@ func routerUser(apiRouter *gin.RouterGroup) {
 
 		if body.LevelMin != nil {
 			dbUser.Meta.LevelMin = body.LevelMin
+		}
+
+		if body.SentenceMin != nil {
+			dbUser.Meta.Settings.Sentence.Min = body.SentenceMin
+		}
+
+		if body.SentenceMax != nil {
+			if *body.SentenceMax == 0 {
+				dbUser.Meta.Settings.Sentence.Max = nil
+			} else {
+				dbUser.Meta.Settings.Sentence.Max = body.SentenceMax
+			}
 		}
 
 		if r := resource.DB.Current.Save(&dbUser); r.Error != nil {

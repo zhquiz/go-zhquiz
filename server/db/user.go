@@ -46,6 +46,10 @@ type UserMeta struct {
 			Direction []string
 			IsDue     bool
 		}
+		Sentence struct {
+			Min *uint
+			Max *uint
+		}
 	}
 }
 
