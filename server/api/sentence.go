@@ -1,15 +1,16 @@
 package api
 
 import (
-	"database/sql"
 	"errors"
 	"fmt"
 	"math/rand"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/zhquiz/go-server/server/db"
+	"gorm.io/gorm"
 )
 
 func routerSentence(apiRouter *gin.RouterGroup) {
@@ -36,7 +37,7 @@ func routerSentence(apiRouter *gin.RouterGroup) {
 		FROM sentence
 		WHERE chinese = ?
 		`, query.Entry).First(&result); r.Error != nil {
-			if errors.Is(r.Error, sql.ErrNoRows) {
+			if errors.Is(r.Error, gorm.ErrRecordNotFound) {
 				ctx.AbortWithStatus(404)
 				return
 			}
@@ -377,6 +378,7 @@ func routerSentence(apiRouter *gin.RouterGroup) {
 			return
 		}
 
+		rand.Seed(time.Now().UnixNano())
 		r := result[rand.Intn(len(result))]
 
 		ctx.JSON(200, r)

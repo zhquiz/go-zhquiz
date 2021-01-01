@@ -1,7 +1,6 @@
 package api
 
 import (
-	"database/sql"
 	"errors"
 	"fmt"
 	"strconv"
@@ -9,6 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/zhquiz/go-server/server/db"
+	"gorm.io/gorm"
 )
 
 func routerExtra(apiRouter *gin.RouterGroup) {
@@ -207,7 +207,7 @@ func routerExtra(apiRouter *gin.RouterGroup) {
 			WHERE simplified = ? OR traditional = ?
 			LIMIT 1
 			`, body.Chinese, body.Chinese).First(&simplified); r.Error != nil {
-				if errors.Is(r.Error, sql.ErrNoRows) {
+				if errors.Is(r.Error, gorm.ErrRecordNotFound) {
 					return false
 				}
 				panic(r.Error)
@@ -231,7 +231,7 @@ func routerExtra(apiRouter *gin.RouterGroup) {
 			WHERE [entry] = ? AND english IS NOT NULL
 			LIMIT 1
 			`, body.Chinese).First(&entry); r.Error != nil {
-				if errors.Is(r.Error, sql.ErrNoRows) {
+				if errors.Is(r.Error, gorm.ErrRecordNotFound) {
 					return false
 				}
 
@@ -256,7 +256,7 @@ func routerExtra(apiRouter *gin.RouterGroup) {
 			WHERE chinese = ?
 			LIMIT 1
 			`, body.Chinese).First(&chinese); r.Error != nil {
-				if errors.Is(r.Error, sql.ErrNoRows) {
+				if errors.Is(r.Error, gorm.ErrRecordNotFound) {
 					return false
 				}
 

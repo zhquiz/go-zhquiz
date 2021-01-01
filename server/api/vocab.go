@@ -1,11 +1,10 @@
 package api
 
 import (
-	"database/sql"
-	"errors"
 	"fmt"
 	"math/rand"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/zhquiz/go-server/server/db"
@@ -31,7 +30,7 @@ func routerVocab(apiRouter *gin.RouterGroup) {
 			English     string `json:"english"`
 		}
 
-		var result []Result
+		result := make([]Result, 0)
 
 		if r := resource.Zh.Current.Raw(`
 		SELECT Simplified, Traditional, cedict.Pinyin, cedict.English English
@@ -41,11 +40,7 @@ func routerVocab(apiRouter *gin.RouterGroup) {
 		GROUP BY cedict.ROWID
 		ORDER BY token.frequency DESC
 		`, query.Entry, query.Entry).Find(&result); r.Error != nil {
-			if errors.Is(r.Error, sql.ErrNoRows) {
-				result = make([]Result, 0)
-			} else {
-				panic(r.Error)
-			}
+			panic(r.Error)
 		}
 
 		ctx.JSON(200, gin.H{
@@ -240,6 +235,7 @@ func routerVocab(apiRouter *gin.RouterGroup) {
 			ctx.AbortWithError(404, fmt.Errorf("no matched entries found"))
 		}
 
+		rand.Seed(time.Now().UnixNano())
 		item := items[rand.Intn(len(items))]
 
 		ctx.JSON(200, item)

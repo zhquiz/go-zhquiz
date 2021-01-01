@@ -1,7 +1,6 @@
 package api
 
 import (
-	"database/sql"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -9,6 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/zhquiz/go-server/server/db"
+	"gorm.io/gorm"
 )
 
 func routerHanzi(apiRouter *gin.RouterGroup) {
@@ -48,7 +48,7 @@ func routerHanzi(apiRouter *gin.RouterGroup) {
 		FROM token
 		WHERE [entry] = ?
 		`, query.Entry).First(&out); r.Error != nil {
-			if errors.Is(r.Error, sql.ErrNoRows) {
+			if errors.Is(r.Error, gorm.ErrRecordNotFound) {
 				ctx.AbortWithStatus(404)
 				return
 			}

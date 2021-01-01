@@ -1,7 +1,6 @@
 package api
 
 import (
-	"database/sql"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -14,6 +13,7 @@ import (
 	"github.com/zhquiz/go-server/server/util"
 	"github.com/zhquiz/go-server/server/zh"
 	"gopkg.in/sakura-internet/go-rison.v3"
+	"gorm.io/gorm"
 )
 
 func routerQuiz(apiRouter *gin.RouterGroup) {
@@ -230,7 +230,7 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 			Type      []string `json:"type" validate:"required,min=1"`
 			Stage     []string `json:"stage" validate:"required,min=1"`
 			Direction []string `json:"direction" validate:"required,min=1"`
-			IsDue     bool     `json:"isDue" validate:"required"`
+			IsDue     bool     `json:"isDue"`
 			Tag       []string `json:"tag" validate:"required"`
 		}
 
@@ -394,12 +394,10 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 		for _, entry := range body.Entries {
 			directions := []string{"se", "ec"}
 			if body.Type == "vocab" {
-				r := resource.Zh.Current.
+				if r := resource.Zh.Current.
 					Where("(simplified = ? OR traditional = ?) AND traditional IS NOT NULL", entry, entry).
-					First(&zh.Cedict{})
-
-				if r.Error != nil {
-					if !errors.Is(r.Error, sql.ErrNoRows) {
+					First(&zh.Cedict{}); r.Error != nil {
+					if !errors.Is(r.Error, gorm.ErrRecordNotFound) {
 						panic(r.Error)
 					}
 				} else {
