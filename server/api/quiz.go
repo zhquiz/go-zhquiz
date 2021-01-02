@@ -33,8 +33,8 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 			Select  string `form:"select"`
 		}
 
-		if e := ctx.BindQuery(&query); e != nil {
-			panic(e)
+		if e := ctx.ShouldBindQuery(&query); e != nil {
+			ctx.AbortWithError(400, e)
 		}
 
 		sel := []string{}
@@ -139,6 +139,54 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 			}
 
 			out = append(out, it)
+		}
+
+		ctx.JSON(200, gin.H{
+			"result": out,
+		})
+	})
+
+	r.POST("/srsLevel", func(ctx *gin.Context) {
+		userID := getUserID(ctx)
+		if userID == "" {
+			ctx.AbortWithStatus(401)
+			return
+		}
+
+		var body struct {
+			Entries []string `form:"entries" binding:"required,min=1"`
+			Type    string   `form:"type" binding:"oneof=hanzi vocab sentence extra ''"`
+		}
+
+		if e := ctx.ShouldBindJSON(&body); e != nil {
+			ctx.AbortWithError(400, e)
+			return
+		}
+
+		where := "user_id = @userID AND [entry] IN @entries AND [Type] = @type"
+		cond := map[string]interface{}{
+			"userID":  userID,
+			"entries": body.Entries,
+			"type":    body.Type,
+		}
+
+		var quizzes []db.Quiz
+
+		clause := resource.DB.Current.Model(&db.Quiz{}).
+			Select("entry", "srs_level").
+			Where(where, cond)
+
+		if r := clause.Find(&quizzes); r.Error != nil {
+			panic(r.Error)
+		}
+
+		out := make([]gin.H, 0)
+
+		for _, q := range quizzes {
+			out = append(out, gin.H{
+				"entry":    q.Entry,
+				"srsLevel": q.SRSLevel,
+			})
 		}
 
 		ctx.JSON(200, gin.H{
@@ -442,6 +490,25 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 		ctx.JSON(201, gin.H{
 			"ids":      ids,
 			"existing": existing,
+		})
+	})
+
+	r.POST("/delete", func(ctx *gin.Context) {
+		var body struct {
+			IDs []string `json:"ids" binding:"required,min=1"`
+		}
+
+		if e := ctx.ShouldBindJSON(&body); e != nil {
+			ctx.AbortWithError(400, e)
+			return
+		}
+
+		if r := resource.DB.Current.Where("id IN ?", body.IDs).Delete(&db.Quiz{}); r.Error != nil {
+			panic(r.Error)
+		}
+
+		ctx.JSON(201, gin.H{
+			"result": "deleted",
 		})
 	})
 }

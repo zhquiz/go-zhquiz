@@ -1,5 +1,6 @@
 build:
   command: |
+    export CGO_CFLAGS="-DSQLITE_MAX_VARIABLE_NUMBER=10000"
     go build -o go-server.app
 desktop:
   command: |
