@@ -1,6 +1,9 @@
 package api
 
 import (
+	"os"
+	"os/exec"
+
 	"github.com/gin-gonic/gin"
 	"github.com/tebeka/atexit"
 	"github.com/yanyiwu/gojieba"
@@ -26,4 +29,28 @@ func routerChinese(apiRouter *gin.RouterGroup) {
 			"result": jieba.CutAll(query.Q),
 		})
 	})
+
+	speakCmd := os.Getenv("ZHQUIZ_SPEAK")
+	if speakCmd != "" && speakCmd != "0" {
+		r.POST("/speak", func(ctx *gin.Context) {
+			var query struct {
+				Q string `form:"q" binding:"required"`
+			}
+
+			if e := ctx.ShouldBindQuery(&query); e != nil {
+				ctx.AbortWithError(400, e)
+				return
+			}
+
+			cmd := exec.Command(speakCmd, query.Q)
+
+			if e := cmd.Start(); e != nil {
+				panic(e)
+			}
+
+			ctx.JSON(200, gin.H{
+				"result": "success",
+			})
+		})
+	}
 }

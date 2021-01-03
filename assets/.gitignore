@@ -1,0 +1,5 @@
+/zhspeak*
+/speak.*
+
+
+!/speak.sh

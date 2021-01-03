@@ -10,7 +10,9 @@ import (
 
 // Path stores path values
 type Path struct {
-	Dir  string
+	// Dir is dirname of executable
+	Dir string
+	// Root is defined by ZHQUIZ_ROOT, otherwise Dir
 	Root string
 }
 
@@ -58,6 +60,8 @@ func GetenvOrDefault(key string, value string) string {
 		env, _ := godotenv.Read(p.Dotenv())
 		env[key] = v
 		godotenv.Write(env, p.Dotenv())
+
+		os.Setenv(key, v)
 	}
 
 	return v
@@ -73,6 +77,8 @@ func GetenvOrDefaultFn(key string, fn func() string) string {
 		env, _ := godotenv.Read(p.Dotenv())
 		env[key] = v
 		godotenv.Write(env, p.Dotenv())
+
+		os.Setenv(key, v)
 	}
 
 	return v

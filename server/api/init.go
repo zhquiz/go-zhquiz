@@ -59,7 +59,6 @@ func (res Resource) Register(r *gin.Engine) {
 	r.Use(sessions.Sessions("session", cookie.NewStore([]byte(apiSecret))))
 
 	cotterAPIKey := os.Getenv("COTTER_API_KEY")
-
 	if cotterAPIKey != "" {
 		r.GET("/server/auth/cotter", func(ctx *gin.Context) {
 			ctx.JSON(200, gin.H{
@@ -67,6 +66,25 @@ func (res Resource) Register(r *gin.Engine) {
 			})
 		})
 	}
+
+	zhQuizSpeak := shared.GetenvOrDefaultFn("ZHQUIZ_SPEAK", func() string {
+		stat, err := os.Stat(filepath.Join(shared.Paths().Dir, "assets", "speak.sh"))
+		if err == nil && !stat.IsDir() {
+			return filepath.Join(shared.Paths().Dir, "assets", "speak.sh")
+		}
+
+		return "0"
+	})
+	r.GET("/server/settings", func(ctx *gin.Context) {
+		speak := "web"
+		if zhQuizSpeak != "0" {
+			speak = "server"
+		}
+
+		ctx.JSON(200, gin.H{
+			"speak": speak,
+		})
+	})
 
 	// Send media files
 	r.GET("/media/:filename", func(c *gin.Context) {
