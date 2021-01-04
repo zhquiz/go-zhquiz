@@ -4,10 +4,12 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/PuerkitoBio/goquery"
 	"github.com/gin-gonic/gin"
 	"github.com/zhquiz/go-server/server/db"
 	"gorm.io/gorm"
@@ -86,7 +88,7 @@ func routerSentence(apiRouter *gin.RouterGroup) {
 			Chinese string `json:"chinese"`
 			English string `json:"english"`
 		}
-		var result []Result
+		result := make([]Result, 0)
 
 		if r := resource.Zh.Current.Raw(fmt.Sprintf(`
 		SELECT Chinese, English
@@ -109,9 +111,7 @@ func routerSentence(apiRouter *gin.RouterGroup) {
 			Result: result,
 		}
 
-		if len(out.Result) == 0 {
-			out.Result = make([]Result, 0)
-		} else if isCount {
+		if isCount {
 			var count int
 			if r := resource.Zh.Current.Raw(`
 			SELECT COUNT(*)
@@ -121,6 +121,29 @@ func routerSentence(apiRouter *gin.RouterGroup) {
 				panic(r.Error)
 			}
 			out.Count = &count
+		}
+
+		if len(out.Result) <= 5 {
+			doc, err := goquery.NewDocument(fmt.Sprintf("http://www.jukuu.com/search.php?q=%s", url.QueryEscape(query.Q)))
+			if err != nil {
+				panic(err)
+			}
+
+			moreResult := make([]Result, 10-len(out.Result))
+
+			doc.Find("table tr.c td:last-child").Each(func(i int, item *goquery.Selection) {
+				if i < len(moreResult) {
+					moreResult[i].Chinese = item.Text()
+				}
+			})
+
+			doc.Find("table tr.e td:last-child").Each(func(i int, item *goquery.Selection) {
+				if i < len(moreResult) {
+					moreResult[i].English = item.Text()
+				}
+			})
+
+			out.Result = append(out.Result, moreResult...)
 		}
 
 		ctx.JSON(200, out)

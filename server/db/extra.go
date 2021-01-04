@@ -4,7 +4,7 @@ import "time"
 
 // Extra is user database model for Extra
 type Extra struct {
-	ID        uint `gorm:"primarykey"`
+	ID        string `gorm:"primarykey"`
 	CreatedAt time.Time
 	UpdatedAt time.Time
 
@@ -12,6 +12,6 @@ type Extra struct {
 	User   User   `gorm:"foreignKey:UserID"`
 
 	Chinese string `gorm:"index:idx_extra_user_chinese,unique;not null"`
-	Pinyin  string `gorm:"not null"`
-	English string `gorm:"not null"`
+	Pinyin  string
+	English string
 }

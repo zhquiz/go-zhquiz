@@ -14,6 +14,7 @@ import (
 	"github.com/zhquiz/go-server/server/zh"
 	"gopkg.in/sakura-internet/go-rison.v3"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 func routerQuiz(apiRouter *gin.RouterGroup) {
@@ -421,7 +422,6 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 			ctx.AbortWithError(400, e)
 		}
 
-		var newQ []db.Quiz
 		var existingQ []db.Quiz
 
 		if r := resource.DB.Current.
@@ -439,18 +439,74 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 			lookup[it.Entry][it.Direction] = it
 		}
 
+		type Result struct {
+			IDs  []string `json:"ids"`
+			Type string   `json:"type"`
+		}
+		result := make([]Result, 0)
+		ids := make([]string, 0)
+
+		var newQ []db.Quiz
+		var newExtra []db.Extra
+
 		for _, entry := range body.Entries {
+			subresult := Result{
+				IDs:  make([]string, 0),
+				Type: "extra",
+			}
+			result = append(result, subresult)
+
 			directions := []string{"se", "ec"}
-			if body.Type == "vocab" {
+
+			switch body.Type {
+			case "vocab":
+				var items []zh.Cedict
 				if r := resource.Zh.Current.
-					Where("(simplified = ? OR traditional = ?) AND traditional IS NOT NULL", entry, entry).
-					First(&zh.Cedict{}); r.Error != nil {
+					Where("simplified = ? OR traditional = ?", entry, entry).
+					Find(&items); r.Error != nil {
+					panic(r.Error)
+				}
+
+				if len(items) > 0 {
+					for _, it := range items {
+						if len(directions) < 3 && it.Traditional != "" {
+							directions = append(directions, "te")
+						}
+					}
+					subresult.Type = "vocab"
+				} else {
+					subresult.Type = "extra"
+				}
+			case "hanzi":
+				if r := resource.Zh.Current.
+					Where("entry = ? AND length(entry) = 1 AND english IS NOT NULL", entry).
+					First(&zh.Token{}); r.Error != nil {
 					if !errors.Is(r.Error, gorm.ErrRecordNotFound) {
 						panic(r.Error)
 					}
+					subresult.Type = "hanzi"
 				} else {
-					directions = append(directions, "te")
+					subresult.Type = "extra"
 				}
+			case "sentence":
+				if r := resource.Zh.Current.
+					Where("chinese = ?", entry).
+					First(&zh.Sentence{}); r.Error != nil {
+					if !errors.Is(r.Error, gorm.ErrRecordNotFound) {
+						panic(r.Error)
+					}
+					subresult.Type = "sentence"
+				} else {
+					subresult.Type = "extra"
+				}
+			}
+
+			if subresult.Type == "extra" {
+				newExtra = append(newExtra, db.Extra{
+					ID:      NewULID(),
+					UserID:  userID,
+					Chinese: entry,
+				})
 			}
 
 			lookupDir := lookup[entry]
@@ -460,15 +516,29 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 
 			for _, d := range directions {
 				if lookupDir[d].ID == "" {
+					id := NewULID()
+
 					newQ = append(newQ, db.Quiz{
-						ID:        NewULID(),
+						ID:        id,
 						UserID:    userID,
 						Entry:     entry,
 						Type:      body.Type,
 						Direction: d,
 					})
+
+					subresult.IDs = append(subresult.IDs, id)
+					ids = append(ids, id)
+				} else {
+					subresult.IDs = append(subresult.IDs, lookupDir[d].ID)
+					ids = append(ids, lookupDir[d].ID)
 				}
 			}
+		}
+
+		if len(newExtra) > 0 {
+			resource.DB.Current.Clauses(clause.OnConflict{
+				DoNothing: true,
+			}).Create(&newExtra)
 		}
 
 		if len(newQ) > 0 {
@@ -477,19 +547,9 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 			}
 		}
 
-		ids := make([]string, 0)
-		for _, q := range newQ {
-			ids = append(ids, q.ID)
-		}
-
-		existing := make([]string, 0)
-		for _, q := range existingQ {
-			existing = append(existing, q.ID)
-		}
-
 		ctx.JSON(201, gin.H{
-			"ids":      ids,
-			"existing": existing,
+			"result": result,
+			"ids":    ids,
 		})
 	})
 
