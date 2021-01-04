@@ -2,7 +2,6 @@ package db
 
 import (
 	"log"
-	"path/filepath"
 
 	"github.com/zhquiz/go-server/shared"
 	"gorm.io/driver/sqlite"
@@ -17,18 +16,9 @@ type DB struct {
 
 // Connect connects to DATABASE_URL
 func Connect() DB {
-	databaseURL := shared.GetenvOrDefaultFn("DATABASE_URL", func() string {
-		paths := []string{"data.db"}
-		if root := shared.Paths().Root; root != "" {
-			paths = append([]string{root}, paths...)
-		}
-
-		return filepath.Join(paths...)
-	})
-
 	output := DB{}
 
-	db, err := gorm.Open(sqlite.Open(databaseURL), &gorm.Config{
+	db, err := gorm.Open(sqlite.Open(shared.DatabaseURL()), &gorm.Config{
 		NamingStrategy: schema.NamingStrategy{
 			SingularTable: true,
 		},

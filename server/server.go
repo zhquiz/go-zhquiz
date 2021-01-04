@@ -20,26 +20,25 @@ import (
 func Serve(res *api.Resource) *gin.Engine {
 	app := gin.Default()
 
-	p := shared.Paths()
 	app.Use(func(c *gin.Context) {
 		if c.Request.Method == "GET" {
 			if strings.HasPrefix(c.Request.URL.Path, "/docs/") || c.Request.URL.Path == "/docs" {
-				static.Serve("/docs", static.LocalFile(filepath.Join(p.Dir, "docs"), true))(c)
+				static.Serve("/docs", static.LocalFile(filepath.Join(shared.ExecDir, "docs"), true))(c)
 				return
 			}
 
 			if strings.HasPrefix(c.Request.URL.Path, "/media/") {
-				static.Serve("/media", static.LocalFile(p.MediaPath(), false))(c)
+				static.Serve("/media", static.LocalFile(shared.MediaPath(), false))(c)
 				return
 			}
 
-			static.Serve("/", static.LocalFile(filepath.Join(p.Dir, "public"), true))(c)
+			static.Serve("/", static.LocalFile(filepath.Join(shared.ExecDir, "public"), true))(c)
 			return
 		}
 		c.Next()
 	})
 
-	if _, err := os.Stat(filepath.Join(p.Dir, "public")); os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(shared.ExecDir, "public")); os.IsNotExist(err) {
 		app.GET("/", func(c *gin.Context) {
 			c.Redirect(http.StatusTemporaryRedirect, "/docs")
 		})
@@ -47,7 +46,7 @@ func Serve(res *api.Resource) *gin.Engine {
 		app.NoRoute(func(ctx *gin.Context) {
 			method := ctx.Request.Method
 			if method == "GET" {
-				ctx.File(filepath.Join(p.Dir, "public", "index.html"))
+				ctx.File(filepath.Join(shared.ExecDir, "public", "index.html"))
 			} else {
 				ctx.Next()
 			}

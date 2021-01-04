@@ -17,7 +17,7 @@ type DB struct {
 
 // Connect connects to the database
 func Connect() DB {
-	db, err := gorm.Open(sqlite.Open(path.Join(shared.Paths().Dir, "assets", "zh.db")+"?mode=ro"), &gorm.Config{
+	db, err := gorm.Open(sqlite.Open(path.Join(shared.ExecDir, "assets", "zh.db")+"?mode=ro"), &gorm.Config{
 		NamingStrategy: schema.NamingStrategy{
 			SingularTable: true,
 		},

@@ -1,12 +1,12 @@
 package api
 
 import (
-	"os"
 	"os/exec"
 
 	"github.com/gin-gonic/gin"
 	"github.com/tebeka/atexit"
 	"github.com/yanyiwu/gojieba"
+	"github.com/zhquiz/go-server/shared"
 )
 
 func routerChinese(apiRouter *gin.RouterGroup) {
@@ -30,8 +30,8 @@ func routerChinese(apiRouter *gin.RouterGroup) {
 		})
 	})
 
-	speakCmd := os.Getenv("ZHQUIZ_SPEAK")
-	if speakCmd != "" && speakCmd != "0" {
+	speakCmd := shared.SpeakFn()
+	if speakCmd != "" {
 		r.POST("/speak", func(ctx *gin.Context) {
 			var query struct {
 				Q string `form:"q" binding:"required"`

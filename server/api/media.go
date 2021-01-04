@@ -21,7 +21,7 @@ func routerMedia(apiRouter *gin.RouterGroup) {
 			return
 		}
 
-		ctx.SaveUploadedFile(file, shared.Paths().MediaPath())
+		ctx.SaveUploadedFile(file, shared.MediaPath())
 
 		ctx.JSON(201, gin.H{
 			"url": "/media/" + file.Filename,

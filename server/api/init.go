@@ -16,7 +16,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 	"github.com/zhquiz/go-server/server/db"
-	"github.com/zhquiz/go-server/server/rand"
 	"github.com/zhquiz/go-server/server/zh"
 	"github.com/zhquiz/go-server/shared"
 	"gopkg.in/square/go-jose.v2"
@@ -35,7 +34,7 @@ type Resource struct {
 
 // Prepare initializes Resource for reuse and cleanup.
 func Prepare() Resource {
-	f, _ := os.Create(filepath.Join(shared.Paths().Root, "gin.log"))
+	f, _ := os.Create(filepath.Join(shared.ExecDir, "gin.log"))
 	gin.DefaultWriter = io.MultiWriter(f, os.Stdout)
 
 	resource = Resource{
@@ -48,48 +47,27 @@ func Prepare() Resource {
 
 // Register registers API paths to Gin Engine.
 func (res Resource) Register(r *gin.Engine) {
-	apiSecret := shared.GetenvOrDefaultFn("ZHQUIZ_API_SECRET", func() string {
-		s, err := rand.GenerateRandomString(64)
-		if err != nil {
-			log.Fatalln(err)
-		}
-		return s
-	})
+	r.Use(sessions.Sessions("session", cookie.NewStore([]byte(shared.APISecret()))))
 
-	r.Use(sessions.Sessions("session", cookie.NewStore([]byte(apiSecret))))
-
-	defaultUser := os.Getenv("DEFAULT_USER")
-	cotterAPIKey := os.Getenv("COTTER_API_KEY")
-	zhQuizSpeak := shared.GetenvOrDefaultFn("ZHQUIZ_SPEAK", func() string {
-		stat, err := os.Stat(filepath.Join(shared.Paths().Dir, "assets", "speak.sh"))
-		if err == nil && !stat.IsDir() {
-			return filepath.Join(shared.Paths().Dir, "assets", "speak.sh")
-		}
-
-		return "0"
-	})
-
-	if cotterAPIKey == "" && defaultUser == "" {
-		defaultUser = "DEFAULT"
-	}
+	cotterAPIKey := shared.CotterAPIKey()
 
 	r.GET("/server/settings", func(ctx *gin.Context) {
 		speak := "web"
-		if zhQuizSpeak != "0" {
+		if shared.SpeakFn() != "" {
 			speak = "server"
 		}
 
 		ctx.JSON(200, gin.H{
 			"speak":     speak,
-			"user":      defaultUser,
-			"plausible": os.Getenv("PLAUSIBLE"),
+			"user":      shared.DefaultUser(),
+			"plausible": shared.Plausible(),
 			"cotter":    cotterAPIKey,
 		})
 	})
 
 	// Send media files
 	r.GET("/media/:filename", func(c *gin.Context) {
-		filePath := filepath.Join(shared.Paths().MediaPath(), c.Param("filename"))
+		filePath := filepath.Join(shared.MediaPath(), c.Param("filename"))
 		if fileInfo, err := os.Stat(filePath); err == nil && !fileInfo.IsDir() {
 			c.File(filePath)
 			return
