@@ -124,24 +124,28 @@ func routerSentence(apiRouter *gin.RouterGroup) {
 		}
 
 		if len(out.Result) <= 5 {
-			doc, err := goquery.NewDocument(fmt.Sprintf("http://www.jukuu.com/search.php?q=%s", url.QueryEscape(query.Q)))
-			if err != nil {
-				panic(err)
-			}
-
-			moreResult := make([]Result, 10-len(out.Result))
-
-			doc.Find("table tr.c td:last-child").Each(func(i int, item *goquery.Selection) {
-				if i < len(moreResult) {
-					moreResult[i].Chinese = item.Text()
+			moreResult := func() []Result {
+				doc, err := goquery.NewDocument(fmt.Sprintf("http://www.jukuu.com/search.php?q=%s", url.QueryEscape(query.Q)))
+				if err != nil {
+					return []Result{}
 				}
-			})
 
-			doc.Find("table tr.e td:last-child").Each(func(i int, item *goquery.Selection) {
-				if i < len(moreResult) {
-					moreResult[i].English = item.Text()
-				}
-			})
+				moreResult := make([]Result, 10-len(out.Result))
+
+				doc.Find("table tr.c td:last-child").Each(func(i int, item *goquery.Selection) {
+					if i < len(moreResult) {
+						moreResult[i].Chinese = item.Text()
+					}
+				})
+
+				doc.Find("table tr.e td:last-child").Each(func(i int, item *goquery.Selection) {
+					if i < len(moreResult) {
+						moreResult[i].English = item.Text()
+					}
+				})
+
+				return moreResult
+			}()
 
 			out.Result = append(out.Result, moreResult...)
 		}
