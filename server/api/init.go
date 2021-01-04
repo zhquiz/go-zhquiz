@@ -58,15 +58,8 @@ func (res Resource) Register(r *gin.Engine) {
 
 	r.Use(sessions.Sessions("session", cookie.NewStore([]byte(apiSecret))))
 
+	defaultUser := os.Getenv("DEFAULT_USER")
 	cotterAPIKey := os.Getenv("COTTER_API_KEY")
-	if cotterAPIKey != "" {
-		r.GET("/server/auth/cotter", func(ctx *gin.Context) {
-			ctx.JSON(200, gin.H{
-				"apiKey": cotterAPIKey,
-			})
-		})
-	}
-
 	zhQuizSpeak := shared.GetenvOrDefaultFn("ZHQUIZ_SPEAK", func() string {
 		stat, err := os.Stat(filepath.Join(shared.Paths().Dir, "assets", "speak.sh"))
 		if err == nil && !stat.IsDir() {
@@ -75,6 +68,11 @@ func (res Resource) Register(r *gin.Engine) {
 
 		return "0"
 	})
+
+	if cotterAPIKey == "" && defaultUser == "" {
+		defaultUser = "DEFAULT"
+	}
+
 	r.GET("/server/settings", func(ctx *gin.Context) {
 		speak := "web"
 		if zhQuizSpeak != "0" {
@@ -83,7 +81,9 @@ func (res Resource) Register(r *gin.Engine) {
 
 		ctx.JSON(200, gin.H{
 			"speak":     speak,
+			"user":      defaultUser,
 			"plausible": os.Getenv("PLAUSIBLE"),
+			"cotter":    cotterAPIKey,
 		})
 	})
 
@@ -99,7 +99,7 @@ func (res Resource) Register(r *gin.Engine) {
 	})
 
 	apiRouter := r.Group("/api")
-	apiRouter.Use(CotterAuthMiddleware())
+	apiRouter.Use(CotterAuthMiddleware(cotterAPIKey))
 
 	routerChinese(apiRouter)
 	routerExtra(apiRouter)
@@ -117,11 +117,9 @@ func (res Resource) Cleanup() {
 }
 
 // CotterAuthMiddleware middleware for auth with Cotter
-func CotterAuthMiddleware() gin.HandlerFunc {
+func CotterAuthMiddleware(cotterAPIKey string) gin.HandlerFunc {
 	const JWKSURL = "https://www.cotter.app/api/v0/token/jwks"
 	const JWKSLookupKeyID = "SPACE_JWT_PUBLIC:8028AAA3-EC2D-4BAA-BE7A-7C8359CCB9F9"
-
-	cotterAPIKey := os.Getenv("COTTER_API_KEY")
 
 	var jwksKey []byte
 	// Fetch the key from the JWKS URL
