@@ -82,7 +82,8 @@ func (res Resource) Register(r *gin.Engine) {
 		}
 
 		ctx.JSON(200, gin.H{
-			"speak": speak,
+			"speak":     speak,
+			"plausible": os.Getenv("PLAUSIBLE"),
 		})
 	})
 
