@@ -62,6 +62,7 @@ func (res Resource) Register(r *gin.Engine) {
 			"speak":     speak,
 			"plausible": shared.Plausible(),
 			"cotter":    cotterAPIKey,
+			"user":      shared.DefaultUser(),
 		})
 	})
 

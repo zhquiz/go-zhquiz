@@ -17,8 +17,7 @@ func init() {
 
 // Load loads from .env and .env.local to os.Getenv
 func Load() {
-	godotenv.Load(filepath.Join(ExecDir, ".env"))
-	godotenv.Load(filepath.Join(ExecDir, ".env.local"))
+	godotenv.Load(filepath.Join(ExecDir, ".env"), filepath.Join(ExecDir, ".env.local"))
 }
 
 // Setenv sets to .env.local and os.Getenv

@@ -15,7 +15,6 @@
 # vendor/
 
 /go-server
-/go-server.app
 /gin.log
 /data.db
 .env
@@ -24,3 +23,5 @@
 /speak.*
 !/speak.sh
 /public/
+/zhquiz-*
+/zhquiz.*

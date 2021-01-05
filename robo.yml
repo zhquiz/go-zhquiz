@@ -1,18 +1,49 @@
-build:
-  command: |
-    export CGO_CFLAGS="-DSQLITE_MAX_VARIABLE_NUMBER=10000"
-    go build -o go-server.app
 desktop:
   command: |
     robo -c {{ .robo.file }} build
-    ./go-server.app
+    ./{{ .exe }}
 serve:
   command: |
     robo -c {{ .robo.file }} build
-    ZHQUIZ_DESKTOP=0 ./go-server.app
+    ZHQUIZ_BROWSER=0 ./{{ .exe }}
 dev:
   command: |
     export PORT=${SERVER_PORT:-5000}
     # increase the file watch limit, might be required on MacOS
     ulimit -n 1000
     reflex -s -r '\.go$' -- robo -c {{ .robo.file }} serve
+build:
+  command: |
+    {{ .flags }}
+    go build -o {{ .exe }}
+# Building with xgo succeeded, but fail to run
+# build-windows:
+#   command: |
+#     {{ .flags }}
+#     xgo \
+#       -ldflags="-H windowsgui" \
+#       -branch={{ .branch }} \
+#       -targets=windows/* \
+#       -out=zhquiz \
+#       {{ .repo }}
+# build-others:
+#   command: |
+#     {{ .flags }}
+#     xgo \
+#       -branch={{ .branch }} \
+#       -targets=linux/386,linux/amd64,darwin/amd64 \
+#       -out=zhquiz \
+#       {{ .repo }}
+# build-all:
+#   command: |
+#     robo -c {{ .robo.file }} build-windows
+#     robo -c {{ .robo.file }} build-others
+
+##########
+# Settings
+
+variables:
+  repo: github.com/zhquiz/go-zhquiz
+  branch: $(git branch --show-current)
+  exe: zhquiz.app
+  flags: export CGO_CFLAGS="-DSQLITE_MAX_VARIABLE_NUMBER=10000"
