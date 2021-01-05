@@ -16,28 +16,27 @@ build:
   command: |
     {{ .flags }}
     go build -o {{ .exe }}
-# Building with xgo succeeded, but fail to run
-# build-windows:
-#   command: |
-#     {{ .flags }}
-#     xgo \
-#       -ldflags="-H windowsgui" \
-#       -branch={{ .branch }} \
-#       -targets=windows/* \
-#       -out=zhquiz \
-#       {{ .repo }}
-# build-others:
-#   command: |
-#     {{ .flags }}
-#     xgo \
-#       -branch={{ .branch }} \
-#       -targets=linux/386,linux/amd64,darwin/amd64 \
-#       -out=zhquiz \
-#       {{ .repo }}
-# build-all:
-#   command: |
-#     robo -c {{ .robo.file }} build-windows
-#     robo -c {{ .robo.file }} build-others
+build-windows:
+  command: |
+    {{ .flags }}
+    xgo \
+      -ldflags="-H windowsgui" \
+      -branch={{ .branch }} \
+      -targets=windows/* \
+      -out=zhquiz \
+      {{ .repo }}
+build-others:
+  command: |
+    {{ .flags }}
+    xgo \
+      -branch={{ .branch }} \
+      -targets=linux/386,linux/amd64,darwin/amd64 \
+      -out=zhquiz \
+      {{ .repo }}
+build-all:
+  command: |
+    robo -c {{ .robo.file }} build-windows
+    robo -c {{ .robo.file }} build-others
 
 ##########
 # Settings

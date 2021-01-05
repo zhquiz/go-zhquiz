@@ -18,7 +18,7 @@ require (
 	github.com/mattn/go-sqlite3 v2.0.3+incompatible // indirect
 	github.com/oklog/ulid/v2 v2.0.2
 	github.com/tebeka/atexit v0.3.0
-	github.com/yanyiwu/gojieba v1.1.2
+	github.com/wangbin/jiebago v0.3.2
 	golang.org/x/net v0.0.0-20201031054903-ff519b6c9102 // indirect
 	golang.org/x/sys v0.0.0-20201201145000-ef89a241ccb3 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
