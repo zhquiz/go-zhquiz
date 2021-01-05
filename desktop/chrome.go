@@ -1,78 +1,86 @@
+// Package desktop - Originally from https://github.com/zserge/lorca/blob/master/locate.go
 package desktop
 
 import (
-	"fmt"
-	"log"
+	"os"
+	"os/exec"
+	"runtime"
+	"strings"
 
-	/*
-		#cgo darwin LDFLAGS: -framework CoreGraphics
-
-		#if defined(__APPLE__)
-		#include <CoreGraphics/CGDisplayConfiguration.h>
-		int display_width() {
-		return CGDisplayPixelsWide(CGMainDisplayID());
-		}
-		int display_height() {
-		return CGDisplayPixelsHigh(CGMainDisplayID());
-		}
-		#else
-		int display_width() {
-		return 0;
-		}
-		int display_height() {
-		return 0;
-		}
-		#endif
-	*/
-	"C"
-
-	"github.com/zserge/lorca"
-)
-import (
-	"net/http"
-	"time"
+	"github.com/gen2brain/dlgs"
 )
 
-// OpenInWindowedChrome opens in Chrome/Chromium windowed mode.
-//
-// Chrome/Chromium location can be specified with `LORCACHROME` environmental variable.
-//
-// See https://github.com/zserge/lorca/blob/master/locate.go
-func OpenInWindowedChrome(url string) lorca.UI {
-	if lorca.LocateChrome() == "" {
-		lorca.PromptDownload()
-		log.Fatal(fmt.Errorf("cannot open outside Chrome desktop application"))
+// ChromeExecutable returns a string which points to the preferred Chrome
+// executable file.
+var ChromeExecutable = LocateChrome
+
+// LocateChrome returns a path to the Chrome binary, or an empty string if
+// Chrome installation is not found.
+func LocateChrome() string {
+	var paths []string
+	switch runtime.GOOS {
+	case "darwin":
+		paths = []string{
+			"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+			"/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary",
+			"/Applications/Chromium.app/Contents/MacOS/Chromium",
+			"/usr/bin/google-chrome-stable",
+			"/usr/bin/google-chrome",
+			"/usr/bin/chromium",
+			"/usr/bin/chromium-browser",
+		}
+	case "windows":
+		paths = []string{
+			os.Getenv("LocalAppData") + "/Google/Chrome/Application/chrome.exe",
+			os.Getenv("ProgramFiles") + "/Google/Chrome/Application/chrome.exe",
+			os.Getenv("ProgramFiles(x86)") + "/Google/Chrome/Application/chrome.exe",
+			os.Getenv("LocalAppData") + "/Chromium/Application/chrome.exe",
+			os.Getenv("ProgramFiles") + "/Chromium/Application/chrome.exe",
+			os.Getenv("ProgramFiles(x86)") + "/Chromium/Application/chrome.exe",
+		}
+	default:
+		paths = []string{
+			"/usr/bin/google-chrome-stable",
+			"/usr/bin/google-chrome",
+			"/usr/bin/chromium",
+			"/usr/bin/chromium-browser",
+			"/snap/bin/chromium",
+		}
 	}
 
-	width := int(C.display_width())
-	height := int(C.display_height())
-
-	if width == 0 || height == 0 {
-		width = 1024
-		height = 768
+	for _, path := range paths {
+		if _, err := os.Stat(path); os.IsNotExist(err) {
+			continue
+		}
+		return path
 	}
+	return ""
+}
 
-	w, err := lorca.New("data:text/html,<title>Loading...</title>", "", width, height)
+// PromptDownload asks user if he wants to download and install Chrome, and
+// opens a download web page if the user agrees.
+func PromptDownload() {
+	yes, err := dlgs.Question(
+		"Chrome not found",
+		"The recommended browser for this app is Chrome. Do you want to download it now?",
+		false,
+	)
+
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 
-	// This does nothing in macOS.
-	w.SetBounds(lorca.Bounds{
-		WindowState: lorca.WindowStateMaximized,
-	})
-
-	go func() {
-		for {
-			time.Sleep(1 * time.Second)
-			_, err := http.Head(url)
-			if err == nil {
-				break
-			}
+	if yes {
+		// Open download page
+		url := "https://www.google.com/chrome/"
+		switch runtime.GOOS {
+		case "linux":
+			exec.Command("xdg-open", url).Run()
+		case "darwin":
+			exec.Command("open", url).Run()
+		case "windows":
+			r := strings.NewReplacer("&", "^&")
+			exec.Command("cmd", "/c", "start", r.Replace(url)).Run()
 		}
-
-		w.Load(url)
-	}()
-
-	return w
+	}
 }

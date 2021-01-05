@@ -26,9 +26,14 @@ func Port() string {
 	return getenvOrDefault("PORT", "35594")
 }
 
+// Browser returns web browser choice for desktop mode
+func Browser() string {
+	return os.Getenv("ZHQUIZ_BROWSER")
+}
+
 // IsDesktop decides whether to run in desktop mode
 func IsDesktop() bool {
-	return getenvOrDefault("ZHQUIZ_DESKTOP", "1") != "0"
+	return Browser() != "0"
 }
 
 // DatabaseURL returns DATABASE_URL

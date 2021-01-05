@@ -19,12 +19,11 @@ func main() {
 	defer res.Cleanup()
 
 	if shared.IsDesktop() {
-		w := desktop.OpenInWindowedChrome(fmt.Sprintf("http://localhost:%s", shared.Port()))
-		defer w.Close()
+		cmd := desktop.OpenURL(fmt.Sprintf("http://localhost:%s", shared.Port()))
 
 		server.Serve(&res)
 
-		<-w.Done()
+		<-cmd
 	} else {
 		server.Serve(&res)
 
