@@ -21,3 +21,6 @@
 .env
 .env.*
 /jwks
+/speak.*
+!/speak.sh
+

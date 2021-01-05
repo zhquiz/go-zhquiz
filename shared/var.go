@@ -57,7 +57,7 @@ func APISecret() string {
 // SpeakFn return ZHQUIZ_SPEAK for programmatic speak function
 func SpeakFn() string {
 	s := getenvOrDefaultFn("ZHQUIZ_SPEAK", func() string {
-		defaultPath := filepath.Join(ExecDir, "assets", "speak.sh")
+		defaultPath := filepath.Join(ExecDir, "speak.sh")
 
 		stat, err := os.Stat(defaultPath)
 		if err == nil && !stat.IsDir() {

@@ -36,10 +36,10 @@ func Connect() DB {
 		&Tag{},
 		&Quiz{},
 		&QuizTag{},
-		&Entry{},
-		&EntryTag{},
-		&EntryItem{},
-		&Preset{},
+		// &Entry{},
+		// &EntryTag{},
+		// &EntryItem{},
+		// &Preset{},
 		&Extra{},
 	)
 

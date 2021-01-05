@@ -430,7 +430,7 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 			panic(r.Error)
 		}
 
-		var lookup map[string]map[string]db.Quiz
+		lookup := map[string]map[string]db.Quiz{}
 
 		for _, it := range existingQ {
 			if lookup[it.Entry] == nil {
@@ -484,9 +484,9 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 					if !errors.Is(r.Error, gorm.ErrRecordNotFound) {
 						panic(r.Error)
 					}
-					subresult.Type = "hanzi"
-				} else {
 					subresult.Type = "extra"
+				} else {
+					subresult.Type = "hanzi"
 				}
 			case "sentence":
 				if r := resource.Zh.Current.
@@ -495,9 +495,9 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 					if !errors.Is(r.Error, gorm.ErrRecordNotFound) {
 						panic(r.Error)
 					}
-					subresult.Type = "sentence"
-				} else {
 					subresult.Type = "extra"
+				} else {
+					subresult.Type = "sentence"
 				}
 			}
 
