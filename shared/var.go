@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/zhquiz/go-server/server/rand"
+	"github.com/zhquiz/go-zhquiz/server/rand"
 )
 
 // MediaPath returns path to media folder, and mkdir if necessary

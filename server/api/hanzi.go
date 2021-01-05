@@ -7,7 +7,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"github.com/zhquiz/go-server/server/db"
+	"github.com/zhquiz/go-zhquiz/server/db"
 	"gorm.io/gorm"
 )
 

@@ -1,4 +1,4 @@
-module github.com/zhquiz/go-server
+module github.com/zhquiz/go-zhquiz
 
 go 1.15
 

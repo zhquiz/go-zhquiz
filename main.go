@@ -6,10 +6,10 @@ import (
 	"os/signal"
 
 	"github.com/tebeka/atexit"
-	"github.com/zhquiz/go-server/desktop"
-	"github.com/zhquiz/go-server/server"
-	"github.com/zhquiz/go-server/server/api"
-	"github.com/zhquiz/go-server/shared"
+	"github.com/zhquiz/go-zhquiz/desktop"
+	"github.com/zhquiz/go-zhquiz/server"
+	"github.com/zhquiz/go-zhquiz/server/api"
+	"github.com/zhquiz/go-zhquiz/shared"
 )
 
 func main() {

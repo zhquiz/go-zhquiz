@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/zhquiz/go-server/server/db"
-	"github.com/zhquiz/go-server/server/util"
-	"github.com/zhquiz/go-server/server/zh"
+	"github.com/zhquiz/go-zhquiz/server/db"
+	"github.com/zhquiz/go-zhquiz/server/util"
+	"github.com/zhquiz/go-zhquiz/server/zh"
 	"gopkg.in/sakura-internet/go-rison.v3"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"

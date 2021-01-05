@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/gen2brain/dlgs"
-	"github.com/zhquiz/go-server/shared"
+	"github.com/zhquiz/go-zhquiz/shared"
 )
 
 // OpenURL opens url in web browser windowed mode

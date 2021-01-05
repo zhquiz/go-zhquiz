@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/zhquiz/go-server/server/db"
+	"github.com/zhquiz/go-zhquiz/server/db"
 )
 
 func routerVocab(apiRouter *gin.RouterGroup) {

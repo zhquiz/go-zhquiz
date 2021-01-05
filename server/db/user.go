@@ -8,7 +8,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/zhquiz/go-server/server/rand"
+	"github.com/zhquiz/go-zhquiz/server/rand"
 	"gorm.io/gorm"
 	"gorm.io/gorm/schema"
 )

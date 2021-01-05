@@ -7,7 +7,7 @@ import (
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	ulid "github.com/oklog/ulid/v2"
-	"github.com/zhquiz/go-server/server/rand"
+	"github.com/zhquiz/go-zhquiz/server/rand"
 )
 
 func getUserID(ctx *gin.Context) string {

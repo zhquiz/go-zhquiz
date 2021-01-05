@@ -6,7 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/wangbin/jiebago"
-	"github.com/zhquiz/go-server/shared"
+	"github.com/zhquiz/go-zhquiz/shared"
 )
 
 func routerChinese(apiRouter *gin.RouterGroup) {

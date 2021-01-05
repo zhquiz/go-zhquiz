@@ -6,7 +6,7 @@ import (
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
-	"github.com/zhquiz/go-server/server/db"
+	"github.com/zhquiz/go-zhquiz/server/db"
 )
 
 func routerUser(apiRouter *gin.RouterGroup) {

@@ -2,7 +2,7 @@ package api
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/zhquiz/go-server/shared"
+	"github.com/zhquiz/go-zhquiz/shared"
 )
 
 func routerMedia(apiRouter *gin.RouterGroup) {

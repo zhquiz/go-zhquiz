@@ -11,8 +11,8 @@ import (
 	"github.com/gin-gonic/contrib/static"
 	"github.com/gin-gonic/gin"
 
-	"github.com/zhquiz/go-server/server/api"
-	"github.com/zhquiz/go-server/shared"
+	"github.com/zhquiz/go-zhquiz/server/api"
+	"github.com/zhquiz/go-zhquiz/shared"
 )
 
 // Serve starts the server.
