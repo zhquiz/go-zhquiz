@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
@@ -59,7 +60,6 @@ func (res Resource) Register(r *gin.Engine) {
 
 		ctx.JSON(200, gin.H{
 			"speak":     speak,
-			"user":      shared.DefaultUser(),
 			"plausible": shared.Plausible(),
 			"cotter":    cotterAPIKey,
 		})
@@ -77,7 +77,7 @@ func (res Resource) Register(r *gin.Engine) {
 	})
 
 	apiRouter := r.Group("/api")
-	apiRouter.Use(CotterAuthMiddleware(cotterAPIKey))
+	apiRouter.Use(AuthMiddleware(cotterAPIKey))
 
 	routerChinese(apiRouter)
 	routerExtra(apiRouter)
@@ -94,8 +94,8 @@ func (res Resource) Cleanup() {
 	res.DB.Current.Commit()
 }
 
-// CotterAuthMiddleware middleware for auth with Cotter
-func CotterAuthMiddleware(cotterAPIKey string) gin.HandlerFunc {
+// AuthMiddleware middleware for auth with Cotter
+func AuthMiddleware(cotterAPIKey string) gin.HandlerFunc {
 	const JWKSURL = "https://www.cotter.app/api/v0/token/jwks"
 	const JWKSLookupKeyID = "SPACE_JWT_PUBLIC:8028AAA3-EC2D-4BAA-BE7A-7C8359CCB9F9"
 
@@ -167,45 +167,54 @@ func CotterAuthMiddleware(cotterAPIKey string) gin.HandlerFunc {
 	}
 
 	return func(c *gin.Context) {
-		if cotterAPIKey == "" {
-			return
-		}
-
 		session := sessions.Default(c)
+		userName := ""
 
-		authorization := c.GetHeader("Authorization")
+		fmt.Println(cotterAPIKey)
 
-		if strings.HasPrefix(authorization, "Bearer ") {
-			accessToken := strings.Split(authorization, " ")[1]
+		if cotterAPIKey != "" {
+			userName = func() string {
+				authorization := c.GetHeader("Authorization")
 
-			// Validate that the access token and signature is valid
-			token, err := validateClientAccessToken(accessToken)
-			if err != nil {
-				session.Set("userID", "")
-				return
-			}
+				if strings.HasPrefix(authorization, "Bearer ") {
+					accessToken := strings.Split(authorization, " ")[1]
 
-			userName := token["identifier"].(string)
-
-			if userName != "" {
-				var dbUser db.User
-
-				r := resource.DB.Current.Where("email = ?", userName).First(&dbUser)
-
-				if errors.Is(r.Error, gorm.ErrRecordNotFound) {
-					dbUser = db.User{}
-					dbUser.New(NewULID(), userName)
-
-					if rCreate := resource.DB.Current.Create(&dbUser); rCreate.Error != nil {
-						panic(rCreate.Error)
+					// Validate that the access token and signature is valid
+					token, err := validateClientAccessToken(accessToken)
+					if err != nil {
+						return ""
 					}
-				} else if r.Error != nil {
-					panic(r.Error)
+
+					return token["identifier"].(string)
 				}
 
-				session.Set("userID", dbUser.ID)
-				return
+				return ""
+			}()
+		} else {
+			userName = shared.DefaultUser()
+			if userName == "" {
+				userName = "DEFAULT"
 			}
+		}
+
+		if userName != "" {
+			var dbUser db.User
+
+			r := resource.DB.Current.Where("email = ?", userName).First(&dbUser)
+
+			if errors.Is(r.Error, gorm.ErrRecordNotFound) {
+				dbUser = db.User{}
+				dbUser.New(NewULID(), userName)
+
+				if rCreate := resource.DB.Current.Create(&dbUser); rCreate.Error != nil {
+					panic(rCreate.Error)
+				}
+			} else if r.Error != nil {
+				panic(r.Error)
+			}
+
+			session.Set("userID", dbUser.ID)
+			return
 		}
 
 		session.Set("userID", "")

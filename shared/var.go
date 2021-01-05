@@ -27,9 +27,9 @@ func Port() string {
 }
 
 // IsDesktop decides whether to run in desktop mode
-// func IsDesktop() bool {
-// 	return GetenvOrDefault("ZHQUIZ_DESKTOP", "1") != "0"
-// }
+func IsDesktop() bool {
+	return getenvOrDefault("ZHQUIZ_DESKTOP", "1") != "0"
+}
 
 // DatabaseURL returns DATABASE_URL
 func DatabaseURL() string {
@@ -79,14 +79,9 @@ func CotterAPIKey() string {
 	return os.Getenv("COTTER_API_KEY")
 }
 
-// DefaultUser returns DEFAULT_USER or generate one in Desktop mode
+// DefaultUser returns DEFAULT_USER for use in Desktop mode
 func DefaultUser() string {
-	defaultUser := os.Getenv("DEFAULT_USER")
-	if CotterAPIKey() == "" && defaultUser == "" {
-		defaultUser = "DEFAULT"
-	}
-
-	return defaultUser
+	return os.Getenv("DEFAULT_USER")
 }
 
 // Plausible returns domain name for Plausible Analytics

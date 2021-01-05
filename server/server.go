@@ -42,16 +42,17 @@ func Serve(res *api.Resource) *gin.Engine {
 		app.GET("/", func(c *gin.Context) {
 			c.Redirect(http.StatusTemporaryRedirect, "/docs")
 		})
-	} else {
-		app.NoRoute(func(ctx *gin.Context) {
-			method := ctx.Request.Method
-			if method == "GET" {
-				ctx.File(filepath.Join(shared.ExecDir, "public", "index.html"))
-			} else {
-				ctx.Next()
-			}
-		})
 	}
+	// else {
+	// 	app.NoRoute(func(ctx *gin.Context) {
+	// 		method := ctx.Request.Method
+	// 		if method == "GET" {
+	// 			ctx.File(filepath.Join(shared.ExecDir, "public", "index.html"))
+	// 		} else {
+	// 			ctx.Next()
+	// 		}
+	// 	})
+	// }
 
 	res.Register(app)
 

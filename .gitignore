@@ -23,4 +23,4 @@
 /jwks
 /speak.*
 !/speak.sh
-
+/public/
