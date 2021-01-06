@@ -5,7 +5,7 @@ desktop:
 serve:
   command: |
     robo -c "{{ .robo.file }}" build
-    ZHQUIZ_BROWSER=0 ./{{ .exe }}
+    ZHQUIZ_DESKTOP=0 ./{{ .exe }}
 dev:
   command: |
     export PORT=${SERVER_PORT:-5000}
@@ -23,17 +23,33 @@ build-windows:
       -targets=windows/* \
       -out=zhquiz \
       {{ .repo }}
-build-others:
+build-mac:
+  summary: |
+    See https://github.com/getlantern/systray#macos for packaging and high res
   command: |
     xgo \
       -branch={{ .branch }} \
-      -targets=linux/386,linux/amd64,darwin/amd64 \
+      -targets=darwin/amd64 \
       -out=zhquiz \
       {{ .repo }}
+build-linux:
+  summary: |
+    See https://github.com/getlantern/systray#linux
+
+    sudo apt-get install gcc libgtk-3-dev libappindicator3-dev
+  command: |
+    for arch in amd64
+      do
+        export GOARCH="$arch"
+        export CGO_ENABLED=1
+
+        go build -o "zhquiz-linux-$arch"
+      done
 build-all:
   command: |
     robo -c "{{ .robo.file }}" build-windows
-    robo -c "{{ .robo.file }}" build-others
+    robo -c "{{ .robo.file }}" build-mac
+    robo -c "{{ .robo.file }}" build-linux
 
 ##########
 # Settings
