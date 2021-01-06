@@ -19,7 +19,7 @@ func main() {
 	defer res.Cleanup()
 
 	if shared.IsDesktop() {
-		cmd := desktop.OpenURL(fmt.Sprintf("http://localhost:%s", shared.Port()))
+		cmd := desktop.OpenURL(fmt.Sprintf("http://localhost:%s/random", shared.Port()))
 
 		server.Serve(&res)
 

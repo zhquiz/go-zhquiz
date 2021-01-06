@@ -1,42 +1,62 @@
 desktop:
   command: |
-    robo -c {{ .robo.file }} build
+    robo -c "{{ .robo.file }}" build
     ./{{ .exe }}
 serve:
   command: |
-    robo -c {{ .robo.file }} build
+    robo -c "{{ .robo.file }}" build
     ZHQUIZ_BROWSER=0 ./{{ .exe }}
 dev:
   command: |
     export PORT=${SERVER_PORT:-5000}
     # increase the file watch limit, might be required on MacOS
     ulimit -n 1000
-    reflex -s -r '\.go$' -- robo -c {{ .robo.file }} serve
+    reflex -s -r '\.go$' -- robo -c "{{ .robo.file }}" serve
 build:
   command: |
-    {{ .flags }}
-    go build -o {{ .exe }}
+    export GOOS=${GOOS:-$(go env GOOS)}
+    export GOARCH=${GOARCH:-$(go env GOARCH)}
+
+    if [ $GOOS = "windows" ]; then
+      export exe="zhquiz-$GOOS-$GOARCH.exe"
+    elif [ $GOOS = "darwin" ]; then
+      export exe="zhquiz-$GOOS-$GOARCH.app"
+    else
+      export exe="zhquiz-$GOOS-$GOARCH"
+    fi
+
+    export CGO_CFLAGS="-DSQLITE_MAX_VARIABLE_NUMBER=10000"
+    export CGO_ENABLED=1
+
+    if [ $(go env GOOS) = "windows" ]; then
+      go build -ldflags="-H windowsgui" -o "$exe"
+    else
+      go build -o "$exe"
+    fi
 build-windows:
   command: |
-    {{ .flags }}
-    xgo \
-      -ldflags="-H windowsgui" \
-      -branch={{ .branch }} \
-      -targets=windows/* \
-      -out=zhquiz \
-      {{ .repo }}
+    for arch in amd64 386
+      do
+        export GOOS="windows"
+        export GOARCH="$arch"
+        robo -c "{{ .robo.file }}" build
+      done
 build-others:
   command: |
-    {{ .flags }}
-    xgo \
-      -branch={{ .branch }} \
-      -targets=linux/386,linux/amd64,darwin/amd64 \
-      -out=zhquiz \
-      {{ .repo }}
+    for arch in amd64 386
+      do
+        export GOOS="linux"
+        export GOARCH="$arch"
+        robo -c "{{ .robo.file }}" build
+      done
+
+    export GOOS="darwin"
+    export GOARCH="amd64"
+    robo -c "{{ .robo.file }}" build
 build-all:
   command: |
-    robo -c {{ .robo.file }} build-windows
-    robo -c {{ .robo.file }} build-others
+    robo -c "{{ .robo.file }}" build-windows
+    robo -c "{{ .robo.file }}" build-others
 
 ##########
 # Settings
@@ -44,5 +64,3 @@ build-all:
 variables:
   repo: github.com/zhquiz/go-zhquiz
   branch: $(git branch --show-current)
-  exe: zhquiz.app
-  flags: export CGO_CFLAGS="-DSQLITE_MAX_VARIABLE_NUMBER=10000"
