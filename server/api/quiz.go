@@ -108,26 +108,6 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 			"entry":     func(q *db.Quiz) interface{} { return q.Entry },
 			"type":      func(q *db.Quiz) interface{} { return q.Type },
 			"direction": func(q *db.Quiz) interface{} { return q.Direction },
-			"front":     func(q *db.Quiz) interface{} { return q.Front },
-			"back":      func(q *db.Quiz) interface{} { return q.Back },
-			"mnemonic":  func(q *db.Quiz) interface{} { return q.Mnemonic },
-			"tag": func(q *db.Quiz) interface{} {
-				tag := make([]string, 0)
-
-				var ts []db.Tag
-				if r := resource.DB.Current.
-					Joins("JOIN quiz_tag ON quiz_tag.tag_id = tag.id").
-					Where("quiz_id = ?", q.ID).
-					Find(&ts); r.Error != nil {
-					panic(r.Error)
-				}
-
-				for _, t := range ts {
-					tag = append(tag, t.Name)
-				}
-
-				return tag
-			},
 		}
 
 		for _, q := range quizzes {
@@ -315,6 +295,12 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 			}
 		}()
 
+		q := resource.DB.Current.Model(&db.Quiz{})
+
+		if rs.Q != "" {
+			q = q.Joins("LEFT JOIN quiz_q ON quiz_q.id = quiz.id").Where("quiz_q MATCH ?", rs.Q)
+		}
+
 		var orCond []string
 
 		stageSet := util.MakeSet(rs.Stage)
@@ -334,19 +320,16 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 			orCond = append(orCond, "srs_level >= 3")
 		}
 
-		q := resource.DB.Current.
-			Model(&db.Quiz{}).
-			Joins("LEFT JOIN quiz_tag ON quiz_tag.quiz_id = quiz.id").
-			Joins("LEFT JOIN tag ON tag.id = quiz_tag.tag_id").
-			Where("user_id = ? AND [type] IN ? AND direction IN ?", userID, rs.Type, rs.Direction)
-
 		if len(orCond) > 0 {
 			q = q.Where(strings.Join(orCond, " OR "))
 		}
 
 		var quizzes []db.Quiz
 
-		if r := q.Group("quiz.id").Find(&quizzes); r.Error != nil {
+		if r := q.
+			Where("user_id = ? AND [type] IN ? AND direction IN ?", userID, rs.Type, rs.Direction).
+			Group("quiz.id").
+			Find(&quizzes); r.Error != nil {
 			panic(r.Error)
 		}
 

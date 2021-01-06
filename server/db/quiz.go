@@ -2,6 +2,8 @@ package db
 
 import (
 	"time"
+
+	"gorm.io/gorm"
 )
 
 // Quiz is the database model for quiz
@@ -14,17 +16,10 @@ type Quiz struct {
 	UserID string `gorm:"index:quiz_unique_idx,unique;not null"`
 	User   User
 
-	Tags []Tag `gorm:"many2many:quiz_tag"`
-
 	// Entry references
 	Entry     string `gorm:"index:quiz_unique_idx,unique;not null;check:length(entry) > 0"`
 	Type      string `gorm:"index:quiz_unique_idx,unique;not null;check:[type] in ('hanzi','vocab','sentence')"`
 	Direction string `gorm:"index:quiz_unique_idx,unique;not null;check:direction in ('se','ec','te')"`
-
-	// Quiz annotations
-	Front    *string
-	Back     *string
-	Mnemonic *string
 
 	// Quiz statistics
 	SRSLevel    *int8      `gorm:"index"`
@@ -37,13 +32,27 @@ type Quiz struct {
 	MaxWrong    *uint      `gorm:"index"`
 }
 
-// QuizTag is joint table for Quiz-Tag
-// @internal
-type QuizTag struct {
-	QuizID string `gorm:"primaryKey"`
-	TagID  string `gorm:"primaryKey"`
-	Quiz   Quiz
-	Tag    Tag
+// AfterCreate hook
+func (q *Quiz) AfterCreate(tx *gorm.DB) (err error) {
+	tx.Exec(`
+	INSERT INTO quiz_q (id, [entry], [type], [direction])
+	VALUES (@id, @entry, @type, @direction)
+	`, map[string]interface{}{
+		"id":        q.ID,
+		"entry":     parseChinese(q.Entry),
+		"type":      q.Type,
+		"direction": q.Direction,
+	})
+	return
+}
+
+// AfterDelete hook
+func (q *Quiz) AfterDelete(tx *gorm.DB) (err error) {
+	tx.Exec(`
+	DELETE FROM quiz_q
+	WHERE id = ?
+	`, q.ID)
+	return
 }
 
 var srsMap []time.Duration = []time.Duration{

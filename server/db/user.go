@@ -25,10 +25,8 @@ type User struct {
 	Meta UserMeta
 
 	// Relations
-	Decks   []Deck   `gorm:"constraint:OnDelete:CASCADE"`
-	Entries []Entry  `gorm:"constraint:OnDelete:CASCADE"`
-	Presets []Preset `gorm:"constraint:OnDelete:CASCADE"`
-	Quizzes []Quiz   `gorm:"constraint:OnDelete:CASCADE"`
+	Quizzes []Quiz  `gorm:"constraint:OnDelete:CASCADE"`
+	Extras  []Extra `gorm:"constraint:OnDelete:CASCADE"`
 }
 
 // UserMeta holds User's settings

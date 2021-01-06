@@ -21,7 +21,7 @@ build-windows:
       -ldflags="-H windowsgui" \
       -branch={{ .branch }} \
       -targets=windows/* \
-      -out=zhquiz \
+      -out=zhquiz -tags="sqlite_fts5" \
       {{ .repo }}
 build-mac:
   summary: |
@@ -30,7 +30,7 @@ build-mac:
     xgo \
       -branch={{ .branch }} \
       -targets=darwin/amd64 \
-      -out=zhquiz \
+      -out=zhquiz -tags="sqlite_fts5" \
       {{ .repo }}
 build-linux:
   summary: |
@@ -45,7 +45,7 @@ build-linux:
         export GOARCH="$arch"
         export CGO_ENABLED=1
 
-        go build -o "zhquiz-linux-$arch"
+        go build -o "zhquiz-linux-$arch" --tags "sqlite_fts5"
       done
 build-all:
   command: |
