@@ -14,45 +14,22 @@ dev:
     reflex -s -r '\.go$' -- robo -c "{{ .robo.file }}" serve
 build:
   command: |
-    export GOOS=${GOOS:-$(go env GOOS)}
-    export GOARCH=${GOARCH:-$(go env GOARCH)}
-
-    if [ $GOOS = "windows" ]; then
-      export exe="zhquiz-$GOOS-$GOARCH.exe"
-    elif [ $GOOS = "darwin" ]; then
-      export exe="zhquiz-$GOOS-$GOARCH.app"
-    else
-      export exe="zhquiz-$GOOS-$GOARCH"
-    fi
-
-    export CGO_CFLAGS="-DSQLITE_MAX_VARIABLE_NUMBER=10000"
-    export CGO_ENABLED=1
-
-    if [ $(go env GOOS) = "windows" ]; then
-      go build -ldflags="-H windowsgui" -o "$exe"
-    else
-      go build -o "$exe"
-    fi
+    go build -o {{ .exe }}
 build-windows:
   command: |
-    for arch in amd64 386
-      do
-        export GOOS="windows"
-        export GOARCH="$arch"
-        robo -c "{{ .robo.file }}" build
-      done
+    xgo \
+      -ldflags="-H windowsgui" \
+      -branch={{ .branch }} \
+      -targets=windows/* \
+      -out=zhquiz \
+      {{ .repo }}
 build-others:
   command: |
-    for arch in amd64 386
-      do
-        export GOOS="linux"
-        export GOARCH="$arch"
-        robo -c "{{ .robo.file }}" build
-      done
-
-    export GOOS="darwin"
-    export GOARCH="amd64"
-    robo -c "{{ .robo.file }}" build
+    xgo \
+      -branch={{ .branch }} \
+      -targets=linux/386,linux/amd64,darwin/amd64 \
+      -out=zhquiz \
+      {{ .repo }}
 build-all:
   command: |
     robo -c "{{ .robo.file }}" build-windows
@@ -64,3 +41,4 @@ build-all:
 variables:
   repo: github.com/zhquiz/go-zhquiz
   branch: $(git branch --show-current)
+  exe: '"$([ $(go env GOOS) = "windows" ] && echo "zhquiz.exe" || echo "zhquiz.app")"'

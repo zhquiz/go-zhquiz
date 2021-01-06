@@ -29,4 +29,4 @@ require (
 	gorm.io/gorm v1.20.8
 )
 
-replace github.com/yanyiwu/gojieba v1.1.2 => github.com/ttys3/gojieba v1.1.3
+replace github.com/mattn/go-sqlite3 v2.0.3+incompatible => github.com/mattn/go-sqlite3 v1.14.6
