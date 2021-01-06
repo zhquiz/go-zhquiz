@@ -280,7 +280,7 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 			Stage     []string `json:"stage" validate:"required,min=1"`
 			Direction []string `json:"direction" validate:"required,min=1"`
 			IsDue     bool     `json:"isDue"`
-			Tag       []string `json:"tag" validate:"required"`
+			Q         string   `json:"q"`
 		}
 
 		if e := ctx.ShouldBindQuery(&query); e != nil {
@@ -339,10 +339,6 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 			Joins("LEFT JOIN quiz_tag ON quiz_tag.quiz_id = quiz.id").
 			Joins("LEFT JOIN tag ON tag.id = quiz_tag.tag_id").
 			Where("user_id = ? AND [type] IN ? AND direction IN ?", userID, rs.Type, rs.Direction)
-
-		if len(rs.Tag) > 0 {
-			q = q.Where("tag.name IN ?", rs.Tag)
-		}
 
 		if len(orCond) > 0 {
 			q = q.Where(strings.Join(orCond, " OR "))

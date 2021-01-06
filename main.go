@@ -109,8 +109,7 @@ func main() {
 		server.Serve(&res)
 
 		c := make(chan os.Signal)
-		// signal.Notify(c, os.Interrupt)
-		signal.Notify(c)
+		signal.Notify(c, os.Interrupt, os.Kill)
 
 		<-c
 
