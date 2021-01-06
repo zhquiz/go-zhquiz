@@ -37,6 +37,8 @@ build-linux:
     See https://github.com/getlantern/systray#linux
 
     sudo apt-get install gcc libgtk-3-dev libappindicator3-dev
+
+    I also tried building for x86, but is unsuccessful.
   command: |
     for arch in amd64
       do

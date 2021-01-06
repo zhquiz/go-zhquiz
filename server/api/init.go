@@ -33,6 +33,12 @@ type Resource struct {
 	Zh zh.DB
 }
 
+// Cleanup cleans up Resource.
+func (res Resource) Cleanup() {
+	log.Println("Cleaning up")
+	res.DB.Current.Commit()
+}
+
 // Prepare initializes Resource for reuse and cleanup.
 func Prepare() Resource {
 	f, _ := os.Create(filepath.Join(shared.ExecDir, "gin.log"))
@@ -88,11 +94,6 @@ func (res Resource) Register(r *gin.Engine) {
 	routerSentence(apiRouter)
 	routerUser(apiRouter)
 	routerVocab(apiRouter)
-}
-
-// Cleanup cleans up Resource.
-func (res Resource) Cleanup() {
-	res.DB.Current.Commit()
 }
 
 // AuthMiddleware middleware for auth with Cotter
