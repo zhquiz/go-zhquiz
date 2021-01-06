@@ -298,7 +298,22 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 		q := resource.DB.Current.Model(&db.Quiz{})
 
 		if rs.Q != "" {
-			q = q.Joins("LEFT JOIN quiz_q ON quiz_q.id = quiz.id").Where("quiz_q MATCH ?", rs.Q)
+			var sel []struct {
+				ID string
+			}
+			// Ignore errors
+			resource.DB.Current.Raw("SELECT id FROM quiz_q WHERE quiz_q MATCH ?", rs.Q).Find(&sel)
+
+			var ids []string
+			for _, s := range sel {
+				ids = append(ids, s.ID)
+			}
+
+			if len(ids) > 0 {
+				q = q.Where("id IN ?", ids)
+			} else {
+				q = q.Where("FALSE")
+			}
 		}
 
 		var orCond []string
@@ -328,7 +343,6 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 
 		if r := q.
 			Where("user_id = ? AND [type] IN ? AND direction IN ?", userID, rs.Type, rs.Direction).
-			Group("quiz.id").
 			Find(&quizzes); r.Error != nil {
 			panic(r.Error)
 		}

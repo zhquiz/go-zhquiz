@@ -14,7 +14,7 @@ dev:
     reflex -s -r '\.go$' -- robo -c "{{ .robo.file }}" serve
 build:
   command: |
-    go build -o {{ .exe }}
+    go build --tags "sqlite_fts5" -o {{ .exe }}
 build-windows:
   command: |
     xgo \
@@ -45,7 +45,7 @@ build-linux:
         export GOARCH="$arch"
         export CGO_ENABLED=1
 
-        go build -o "zhquiz-linux-$arch" --tags "sqlite_fts5"
+        go build --tags "sqlite_fts5" -o "zhquiz-linux-$arch"
       done
 build-all:
   command: |

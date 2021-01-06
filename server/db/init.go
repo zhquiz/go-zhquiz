@@ -49,52 +49,66 @@ func Connect() DB {
 		&Extra{},
 	)
 
-	if r := output.Current.Raw("SELECT Name FROM sqlite_temp_master WHERE type='table' AND name='quiz_q'").First(&struct {
+	if r := output.Current.Raw("SELECT Name FROM sqlite_master WHERE type='table' AND name='quiz_q'").First(&struct {
 		Name string
-	}{}); errors.Is(r.Error, gorm.ErrRecordNotFound) {
-		output.Current.Exec(`
-		CREATE VIRTUAL TABLE quiz_q USING fts5(
-			[id],
-			[entry],
-			[type],
-			[direction],
-			[pinyin],
-			[english],
-			[description],
-			[tag]
-		);
-		`)
+	}{}); r.Error != nil {
+		if errors.Is(r.Error, gorm.ErrRecordNotFound) {
+			output.Current.Exec(`
+			CREATE VIRTUAL TABLE quiz_q USING fts5(
+				[id],
+				[entry],
+				[level],
+				[pinyin],
+				[english],
+				[description],
+				[tag]
+			);
+			`)
 
-		var quizzes []Quiz
-		output.Current.Find(&quizzes)
+			var quizzes []Quiz
+			output.Current.Find(&quizzes)
 
-		output.Current.Transaction(func(tx *gorm.DB) error {
-			for _, q := range quizzes {
-				tx.Exec(`
-				INSERT INTO quiz_q (id, [entry], [type], [direction])
-				VALUES (@id, @entry, @type, @direction)
-				`, map[string]interface{}{
-					"id":        q.ID,
-					"entry":     parseChinese(q.Entry),
-					"type":      q.Type,
-					"direction": q.Direction,
-				})
-			}
+			output.Current.Transaction(func(tx *gorm.DB) error {
+				for _, q := range quizzes {
+					q.AfterCreate(tx)
+				}
 
-			return nil
-		})
+				return nil
+			})
+		} else {
+			panic(r.Error)
+		}
 	}
 
-	output.Current.Exec(`
-	CREATE VIRTUAL TABLE IF NOT EXISTS extra_q USING fts5(
-		[id],
-		[chinese],
-		[pinyin],
-		[english],
-		[description],
-		[tag]
-	);
-	`)
+	if r := output.Current.Raw("SELECT Name FROM sqlite_master WHERE type='table' AND name='extra_q'").First(&struct {
+		Name string
+	}{}); r.Error != nil {
+		if errors.Is(r.Error, gorm.ErrRecordNotFound) {
+			output.Current.Exec(`
+			CREATE VIRTUAL TABLE extra_q USING fts5(
+				[id],
+				[chinese],
+				[pinyin],
+				[english],
+				[description],
+				[tag]
+			);
+			`)
+
+			var extras []Extra
+			output.Current.Find(&extras)
+
+			output.Current.Transaction(func(tx *gorm.DB) error {
+				for _, ex := range extras {
+					ex.AfterCreate(tx)
+				}
+
+				return nil
+			})
+		} else {
+			panic(r.Error)
+		}
+	}
 
 	return output
 }

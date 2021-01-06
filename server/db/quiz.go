@@ -1,8 +1,10 @@
 package db
 
 import (
+	"strconv"
 	"time"
 
+	"github.com/zhquiz/go-zhquiz/server/zh"
 	"gorm.io/gorm"
 )
 
@@ -34,14 +36,77 @@ type Quiz struct {
 
 // AfterCreate hook
 func (q *Quiz) AfterCreate(tx *gorm.DB) (err error) {
+	entry := q.Entry
+	pinyin := ""
+	english := ""
+	description := ""
+	tag := ""
+	level := ""
+
+	switch q.Type {
+	case "vocab":
+		var vocabs []zh.Cedict
+		var tokens []zh.Token
+		zhDB.Current.Where("simplified = ? OR traditional = ?", q.Entry, q.Entry).Find(&vocabs)
+		zhDB.Current.Where("entry = ?", q.Entry).Find(&tokens)
+
+		entry = ""
+
+		for _, v := range vocabs {
+			entry += v.Simplified + " " + v.Traditional + " "
+			pinyin += v.Pinyin + " "
+			english += v.English + " "
+		}
+
+		for _, t := range tokens {
+			description += t.Description + " "
+			tag += t.Tag + " "
+
+			if t.VocabLevel != 0 {
+				level = strconv.Itoa(t.HanziLevel)
+			}
+		}
+	case "sentence":
+		var sentences []zh.Sentence
+		zhDB.Current.Where("chinese = ?", q.Entry).Find(&sentences)
+
+		for _, s := range sentences {
+			pinyin += s.Pinyin + " "
+			english += s.English + " "
+			description += s.Description + " "
+			tag += s.Tag + " "
+
+			if s.Level != 0 {
+				level = strconv.Itoa(int(s.Level))
+			}
+		}
+	default:
+		var tokens []zh.Token
+		zhDB.Current.Where("entry = ?", q.Entry).Find(&tokens)
+
+		for _, t := range tokens {
+			pinyin += t.Pinyin + " "
+			english += t.English + " "
+			description += t.Description + " "
+			tag += t.Tag + " "
+
+			if t.HanziLevel != 0 {
+				level = strconv.Itoa(t.HanziLevel)
+			}
+		}
+	}
+
 	tx.Exec(`
-	INSERT INTO quiz_q (id, [entry], [type], [direction])
-	VALUES (@id, @entry, @type, @direction)
+	INSERT INTO quiz_q (id, [entry], [level], [pinyin], [english], [description], [tag])
+	VALUES (@id, @entry, @level, @pinyin, @english, @description, @tag)
 	`, map[string]interface{}{
-		"id":        q.ID,
-		"entry":     parseChinese(q.Entry),
-		"type":      q.Type,
-		"direction": q.Direction,
+		"id":          q.ID,
+		"entry":       parseChinese(entry),
+		"level":       level,
+		"pinyin":      parsePinyin(pinyin),
+		"english":     english,
+		"description": description,
+		"tag":         tag,
 	})
 	return
 }
