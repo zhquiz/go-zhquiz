@@ -144,7 +144,14 @@ func routerSentence(apiRouter *gin.RouterGroup) {
 					}
 				})
 
-				return moreResult
+				cleaned := make([]Result, 0)
+				for _, r := range moreResult {
+					if r.Chinese != "" {
+						cleaned = append(cleaned, r)
+					}
+				}
+
+				return cleaned
 			}()
 
 			out.Result = append(out.Result, moreResult...)

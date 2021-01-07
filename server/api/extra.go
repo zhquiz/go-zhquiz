@@ -182,12 +182,11 @@ func routerExtra(apiRouter *gin.RouterGroup) {
 			sel = []string{"Chinese", "Pinyin", "English"}
 		}
 
-		var out gin.H
+		var out db.Extra
 
 		if r := resource.DB.Current.
-			Model(&db.Extra{}).
 			Select(sel).
-			Where("user_id = ?", userID).
+			Where("user_id = ? AND chinese = ?", userID, query.Entry).
 			First(&out); r.Error != nil {
 			panic(r.Error)
 		}

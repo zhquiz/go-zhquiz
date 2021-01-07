@@ -435,7 +435,7 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 
 				for _, seg := range cutChinese(entry) {
 					var vocab zh.Vocab
-					if r := resource.Zh.Current.Where("simplified = ? OR traditional = ?", seg, seg).First(&vocab); r.Error != nil {
+					if r := resource.Zh.Current.Where("simplified = ? OR traditional = ?", seg, seg).Order("frequency DESC").First(&vocab); r.Error != nil {
 						if !errors.Is(r.Error, gorm.ErrRecordNotFound) {
 							panic(r.Error)
 						}

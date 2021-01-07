@@ -21,7 +21,7 @@ func routerChinese(apiRouter *gin.RouterGroup) {
 		}
 
 		ctx.JSON(200, gin.H{
-			"result": cutChinese(query.Q),
+			"result": cutChineseAll(query.Q),
 		})
 	})
 
@@ -50,13 +50,24 @@ func routerChinese(apiRouter *gin.RouterGroup) {
 	}
 }
 
-func cutChinese(s string) []string {
+func cutChineseAll(s string) []string {
 	out := make([]string, 0)
 	func(ch <-chan string) {
 		for word := range ch {
 			out = append(out, word)
 		}
 	}(jieba.CutAll(s))
+
+	return out
+}
+
+func cutChinese(s string) []string {
+	out := make([]string, 0)
+	func(ch <-chan string) {
+		for word := range ch {
+			out = append(out, word)
+		}
+	}(jieba.Cut(s, true))
 
 	return out
 }
