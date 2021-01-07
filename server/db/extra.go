@@ -15,9 +15,9 @@ type Extra struct {
 	UserID string `gorm:"index:idx_extra_user_chinese,unique;not null"`
 	User   User   `gorm:"foreignKey:UserID"`
 
-	Chinese string `gorm:"index:idx_extra_user_chinese,unique;not null"`
-	Pinyin  string
-	English string
+	Chinese string `gorm:"index:idx_extra_user_chinese,unique;not null" json:"chinese"`
+	Pinyin  string `json:"pinyin"`
+	English string `json:"english"`
 }
 
 // AfterCreate hook

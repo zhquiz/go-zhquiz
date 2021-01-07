@@ -2,17 +2,12 @@ package api
 
 import (
 	"os/exec"
-	"path/filepath"
 
 	"github.com/gin-gonic/gin"
-	"github.com/wangbin/jiebago"
 	"github.com/zhquiz/go-zhquiz/shared"
 )
 
 func routerChinese(apiRouter *gin.RouterGroup) {
-	var jieba jiebago.Segmenter
-	jieba.LoadDictionary(filepath.Join(shared.ExecDir, "assets", "dict.txt"))
-
 	r := apiRouter.Group("/chinese")
 
 	r.GET("/jieba", func(ctx *gin.Context) {
@@ -25,15 +20,8 @@ func routerChinese(apiRouter *gin.RouterGroup) {
 			return
 		}
 
-		out := make([]string, 0)
-		func(ch <-chan string) {
-			for word := range ch {
-				out = append(out, word)
-			}
-		}(jieba.CutAll(query.Q))
-
 		ctx.JSON(200, gin.H{
-			"result": out,
+			"result": cutChinese(query.Q),
 		})
 	})
 
@@ -60,4 +48,15 @@ func routerChinese(apiRouter *gin.RouterGroup) {
 			})
 		})
 	}
+}
+
+func cutChinese(s string) []string {
+	out := make([]string, 0)
+	func(ch <-chan string) {
+		for word := range ch {
+			out = append(out, word)
+		}
+	}(jieba.CutAll(s))
+
+	return out
 }

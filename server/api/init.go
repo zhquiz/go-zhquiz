@@ -15,6 +15,7 @@ import (
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
+	"github.com/wangbin/jiebago"
 	"github.com/zhquiz/go-zhquiz/server/db"
 	"github.com/zhquiz/go-zhquiz/server/zh"
 	"github.com/zhquiz/go-zhquiz/shared"
@@ -25,6 +26,7 @@ import (
 
 var resource Resource
 var validate *validator.Validate = validator.New()
+var jieba jiebago.Segmenter
 
 // Resource is a struct for reuse and cleanup.
 type Resource struct {
@@ -47,6 +49,8 @@ func Prepare() Resource {
 		DB: db.Connect(),
 		Zh: zh.Connect(),
 	}
+
+	jieba.LoadDictionary(filepath.Join(shared.ExecDir, "assets", "dict.txt"))
 
 	return resource
 }

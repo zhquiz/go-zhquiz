@@ -21,7 +21,7 @@ type Quiz struct {
 
 	// Entry references
 	Entry     string `gorm:"index:quiz_unique_idx,unique;not null;check:length(entry) > 0"`
-	Type      string `gorm:"index:quiz_unique_idx,unique;not null;check:[type] in ('hanzi','vocab','sentence')"`
+	Type      string `gorm:"index:quiz_unique_idx,unique;not null;check:[type] in ('hanzi','vocab','sentence','extra')"`
 	Direction string `gorm:"index:quiz_unique_idx,unique;not null;check:direction in ('se','ec','te')"`
 
 	// Quiz statistics

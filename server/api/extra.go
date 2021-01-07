@@ -128,10 +128,11 @@ func routerExtra(apiRouter *gin.RouterGroup) {
 		}
 
 		out := struct {
-			Result []gin.H `json:"result"`
-			Count  int     `json:"count"`
+			Result []db.Extra `json:"result"`
+			Count  int        `json:"count"`
 		}{
-			Count: getCount.Count,
+			Result: make([]db.Extra, 0),
+			Count:  getCount.Count,
 		}
 
 		if r := q.
@@ -141,10 +142,6 @@ func routerExtra(apiRouter *gin.RouterGroup) {
 			Offset((page - 1) * perPage).
 			Scan(&out.Result); r.Error != nil {
 			panic(r.Error)
-		}
-
-		if len(out.Result) == 0 {
-			out.Result = make([]gin.H, 0)
 		}
 
 		ctx.JSON(200, out)
@@ -158,8 +155,8 @@ func routerExtra(apiRouter *gin.RouterGroup) {
 		}
 
 		var query struct {
-			Entry  string `binding:"required"`
-			Select string
+			Entry  string `form:"entry" binding:"required"`
+			Select string `form:"select"`
 		}
 
 		if e := ctx.ShouldBindQuery(&query); e != nil {

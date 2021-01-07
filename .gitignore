@@ -16,6 +16,7 @@
 
 /gin.log
 /data.db
+/*.backup.*
 .env
 .env.*
 /jwks

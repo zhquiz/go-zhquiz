@@ -77,11 +77,11 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 			return
 		}
 
-		where := "user_id = @userID AND [entry] IN @entries AND [Type] = @type"
+		where := "user_id = @userID AND [entry] IN @entries AND [Type] IN @type"
 		cond := map[string]interface{}{
 			"userID":  userID,
 			"entries": body.Entries,
-			"type":    body.Type,
+			"type":    []string{body.Type, "extra"},
 		}
 
 		var quizzes []db.Quiz
@@ -430,10 +430,34 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 			}
 
 			if subresult.Type == "extra" {
+				pinyin := ""
+				english := ""
+
+				for _, seg := range cutChinese(entry) {
+					var vocab zh.Vocab
+					if r := resource.Zh.Current.Where("simplified = ? OR traditional = ?", seg, seg).First(&vocab); r.Error != nil {
+						if !errors.Is(r.Error, gorm.ErrRecordNotFound) {
+							panic(r.Error)
+						}
+					}
+
+					if vocab.English != "" {
+						if english != "" {
+							pinyin += " "
+							english += "; "
+						}
+
+						pinyin += vocab.Pinyin
+						english += vocab.English
+					}
+				}
+
 				newExtra = append(newExtra, db.Extra{
 					ID:      NewULID(),
 					UserID:  userID,
 					Chinese: entry,
+					Pinyin:  pinyin,
+					English: english,
 				})
 			}
 
@@ -450,7 +474,7 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 						ID:        id,
 						UserID:    userID,
 						Entry:     entry,
-						Type:      body.Type,
+						Type:      subresult.Type,
 						Direction: d,
 					})
 
@@ -470,7 +494,7 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 		}
 
 		if len(newQ) > 0 {
-			if r := resource.DB.Current.CreateInBatches(newQ, 10); r.Error != nil {
+			if r := resource.DB.Current.Create(newQ); r.Error != nil {
 				panic(r.Error)
 			}
 		}

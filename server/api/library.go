@@ -1,6 +1,13 @@
 package api
 
-import "github.com/gin-gonic/gin"
+import (
+	"io/ioutil"
+	"path/filepath"
+
+	"github.com/gin-gonic/gin"
+	"github.com/zhquiz/go-zhquiz/shared"
+	"gopkg.in/yaml.v2"
+)
 
 func routerLibrary(apiRouter *gin.RouterGroup) {
 	r := apiRouter.Group("/library")
@@ -43,5 +50,30 @@ func routerLibrary(apiRouter *gin.RouterGroup) {
 		ctx.JSON(200, gin.H{
 			"result": result,
 		})
+	})
+
+	r.GET("/library.json", func(ctx *gin.Context) {
+		type TSub struct {
+			Title   string   `json:"title"`
+			Entries []string `json:"entries"`
+		}
+
+		type T struct {
+			Title    string `json:"title"`
+			Children []TSub `json:"children"`
+		}
+
+		t := make([]T, 0)
+
+		b, err := ioutil.ReadFile(filepath.Join(shared.ExecDir, "assets", "library.yaml"))
+		if err != nil {
+			panic(err)
+		}
+
+		if err := yaml.Unmarshal(b, &t); err != nil {
+			panic(err)
+		}
+
+		ctx.JSON(200, t)
 	})
 }
