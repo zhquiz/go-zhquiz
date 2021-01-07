@@ -33,12 +33,10 @@ func routerVocab(apiRouter *gin.RouterGroup) {
 		result := make([]Result, 0)
 
 		if r := resource.Zh.Current.Raw(`
-		SELECT Simplified, Traditional, cedict.Pinyin, cedict.English English
-		FROM cedict
-		LEFT JOIN token ON token.entry = simplified
+		SELECT Simplified, Traditional, Pinyin, English English
+		FROM vocab
 		WHERE Simplified = ? OR Traditional = ?
-		GROUP BY cedict.ROWID
-		ORDER BY token.frequency DESC
+		ORDER BY frequency DESC
 		`, query.Entry, query.Entry).Find(&result); r.Error != nil {
 			panic(r.Error)
 		}
@@ -68,12 +66,10 @@ func routerVocab(apiRouter *gin.RouterGroup) {
 		var result []Result
 
 		if r := resource.Zh.Current.Raw(`
-		SELECT Simplified, Traditional, cedict.Pinyin, cedict.english English
-		FROM cedict
-		LEFT JOIN token ON token.entry = simplified
+		SELECT Simplified, Traditional, Pinyin, English
+		FROM vocab
 		WHERE simplified LIKE '%'||?||'%' OR traditional LIKE '%'||?||'%'
-		GROUP BY cedict.ROWID
-		ORDER BY token.frequency DESC
+		ORDER BY frequency DESC
 		LIMIT 10
 		`, query.Q, query.Q).Find(&result); r.Error != nil {
 			panic(r.Error)
@@ -188,7 +184,7 @@ func routerVocab(apiRouter *gin.RouterGroup) {
 			"level":    level,
 		}
 
-		sqlString := "cedict.english IS NOT NULL AND vocab_level >= @levelMin AND vocab_level <= @level"
+		sqlString := "vocab_level >= @levelMin AND vocab_level <= @level"
 
 		if len(entries) > 0 {
 			sqlString = "entry NOT IN @entries AND " + sqlString
@@ -202,11 +198,11 @@ func routerVocab(apiRouter *gin.RouterGroup) {
 		var items []Item
 
 		if r := resource.Zh.Current.Raw(fmt.Sprintf(`
-		SELECT entry Result, cedict.english English, vocab_level Level
+		SELECT entry Result, (
+			SELECT vocab.english FROM vocab WHERE simplified = entry AND frequency IS NOT NULL
+		) English, vocab_level Level
 		FROM token
-		LEFT JOIN cedict ON cedict.simplified = entry
 		WHERE %s
-		GROUP BY entry
 		`, sqlString), cond).Find(&items); r.Error != nil {
 			panic(r.Error)
 		}
@@ -214,18 +210,18 @@ func routerVocab(apiRouter *gin.RouterGroup) {
 		if len(items) < 1 {
 			items = []Item{}
 
-			sqlString := "cedict.english IS NOT NULL"
+			sqlString := "TRUE"
 
 			if len(entries) > 0 {
 				sqlString = "entry NOT IN @entries AND " + sqlString
 			}
 
 			if r := resource.Zh.Current.Raw(fmt.Sprintf(`
-			SELECT entry Result, cedict.english English, vocab_level Level
+			SELECT entry Result, (
+				SELECT vocab.english FROM vocab WHERE simplified = entry AND frequency IS NOT NULL
+			) English, vocab_level Level
 			FROM token
-			LEFT JOIN cedict ON cedict.simplified = entry
 			WHERE %s
-			GROUP BY entry
 			`, sqlString), cond).Find(&items); r.Error != nil {
 				panic(r.Error)
 			}

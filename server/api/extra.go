@@ -203,7 +203,7 @@ func routerExtra(apiRouter *gin.RouterGroup) {
 
 			if r := resource.Zh.Current.Raw(`
 			SELECT simplified
-			FROM cedict_q
+			FROM vocab
 			WHERE simplified = ? OR traditional = ?
 			LIMIT 1
 			`, body.Chinese, body.Chinese).First(&simplified); r.Error != nil {

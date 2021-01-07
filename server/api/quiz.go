@@ -453,7 +453,7 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 
 			switch body.Type {
 			case "vocab":
-				var items []zh.Cedict
+				var items []zh.Vocab
 				if r := resource.Zh.Current.
 					Where("simplified = ? OR traditional = ?", entry, entry).
 					Find(&items); r.Error != nil {

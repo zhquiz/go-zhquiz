@@ -45,7 +45,7 @@ func (q *Quiz) AfterCreate(tx *gorm.DB) (err error) {
 
 	switch q.Type {
 	case "vocab":
-		var vocabs []zh.Cedict
+		var vocabs []zh.Vocab
 		var tokens []zh.Token
 		zhDB.Current.Where("simplified = ? OR traditional = ?", q.Entry, q.Entry).Find(&vocabs)
 		zhDB.Current.Where("entry = ?", q.Entry).Find(&tokens)
@@ -56,6 +56,10 @@ func (q *Quiz) AfterCreate(tx *gorm.DB) (err error) {
 			entry += v.Simplified + " " + v.Traditional + " "
 			pinyin += v.Pinyin + " "
 			english += v.English + " "
+
+			if v.Source != "" {
+				tag += v.Source + " "
+			}
 		}
 
 		for _, t := range tokens {
