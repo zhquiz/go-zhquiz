@@ -22,6 +22,7 @@ func routerExtra(apiRouter *gin.RouterGroup) {
 		}
 
 		var query struct {
+			Q       string  `form:"q"`
 			Select  string  `form:"select"`
 			Sort    string  `form:"sort"`
 			Page    *string `form:"page"`
@@ -94,15 +95,35 @@ func routerExtra(apiRouter *gin.RouterGroup) {
 			sel = []string{"Chinese", "Pinyin", "English"}
 		}
 
+		q := resource.DB.Current.Model(&db.Extra{}).Where("user_id = ?", userID)
+
+		if query.Q != "" {
+			var ids []string
+			var result []struct {
+				ID string
+			}
+
+			// Don't error if malformed Q
+			resource.DB.Current.Raw(`
+			SELECT id FROM extra_q WHERE extra_q MATCH ?
+			`, query.Q).Find(&result)
+
+			for _, r := range result {
+				ids = append(ids, r.ID)
+			}
+
+			if len(ids) > 0 {
+				q = q.Where("id IN ?", ids)
+			} else {
+				q = q.Where("FALSE")
+			}
+		}
+
 		var getCount struct {
 			Count int
 		}
 
-		if r := resource.DB.Current.
-			Model(&db.Extra{}).
-			Select("COUNT(ID) AS [Count]").
-			Where("user_id = ?", userID).
-			Scan(&getCount); r.Error != nil {
+		if r := q.Select("COUNT(ID) AS [Count]").Scan(&getCount); r.Error != nil {
 			panic(r.Error)
 		}
 
@@ -113,13 +134,11 @@ func routerExtra(apiRouter *gin.RouterGroup) {
 			Count: getCount.Count,
 		}
 
-		if r := resource.DB.Current.
-			Model(&db.Extra{}).
+		if r := q.
 			Select(sel).
-			Order(sorter+sortDirection).
+			Order(sorter + sortDirection).
 			Limit(perPage).
-			Offset((page-1)*perPage).
-			Where("user_id = ?", userID).
+			Offset((page - 1) * perPage).
 			Scan(&out.Result); r.Error != nil {
 			panic(r.Error)
 		}

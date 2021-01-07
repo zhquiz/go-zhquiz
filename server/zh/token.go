@@ -2,14 +2,12 @@ package zh
 
 // Token represents Token frequency and parts table
 type Token struct {
-	Entry       string `gorm:"primaryKey"`
-	Pinyin      string
-	English     string
-	Frequency   float64
-	HanziLevel  int
-	VocabLevel  int
-	Description string
-	Tag         string
+	Entry      string `gorm:"primaryKey"`
+	Pinyin     string
+	English    string
+	Frequency  float64
+	HanziLevel int
+	VocabLevel int
 
 	Sub      []Token `gorm:"many2many:token_sub"`
 	Sup      []Token `gorm:"many2many:token_sup"`

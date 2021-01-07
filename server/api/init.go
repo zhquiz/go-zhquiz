@@ -3,7 +3,6 @@ package api
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
@@ -89,6 +88,7 @@ func (res Resource) Register(r *gin.Engine) {
 	routerChinese(apiRouter)
 	routerExtra(apiRouter)
 	routerHanzi(apiRouter)
+	routerLibrary(apiRouter)
 	routerMedia(apiRouter)
 	routerQuiz(apiRouter)
 	routerSentence(apiRouter)
@@ -171,8 +171,6 @@ func AuthMiddleware(cotterAPIKey string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		session := sessions.Default(c)
 		userName := ""
-
-		fmt.Println(cotterAPIKey)
 
 		if cotterAPIKey != "" {
 			userName = func() string {

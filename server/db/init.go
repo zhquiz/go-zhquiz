@@ -49,7 +49,6 @@ func Connect() DB {
 		&Extra{},
 	)
 
-	output.Current.Exec("DROP TABLE quiz_q")
 	if r := output.Current.Raw("SELECT Name FROM sqlite_master WHERE type='table' AND name='quiz_q'").First(&struct {
 		Name string
 	}{}); r.Error != nil {

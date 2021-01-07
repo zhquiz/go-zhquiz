@@ -1,6 +1,7 @@
 package db
 
 import (
+	"math"
 	"strconv"
 	"time"
 
@@ -43,6 +44,24 @@ func (q *Quiz) AfterCreate(tx *gorm.DB) (err error) {
 	tag := ""
 	level := ""
 
+	var desc []struct {
+		Description string
+		Tag         string
+	}
+
+	zhDB.Current.Raw(`
+	SELECT [Description], [Tag] FROM token_q WHERE entry = ?
+	`, q.Entry).Find(&desc)
+
+	for _, d := range desc {
+		if d.Description != "" {
+			description += d.Description + " "
+		}
+		if d.Tag != "" {
+			tag += d.Tag + " "
+		}
+	}
+
 	switch q.Type {
 	case "vocab":
 		var vocabs []zh.Vocab
@@ -63,13 +82,11 @@ func (q *Quiz) AfterCreate(tx *gorm.DB) (err error) {
 		}
 
 		for _, t := range tokens {
-			description += t.Description + " "
-			tag += t.Tag + " "
-
 			if t.VocabLevel != 0 {
 				level = strconv.Itoa(t.HanziLevel)
 			}
 		}
+
 	case "sentence":
 		var sentences []zh.Sentence
 		zhDB.Current.Where("chinese = ?", q.Entry).Find(&sentences)
@@ -77,11 +94,9 @@ func (q *Quiz) AfterCreate(tx *gorm.DB) (err error) {
 		for _, s := range sentences {
 			pinyin += s.Pinyin + " "
 			english += s.English + " "
-			description += s.Description + " "
-			tag += s.Tag + " "
 
 			if s.Level != 0 {
-				level = strconv.Itoa(int(s.Level))
+				level = strconv.Itoa(int(math.Round(s.Level)))
 			}
 		}
 	default:
@@ -91,8 +106,6 @@ func (q *Quiz) AfterCreate(tx *gorm.DB) (err error) {
 		for _, t := range tokens {
 			pinyin += t.Pinyin + " "
 			english += t.English + " "
-			description += t.Description + " "
-			tag += t.Tag + " "
 
 			if t.HanziLevel != 0 {
 				level = strconv.Itoa(t.HanziLevel)

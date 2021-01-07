@@ -21,12 +21,6 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 	r := apiRouter.Group("/quiz")
 
 	r.GET("/many", func(ctx *gin.Context) {
-		userID := getUserID(ctx)
-		if userID == "" {
-			ctx.AbortWithStatus(401)
-			return
-		}
-
 		var query struct {
 			IDs     string `form:"ids"`
 			Entries string `form:"entries"`
@@ -36,29 +30,6 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 
 		if e := ctx.ShouldBindQuery(&query); e != nil {
 			ctx.AbortWithError(400, e)
-		}
-
-		sel := []string{}
-		sMap := map[string]string{
-			"id":        "ID",
-			"entry":     "[Entry]",
-			"type":      "[Type]",
-			"direction": "Direction",
-			"front":     "Front",
-			"back":      "Back",
-			"mnemonic":  "Mnemonic",
-		}
-
-		for _, s := range strings.Split(query.Select, ",") {
-			k := sMap[s]
-			if k != "" && k != "_" {
-				sel = append(sel, k)
-			}
-		}
-
-		if len(sel) == 0 {
-			ctx.AbortWithError(400, fmt.Errorf("not enough select"))
-			return
 		}
 
 		var ids []string
@@ -71,60 +42,22 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 			entries = strings.Split(query.Entries, ",")
 		}
 
-		where := "user_id = @userID"
-		cond := map[string]interface{}{
-			"userID": userID,
-		}
-
-		if len(ids) > 0 {
-			where = where + " AND id IN @ids"
-			cond["ids"] = ids
-		} else if len(entries) > 0 {
-			where = where + " AND [entry] IN @entries"
-			cond["entries"] = entries
-		} else {
-			ctx.AbortWithError(400, fmt.Errorf("either IDs or Entries must be specified"))
-			return
-		}
-
-		if query.Type != "" {
-			where = where + " AND [Type] = @type"
-			cond["type"] = query.Type
-		}
-
-		var quizzes []db.Quiz
-
-		clause := resource.DB.Current.Model(&db.Quiz{}).
-			Select(sel).
-			Where(where, cond)
-
-		if r := clause.Find(&quizzes); r.Error != nil {
-			panic(r.Error)
-		}
-
-		out := make([]gin.H, 0)
-		getMap := map[string]func(q *db.Quiz) interface{}{
-			"id":        func(q *db.Quiz) interface{} { return q.ID },
-			"entry":     func(q *db.Quiz) interface{} { return q.Entry },
-			"type":      func(q *db.Quiz) interface{} { return q.Type },
-			"direction": func(q *db.Quiz) interface{} { return q.Direction },
-		}
-
-		for _, q := range quizzes {
-			it := gin.H{}
-			for _, s := range strings.Split(query.Select, ",") {
-				k := getMap[s]
-				if k != nil {
-					it[s] = k(&q)
-				}
-			}
-
-			out = append(out, it)
-		}
-
-		ctx.JSON(200, gin.H{
-			"result": out,
+		quizGetter(ctx, getterBody{
+			IDs:     ids,
+			Entries: entries,
+			Type:    query.Type,
+			Select:  strings.Split(query.Select, ","),
 		})
+	})
+
+	r.POST("/many", func(ctx *gin.Context) {
+		var body getterBody
+
+		if e := ctx.ShouldBindJSON(&body); e != nil {
+			ctx.AbortWithError(400, e)
+		}
+
+		quizGetter(ctx, body)
 	})
 
 	r.POST("/srsLevel", func(ctx *gin.Context) {
@@ -433,8 +366,9 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 		}
 
 		type Result struct {
-			IDs  []string `json:"ids"`
-			Type string   `json:"type"`
+			IDs   []string `json:"ids"`
+			Entry string   `json:"entry"`
+			Type  string   `json:"type"`
 		}
 		result := make([]Result, 0)
 		ids := make([]string, 0)
@@ -444,8 +378,9 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 
 		for _, entry := range body.Entries {
 			subresult := Result{
-				IDs:  make([]string, 0),
-				Type: "extra",
+				IDs:   make([]string, 0),
+				Entry: entry,
+				Type:  "extra",
 			}
 			result = append(result, subresult)
 
@@ -593,4 +528,97 @@ func (ls quizInitOutputList) Less(i, j int) bool {
 
 func (ls quizInitOutputList) Swap(i, j int) {
 	ls[i], ls[j] = ls[j], ls[i]
+}
+
+type getterBody struct {
+	IDs     []string `json:"ids"`
+	Entries []string `json:"entries"`
+	Type    string   `json:"type"`
+	Select  []string `json:"select" binding:"required,min=1"`
+}
+
+func quizGetter(ctx *gin.Context, body getterBody) {
+	userID := getUserID(ctx)
+	if userID == "" {
+		ctx.AbortWithStatus(401)
+		return
+	}
+
+	sel := []string{}
+	sMap := map[string]string{
+		"id":        "ID",
+		"entry":     "[Entry]",
+		"type":      "[Type]",
+		"direction": "Direction",
+		"front":     "Front",
+		"back":      "Back",
+		"mnemonic":  "Mnemonic",
+	}
+
+	for _, s := range body.Select {
+		k := sMap[s]
+		if k != "" && k != "_" {
+			sel = append(sel, k)
+		}
+	}
+
+	if len(sel) == 0 {
+		ctx.AbortWithError(400, fmt.Errorf("not enough select"))
+		return
+	}
+
+	where := "user_id = @userID"
+	cond := map[string]interface{}{
+		"userID": userID,
+	}
+
+	if len(body.IDs) > 0 {
+		where = where + " AND id IN @ids"
+		cond["ids"] = body.IDs
+	} else if len(body.Entries) > 0 {
+		where = where + " AND [entry] IN @entries"
+		cond["entries"] = body.Entries
+	} else {
+		ctx.AbortWithError(400, fmt.Errorf("either IDs or Entries must be specified"))
+		return
+	}
+
+	if body.Type != "" {
+		where = where + " AND [Type] = @type"
+		cond["type"] = body.Type
+	}
+
+	var quizzes []db.Quiz
+
+	clause := resource.DB.Current.Model(&db.Quiz{}).
+		Select(sel).
+		Where(where, cond)
+
+	if r := clause.Find(&quizzes); r.Error != nil {
+		panic(r.Error)
+	}
+
+	out := make([]gin.H, 0)
+	getMap := map[string]func(q *db.Quiz) interface{}{
+		"id":        func(q *db.Quiz) interface{} { return q.ID },
+		"entry":     func(q *db.Quiz) interface{} { return q.Entry },
+		"type":      func(q *db.Quiz) interface{} { return q.Type },
+		"direction": func(q *db.Quiz) interface{} { return q.Direction },
+	}
+
+	for _, q := range quizzes {
+		it := gin.H{}
+		for _, s := range body.Select {
+			k := getMap[s]
+			if k != nil {
+				it[s] = k(&q)
+			}
+		}
+
+		out = append(out, it)
+	}
+
+	ctx.JSON(200, gin.H{
+		"result": out,
+	})
 }
