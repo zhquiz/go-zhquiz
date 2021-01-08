@@ -1,11 +1,10 @@
 package api
 
 import (
-	"io/ioutil"
-	"path/filepath"
+	"fmt"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"github.com/zhquiz/go-zhquiz/shared"
 	"gopkg.in/yaml.v2"
 )
 
@@ -14,7 +13,9 @@ func routerLibrary(apiRouter *gin.RouterGroup) {
 
 	r.GET("/q", func(ctx *gin.Context) {
 		var query struct {
-			Q string `form:"q" binding:"required"`
+			Q       string `form:"q"`
+			Page    string `form:"page" binding:"required"`
+			PerPage string `form:"perPage" binding:"required"`
 		}
 
 		if e := ctx.ShouldBindQuery(&query); e != nil {
@@ -22,58 +23,76 @@ func routerLibrary(apiRouter *gin.RouterGroup) {
 			return
 		}
 
+		page, err := strconv.Atoi(query.Page)
+		if err != nil {
+			ctx.AbortWithError(400, err)
+			return
+		}
+
+		perPage, err := strconv.Atoi(query.PerPage)
+		if err != nil {
+			ctx.AbortWithError(400, err)
+			return
+		}
+
 		type Result struct {
-			Entry string `json:"entry"`
+			Title   string   `json:"title"`
+			Entries []string `json:"entries"`
 		}
 		result := make([]Result, 0)
 
-		if r := resource.Zh.Current.Raw(`
-			SELECT Entry FROM token_q WHERE token_q MATCH ?
-			`, query.Q).Find(&result); r.Error != nil {
-			panic(r.Error)
+		type lib struct {
+			Title   string
+			Entries string
 		}
+		var preresult []lib
+		count := 0
 
-		if len(result) > 0 {
-			var entries []string
-			for _, r := range result {
-				entries = append(entries, r.Entry)
-			}
-			result = []Result{}
-
-			if r := resource.Zh.Current.Raw(`
-				SELECT simplified Entry FROM vocab WHERE simplified IN ? OR traditional IN ? GROUP BY simplified
-				`, entries, entries).Find(&result); r.Error != nil {
+		if query.Q != "" {
+			if r := resource.DB.Current.Raw(fmt.Sprintf(`
+			SELECT Title, Entries FROM library WHERE library MATCH ?
+			ORDER BY rank
+			LIMIT %d OFFSET %d
+			`, perPage, (page-1)*perPage), query.Q).Find(&preresult); r.Error != nil {
 				panic(r.Error)
 			}
+
+			if err := resource.DB.Current.Raw(`
+			SELECT COUNT(*) FROM library WHERE library MATCH ?
+			`, query.Q).Row().Scan(&count); err != nil {
+				panic(err)
+			}
+		} else {
+			if r := resource.DB.Current.Raw(fmt.Sprintf(`
+			SELECT Title, Entries FROM library
+			LIMIT %d OFFSET %d
+			`, perPage, (page-1)*perPage)).Find(&preresult); r.Error != nil {
+				panic(r.Error)
+			}
+
+			if err := resource.DB.Current.Raw(`
+			SELECT COUNT(*) FROM library
+			`).Row().Scan(&count); err != nil {
+				panic(err)
+			}
+		}
+
+		for _, p := range preresult {
+			entries := make([]string, 0)
+
+			if err := yaml.Unmarshal([]byte(p.Entries), &entries); err != nil {
+				panic(err)
+			}
+
+			result = append(result, Result{
+				Title:   p.Title,
+				Entries: entries,
+			})
 		}
 
 		ctx.JSON(200, gin.H{
 			"result": result,
+			"count":  count,
 		})
-	})
-
-	r.GET("/library.json", func(ctx *gin.Context) {
-		type TSub struct {
-			Title   string   `json:"title"`
-			Entries []string `json:"entries"`
-		}
-
-		type T struct {
-			Title    string `json:"title"`
-			Children []TSub `json:"children"`
-		}
-
-		t := make([]T, 0)
-
-		b, err := ioutil.ReadFile(filepath.Join(shared.ExecDir, "assets", "library.yaml"))
-		if err != nil {
-			panic(err)
-		}
-
-		if err := yaml.Unmarshal(b, &t); err != nil {
-			panic(err)
-		}
-
-		ctx.JSON(200, t)
 	})
 }

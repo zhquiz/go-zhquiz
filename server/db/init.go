@@ -2,6 +2,7 @@ package db
 
 import (
 	"errors"
+	"io/ioutil"
 	"log"
 	"path/filepath"
 	"regexp"
@@ -10,6 +11,7 @@ import (
 	"github.com/wangbin/jiebago"
 	"github.com/zhquiz/go-zhquiz/server/zh"
 	"github.com/zhquiz/go-zhquiz/shared"
+	"gopkg.in/yaml.v2"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/schema"
@@ -110,6 +112,37 @@ func Connect() DB {
 		}
 	}
 
+	t := make([]libraryType, 0)
+
+	b, err := ioutil.ReadFile(filepath.Join(shared.ExecDir, "assets", "library.yaml"))
+	if err != nil {
+		panic(err)
+	}
+
+	if err := yaml.Unmarshal(b, &t); err != nil {
+		panic(err)
+	}
+
+	out := readLib(t, []string{}, []libraryEntry{})
+
+	output.Current.Exec("DROP TABLE IF EXISTS library")
+	output.Current.Exec(`
+	CREATE VIRTUAL TABLE library USING fts5(
+		[title],
+		[entries]
+	);
+	`)
+
+	output.Current.Transaction(func(tx *gorm.DB) error {
+		for _, a := range out {
+			if r := tx.Exec("INSERT INTO library (title, entries) VALUES (?, ?)", a.Title, a.Entries); r.Error != nil {
+				panic(r.Error)
+			}
+		}
+
+		return nil
+	})
+
 	return output
 }
 
@@ -133,4 +166,39 @@ func parsePinyin(s string) string {
 	}
 
 	return strings.Join(out, " ")
+}
+
+type libraryType struct {
+	Title    string
+	Entries  []string
+	Children []libraryType
+}
+
+type libraryEntry struct {
+	Title   string
+	Entries string
+}
+
+func readLib(t []libraryType, parent []string, current []libraryEntry) []libraryEntry {
+	for _, a := range t {
+		title := append(parent, a.Title)
+
+		if len(a.Entries) != 0 {
+			entries, err := yaml.Marshal(a.Entries)
+			if err != nil {
+				log.Fatalln(err)
+			}
+
+			current = append(current, libraryEntry{
+				Title:   strings.Join(title, " / "),
+				Entries: string(entries),
+			})
+		}
+
+		if len(a.Children) != 0 {
+			current = readLib(a.Children, title, current)
+		}
+	}
+
+	return current
 }
