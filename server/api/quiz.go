@@ -256,10 +256,6 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 			orCond = append(orCond, "srs_level IS NULL")
 		}
 
-		if stageSet["leech"] {
-			orCond = append(orCond, "wrong_streak >= 3")
-		}
-
 		if stageSet["learning"] {
 			orCond = append(orCond, "srs_level < 3")
 		}
@@ -270,6 +266,10 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 
 		if len(orCond) > 0 {
 			q = q.Where(strings.Join(orCond, " OR "))
+		}
+
+		if !stageSet["leech"] {
+			q = q.Where("NOT (wrong_streak > 2)")
 		}
 
 		var quizzes []db.Quiz

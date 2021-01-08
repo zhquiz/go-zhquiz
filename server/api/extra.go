@@ -78,10 +78,13 @@ func routerExtra(apiRouter *gin.RouterGroup) {
 
 		sel := []string{}
 		sMap := map[string]string{
-			"id":      "id",
-			"chinese": "chinese",
-			"pinyin":  "pinyin",
-			"english": "english",
+			"id":          "ID",
+			"chinese":     "Chinese",
+			"pinyin":      "Pinyin",
+			"english":     "English",
+			"type":        "Type",
+			"description": "Description",
+			"tag":         "Tag",
 		}
 
 		for _, s := range strings.Split(query.Select, ",") {
@@ -92,7 +95,7 @@ func routerExtra(apiRouter *gin.RouterGroup) {
 		}
 
 		if len(sel) == 0 {
-			sel = []string{"Chinese", "Pinyin", "English"}
+			sel = []string{"ID", "Chinese", "Pinyin", "English"}
 		}
 
 		q := resource.DB.Current.Model(&db.Extra{}).Where("user_id = ?", userID)
@@ -202,10 +205,13 @@ func routerExtra(apiRouter *gin.RouterGroup) {
 		}
 
 		var body struct {
-			Chinese string `json:"chinese" binding:"required"`
-			Pinyin  string `json:"pinyin" binding:"required"`
-			English string `json:"english" binding:"required"`
-			Forced  bool   `json:"forced"`
+			Chinese     string `json:"chinese" binding:"required"`
+			Pinyin      string `json:"pinyin" binding:"required"`
+			English     string `json:"english" binding:"required"`
+			Type        string `json:"type"`
+			Description string `json:"description"`
+			Tag         string `json:"tag"`
+			Forced      bool   `json:"forced"`
 		}
 
 		if e := ctx.BindJSON(&body); e != nil {
@@ -305,10 +311,13 @@ func routerExtra(apiRouter *gin.RouterGroup) {
 		}
 
 		it := db.Extra{
-			Chinese: body.Chinese,
-			Pinyin:  body.Pinyin,
-			English: body.English,
-			UserID:  userID,
+			Chinese:     body.Chinese,
+			Pinyin:      body.Pinyin,
+			English:     body.English,
+			Type:        body.Type,
+			Description: body.Description,
+			Tag:         body.Tag,
+			UserID:      userID,
 		}
 
 		if r := resource.DB.Current.Create(&it); r.Error != nil {
@@ -334,20 +343,44 @@ func routerExtra(apiRouter *gin.RouterGroup) {
 		}
 
 		var body struct {
-			Chinese string `json:"chinese" binding:"required"`
-			Pinyin  string `json:"pinyin" binding:"required"`
-			English string `json:"english" binding:"required"`
+			Chinese     string  `json:"chinese" binding:"required"`
+			Pinyin      string  `json:"pinyin" binding:"required"`
+			English     string  `json:"english" binding:"required"`
+			Type        string  `json:"type"`
+			Description *string `json:"description"`
+			Tag         *string `json:"tag"`
 		}
 
-		if e := ctx.BindJSON(&body); e != nil {
+		if e := ctx.ShouldBindJSON(&body); e != nil {
 			ctx.AbortWithError(400, e)
 			return
+		}
+
+		update := db.Extra{
+			Chinese: body.Chinese,
+			Pinyin:  body.Pinyin,
+			English: body.English,
+			Type:    body.Type,
+		}
+
+		if body.Description != nil {
+			if *body.Description == "" {
+				*body.Description = " "
+			}
+			update.Description = *body.Description
+		}
+
+		if body.Tag != nil {
+			if *body.Tag == "" {
+				*body.Tag = " "
+			}
+			update.Tag = *body.Tag
 		}
 
 		if r := resource.DB.Current.
 			Model(&db.Extra{}).
 			Where("user_id = ? AND id = ?", userID, id).
-			Updates(body); r.Error != nil {
+			Updates(update); r.Error != nil {
 			panic(r.Error)
 		}
 
