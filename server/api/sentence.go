@@ -13,6 +13,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/zhquiz/go-zhquiz/server/db"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 func routerSentence(apiRouter *gin.RouterGroup) {
@@ -124,37 +125,80 @@ func routerSentence(apiRouter *gin.RouterGroup) {
 		}
 
 		if len(out.Result) <= 5 {
-			moreResult := func() []Result {
-				doc, err := goquery.NewDocument(fmt.Sprintf("http://www.jukuu.com/search.php?q=%s", url.QueryEscape(query.Q)))
-				if err != nil {
-					return []Result{}
-				}
+			var dbSentences []db.Sentence
+			if r := resource.DB.Current.Where("chinese LIKE '%'||?||'%'", query.Q).Limit(10 - len(out.Result)).Find(&dbSentences); r.Error != nil {
+				panic(r.Error)
+			}
 
-				moreResult := make([]Result, 10-len(out.Result))
-
-				doc.Find("table tr.c td:last-child").Each(func(i int, item *goquery.Selection) {
-					if i < len(moreResult) {
-						moreResult[i].Chinese = item.Text()
-					}
+			for _, s := range dbSentences {
+				out.Result = append(out.Result, Result{
+					Chinese: s.Chinese,
+					English: s.English,
 				})
+			}
 
-				doc.Find("table tr.e td:last-child").Each(func(i int, item *goquery.Selection) {
-					if i < len(moreResult) {
-						moreResult[i].English = item.Text()
+			if len(out.Result) <= 5 {
+				func() {
+					doc, err := goquery.NewDocument(fmt.Sprintf("http://www.jukuu.com/search.php?q=%s", url.QueryEscape(query.Q)))
+					if err != nil {
+						return
 					}
-				})
 
-				cleaned := make([]Result, 0)
-				for _, r := range moreResult {
-					if r.Chinese != "" {
-						cleaned = append(cleaned, r)
+					moreResult := make([]Result, 10)
+
+					doc.Find("table tr.c td:last-child").Each(func(i int, item *goquery.Selection) {
+						if i < len(moreResult) {
+							moreResult[i].Chinese = item.Text()
+						}
+					})
+
+					doc.Find("table tr.e td:last-child").Each(func(i int, item *goquery.Selection) {
+						if i < len(moreResult) {
+							moreResult[i].English = item.Text()
+						}
+					})
+
+					var dbSentences []db.Sentence
+
+					for _, r := range moreResult {
+						if r.Chinese != "" {
+							dbSentences = append(dbSentences, db.Sentence{
+								Chinese: r.Chinese,
+								English: r.English,
+							})
+						}
+					}
+
+					if len(dbSentences) > 0 {
+						if r := resource.DB.Current.Clauses(clause.OnConflict{
+							DoNothing: true,
+						}).Create(dbSentences); r.Error != nil {
+							panic(r.Error)
+						}
+					}
+
+					if r := resource.DB.Current.Where("chinese LIKE '%'||?||'%'", query.Q).Limit(10 - len(out.Result)).Find(&dbSentences); r.Error != nil {
+						panic(r.Error)
+					}
+
+					for _, s := range dbSentences {
+						out.Result = append(out.Result, Result{
+							Chinese: s.Chinese,
+							English: s.English,
+						})
+					}
+				}()
+			}
+
+			if len(out.Result) > 10 {
+				var newResult []Result
+				for _, r := range out.Result {
+					if len(newResult) < 10 {
+						newResult = append(newResult, r)
 					}
 				}
-
-				return cleaned
-			}()
-
-			out.Result = append(out.Result, moreResult...)
+				out.Result = newResult
+			}
 		}
 
 		ctx.JSON(200, out)
