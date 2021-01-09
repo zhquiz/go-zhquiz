@@ -343,12 +343,12 @@ func routerExtra(apiRouter *gin.RouterGroup) {
 		}
 
 		var body struct {
-			Chinese     string  `json:"chinese" binding:"required"`
-			Pinyin      string  `json:"pinyin" binding:"required"`
-			English     string  `json:"english" binding:"required"`
-			Type        string  `json:"type"`
-			Description *string `json:"description"`
-			Tag         *string `json:"tag"`
+			Chinese     string `json:"chinese" binding:"required"`
+			Pinyin      string `json:"pinyin" binding:"required"`
+			English     string `json:"english" binding:"required"`
+			Type        string `json:"type"`
+			Description string `json:"description"`
+			Tag         string `json:"tag"`
 		}
 
 		if e := ctx.ShouldBindJSON(&body); e != nil {
@@ -357,24 +357,12 @@ func routerExtra(apiRouter *gin.RouterGroup) {
 		}
 
 		update := db.Extra{
-			Chinese: body.Chinese,
-			Pinyin:  body.Pinyin,
-			English: body.English,
-			Type:    body.Type,
-		}
-
-		if body.Description != nil {
-			if *body.Description == "" {
-				*body.Description = " "
-			}
-			update.Description = *body.Description
-		}
-
-		if body.Tag != nil {
-			if *body.Tag == "" {
-				*body.Tag = " "
-			}
-			update.Tag = *body.Tag
+			Chinese:     body.Chinese,
+			Pinyin:      body.Pinyin,
+			English:     body.English,
+			Type:        body.Type,
+			Description: body.Description,
+			Tag:         body.Tag,
 		}
 
 		if r := resource.DB.Current.

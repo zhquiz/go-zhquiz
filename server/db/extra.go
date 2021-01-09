@@ -12,6 +12,7 @@ type Extra struct {
 	ID        string `gorm:"primarykey" json:"id"`
 	CreatedAt time.Time
 	UpdatedAt time.Time
+	DeletedAt gorm.DeletedAt `gorm:"index"`
 
 	UserID string `gorm:"index:idx_extra_user_chinese,unique;not null" json:"-"`
 	User   User   `gorm:"foreignKey:UserID" json:"-"`
@@ -46,6 +47,19 @@ func (u *Extra) AfterCreate(tx *gorm.DB) (err error) {
 		"description": parseChinese(u.Description),
 		"tag":         u.Tag,
 	})
+	return
+}
+
+// BeforeUpdate makes sure description and tag are always updated
+func (u *Extra) BeforeUpdate(tx *gorm.DB) (err error) {
+	if u.Description == "" {
+		u.Description = " "
+	}
+
+	if u.Tag == "" {
+		u.Tag = " "
+	}
+
 	return
 }
 

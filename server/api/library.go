@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/zhquiz/go-zhquiz/server/db"
 )
 
 func routerLibrary(apiRouter *gin.RouterGroup) {
@@ -36,12 +37,14 @@ func routerLibrary(apiRouter *gin.RouterGroup) {
 		}
 
 		type Result struct {
+			ID      string   `json:"id"`
 			Title   string   `json:"title"`
 			Entries []string `json:"entries"`
 		}
 		result := make([]Result, 0)
 
 		type lib struct {
+			ID    string
 			Title string
 			Entry string
 		}
@@ -50,7 +53,7 @@ func routerLibrary(apiRouter *gin.RouterGroup) {
 
 		if query.Q != "" {
 			if r := resource.DB.Current.Raw(fmt.Sprintf(`
-			SELECT Title, Entry FROM library_q WHERE library_q MATCH ?
+			SELECT ID, Title, Entry FROM library_q WHERE library_q MATCH ?
 			ORDER BY rank
 			LIMIT %d OFFSET %d
 			`, perPage, (page-1)*perPage), query.Q).Find(&preresult); r.Error != nil {
@@ -64,7 +67,7 @@ func routerLibrary(apiRouter *gin.RouterGroup) {
 			}
 		} else {
 			if r := resource.DB.Current.Raw(fmt.Sprintf(`
-			SELECT library_q.Title, Entry FROM library_q
+			SELECT library.id ID, library.Title Title, Entry FROM library_q
 			LEFT JOIN library ON library.id = library_q.id
 			ORDER BY updated_at DESC
 			LIMIT %d OFFSET %d
@@ -82,7 +85,12 @@ func routerLibrary(apiRouter *gin.RouterGroup) {
 		for _, p := range preresult {
 			entries := strings.Split(p.Entry, " ")
 
+			if p.ID[0] == ' ' {
+				p.ID = ""
+			}
+
 			result = append(result, Result{
+				ID:      p.ID,
 				Title:   p.Title,
 				Entries: entries,
 			})
@@ -91,6 +99,110 @@ func routerLibrary(apiRouter *gin.RouterGroup) {
 		ctx.JSON(200, gin.H{
 			"result": result,
 			"count":  count,
+		})
+	})
+
+	r.PUT("/", func(ctx *gin.Context) {
+		userID := getUserID(ctx)
+		if userID == "" {
+			ctx.AbortWithStatus(401)
+			return
+		}
+
+		var body struct {
+			Title       string   `json:"title" binding:"required"`
+			Entries     []string `json:"entries" binding:"required,min=1"`
+			Description string   `json:"description"`
+			Tag         string   `json:"tag"`
+		}
+
+		if e := ctx.BindJSON(&body); e != nil {
+			ctx.AbortWithError(400, e)
+			return
+		}
+
+		it := db.Library{
+			Title:       body.Title,
+			Entries:     body.Entries,
+			Description: body.Description,
+			Tag:         body.Tag,
+			UserID:      userID,
+		}
+
+		if r := resource.DB.Current.Create(&it); r.Error != nil {
+			panic(r.Error)
+		}
+
+		ctx.JSON(201, gin.H{
+			"id": it.ID,
+		})
+	})
+
+	r.PATCH("/", func(ctx *gin.Context) {
+		userID := getUserID(ctx)
+		if userID == "" {
+			ctx.AbortWithStatus(401)
+			return
+		}
+
+		id := ctx.Query("id")
+		if id == "" {
+			ctx.AbortWithError(400, fmt.Errorf("id to update not specified"))
+			return
+		}
+
+		var body struct {
+			Title       string   `json:"title" binding:"required"`
+			Entries     []string `json:"entries" binding:"required,min=1"`
+			Description string   `json:"description"`
+			Tag         string   `json:"tag"`
+		}
+
+		if e := ctx.ShouldBindJSON(&body); e != nil {
+			ctx.AbortWithError(400, e)
+			return
+		}
+
+		update := db.Library{
+			Title:       body.Title,
+			Entries:     body.Entries,
+			Description: body.Description,
+			Tag:         body.Tag,
+		}
+
+		if r := resource.DB.Current.
+			Model(&db.Library{}).
+			Where("user_id = ? AND id = ?", userID, id).
+			Updates(update); r.Error != nil {
+			panic(r.Error)
+		}
+
+		ctx.JSON(201, gin.H{
+			"result": "updated",
+		})
+	})
+
+	r.DELETE("/", func(ctx *gin.Context) {
+		userID := getUserID(ctx)
+		if userID == "" {
+			ctx.AbortWithStatus(401)
+			return
+		}
+
+		id := ctx.Query("id")
+		if id == "" {
+			ctx.AbortWithError(400, fmt.Errorf("id to update not specified"))
+			return
+		}
+
+		if r := resource.DB.Current.
+			Where("user_id = ? AND id = ?", userID, id).
+			Delete(&db.Library{}); r.Error != nil {
+			panic(r.Error)
+		}
+
+		ctx.JSON(201, gin.H{
+			"result": "deleted",
 		})
 	})
 }
