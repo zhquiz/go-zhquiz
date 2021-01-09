@@ -29,7 +29,7 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 			Select  string `form:"select"`
 		}
 
-		if e := ctx.ShouldBindQuery(&query); e != nil {
+		if e := ctx.BindQuery(&query); e != nil {
 			ctx.AbortWithError(400, e)
 		}
 
@@ -54,7 +54,7 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 	r.POST("/many", func(ctx *gin.Context) {
 		var body getterBody
 
-		if e := ctx.ShouldBindJSON(&body); e != nil {
+		if e := ctx.BindJSON(&body); e != nil {
 			ctx.AbortWithError(400, e)
 		}
 
@@ -73,7 +73,7 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 			Type    string   `form:"type" binding:"oneof=hanzi vocab sentence extra ''"`
 		}
 
-		if e := ctx.ShouldBindJSON(&body); e != nil {
+		if e := ctx.BindJSON(&body); e != nil {
 			ctx.AbortWithError(400, e)
 			return
 		}
@@ -121,7 +121,7 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 			Type string `form:"type" binding:"required,oneof=right wrong repeat"`
 		}
 
-		if e := ctx.ShouldBindQuery(&query); e != nil {
+		if e := ctx.BindQuery(&query); e != nil {
 			ctx.AbortWithError(400, e)
 			return
 		}
@@ -197,7 +197,7 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 			Q         string   `json:"q"`
 		}
 
-		if e := ctx.ShouldBindQuery(&query); e != nil {
+		if e := ctx.BindQuery(&query); e != nil {
 			ctx.AbortWithError(400, e)
 			return
 		}
@@ -345,7 +345,7 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 			Entries []string `json:"entries" binding:"required,min=1"`
 			Type    string   `json:"type" binding:"required,oneof=hanzi vocab sentence extra"`
 		}
-		if e := ctx.ShouldBindJSON(&body); e != nil {
+		if e := ctx.BindJSON(&body); e != nil {
 			ctx.AbortWithError(400, e)
 		}
 
@@ -510,7 +510,7 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 			IDs []string `json:"ids" binding:"required,min=1"`
 		}
 
-		if e := ctx.ShouldBindJSON(&body); e != nil {
+		if e := ctx.BindJSON(&body); e != nil {
 			ctx.AbortWithError(400, e)
 			return
 		}

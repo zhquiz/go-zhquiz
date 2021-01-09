@@ -74,7 +74,7 @@ func main() {
 				)
 
 				if err != nil {
-					panic(err)
+					log.Fatalln(err)
 				}
 
 				if yes {

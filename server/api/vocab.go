@@ -18,7 +18,7 @@ func routerVocab(apiRouter *gin.RouterGroup) {
 			Entry string `form:"entry" binding:"required"`
 		}
 
-		if e := ctx.ShouldBindQuery(&query); e != nil {
+		if e := ctx.BindQuery(&query); e != nil {
 			ctx.AbortWithError(400, e)
 			return
 		}
@@ -51,7 +51,7 @@ func routerVocab(apiRouter *gin.RouterGroup) {
 			Q string `form:"q" binding:"required"`
 		}
 
-		if e := ctx.ShouldBindQuery(&query); e != nil {
+		if e := ctx.BindQuery(&query); e != nil {
 			ctx.AbortWithError(400, e)
 			return
 		}
@@ -139,7 +139,7 @@ func routerVocab(apiRouter *gin.RouterGroup) {
 			LevelMin string `form:"levelMin"`
 		}
 
-		if e := ctx.ShouldBindQuery(&query); e != nil {
+		if e := ctx.BindQuery(&query); e != nil {
 			ctx.AbortWithError(400, e)
 			return
 		}

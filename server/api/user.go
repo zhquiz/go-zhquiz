@@ -23,7 +23,7 @@ func routerUser(apiRouter *gin.RouterGroup) {
 			Select string `form:"select" binding:"required"`
 		}
 
-		if e := ctx.ShouldBindQuery(&query); e != nil {
+		if e := ctx.BindQuery(&query); e != nil {
 			ctx.AbortWithError(400, e)
 			return
 		}
@@ -96,7 +96,7 @@ func routerUser(apiRouter *gin.RouterGroup) {
 			SentenceMax *uint `json:"sentenceMax"`
 		}
 
-		if e := ctx.ShouldBindJSON(&body); e != nil {
+		if e := ctx.BindJSON(&body); e != nil {
 			ctx.AbortWithError(400, e)
 			return
 		}

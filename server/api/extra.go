@@ -29,7 +29,7 @@ func routerExtra(apiRouter *gin.RouterGroup) {
 			PerPage *string `form:"perPage"`
 		}
 
-		if e := ctx.ShouldBindQuery(&query); e != nil {
+		if e := ctx.BindQuery(&query); e != nil {
 			ctx.AbortWithError(400, e)
 			return
 		}
@@ -162,7 +162,7 @@ func routerExtra(apiRouter *gin.RouterGroup) {
 			Select string `form:"select"`
 		}
 
-		if e := ctx.ShouldBindQuery(&query); e != nil {
+		if e := ctx.BindQuery(&query); e != nil {
 			ctx.AbortWithError(400, e)
 			return
 		}
@@ -351,7 +351,7 @@ func routerExtra(apiRouter *gin.RouterGroup) {
 			Tag         string `json:"tag"`
 		}
 
-		if e := ctx.ShouldBindJSON(&body); e != nil {
+		if e := ctx.BindJSON(&body); e != nil {
 			ctx.AbortWithError(400, e)
 			return
 		}

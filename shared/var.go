@@ -14,7 +14,7 @@ func MediaPath() string {
 	_, err := os.Stat(mediaPath)
 	if os.IsNotExist(err) {
 		if err := os.Mkdir(mediaPath, 0644); err != nil {
-			log.Fatal(err)
+			log.Fatalln(err)
 		}
 	}
 

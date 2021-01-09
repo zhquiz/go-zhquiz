@@ -77,7 +77,7 @@ func Connect() DB {
 				return nil
 			})
 		} else {
-			panic(r.Error)
+			log.Fatalln(r.Error)
 		}
 	}
 
@@ -107,7 +107,7 @@ func Connect() DB {
 				return nil
 			})
 		} else {
-			panic(r.Error)
+			log.Fatalln(r.Error)
 		}
 	}
 
@@ -134,7 +134,7 @@ func Connect() DB {
 				for _, a := range libs {
 					a["id"] = " " + a["title"].(string)
 					if r := tx.Exec("INSERT INTO library (id, title, entries) VALUES (@id, @title, @entries) ON CONFLICT DO NOTHING", a); r.Error != nil {
-						panic(r.Error)
+						log.Fatalln(r.Error)
 					}
 				}
 
@@ -152,7 +152,7 @@ func Connect() DB {
 				return nil
 			})
 		} else {
-			panic(r.Error)
+			log.Fatalln(r.Error)
 		}
 	}
 

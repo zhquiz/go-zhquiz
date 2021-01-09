@@ -15,7 +15,7 @@ func routerChinese(apiRouter *gin.RouterGroup) {
 			Q string `form:"q" binding:"required"`
 		}
 
-		if e := ctx.ShouldBindQuery(&query); e != nil {
+		if e := ctx.BindQuery(&query); e != nil {
 			ctx.AbortWithError(400, e)
 			return
 		}
@@ -32,7 +32,7 @@ func routerChinese(apiRouter *gin.RouterGroup) {
 				Q string `form:"q" binding:"required"`
 			}
 
-			if e := ctx.ShouldBindQuery(&query); e != nil {
+			if e := ctx.BindQuery(&query); e != nil {
 				ctx.AbortWithError(400, e)
 				return
 			}

@@ -19,7 +19,7 @@ func routerLibrary(apiRouter *gin.RouterGroup) {
 			PerPage string `form:"perPage" binding:"required"`
 		}
 
-		if e := ctx.ShouldBindQuery(&query); e != nil {
+		if e := ctx.BindQuery(&query); e != nil {
 			ctx.AbortWithError(400, e)
 			return
 		}
@@ -158,7 +158,7 @@ func routerLibrary(apiRouter *gin.RouterGroup) {
 			Tag         string   `json:"tag"`
 		}
 
-		if e := ctx.ShouldBindJSON(&body); e != nil {
+		if e := ctx.BindJSON(&body); e != nil {
 			ctx.AbortWithError(400, e)
 			return
 		}
