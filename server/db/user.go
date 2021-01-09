@@ -39,10 +39,10 @@ type UserMeta struct {
 			WhatToShow []string
 		}
 		Quiz struct {
-			Type      []string
-			Stage     []string
-			Direction []string
-			IsDue     bool
+			Type      []string `json:"type"`
+			Stage     []string `json:"stage"`
+			Direction []string `json:"direction"`
+			IsDue     bool     `json:"isDue"`
 		}
 		Sentence struct {
 			Min *uint
