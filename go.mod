@@ -25,8 +25,7 @@ require (
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
 	gopkg.in/sakura-internet/go-rison.v3 v3.1.0
-	gopkg.in/square/go-jose.v2 v2.5.1
-	gopkg.in/yaml.v2 v2.4.0
+	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gorm.io/driver/sqlite v1.1.4
 	gorm.io/gorm v1.20.8
 )

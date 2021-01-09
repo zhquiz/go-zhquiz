@@ -3,9 +3,9 @@ package api
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
-	"gopkg.in/yaml.v2"
 )
 
 func routerLibrary(apiRouter *gin.RouterGroup) {
@@ -42,15 +42,15 @@ func routerLibrary(apiRouter *gin.RouterGroup) {
 		result := make([]Result, 0)
 
 		type lib struct {
-			Title   string
-			Entries string
+			Title string
+			Entry string
 		}
 		var preresult []lib
 		count := 0
 
 		if query.Q != "" {
 			if r := resource.DB.Current.Raw(fmt.Sprintf(`
-			SELECT Title, Entries FROM library WHERE library MATCH ?
+			SELECT Title, Entry FROM library_q WHERE library_q MATCH ?
 			ORDER BY rank
 			LIMIT %d OFFSET %d
 			`, perPage, (page-1)*perPage), query.Q).Find(&preresult); r.Error != nil {
@@ -58,31 +58,29 @@ func routerLibrary(apiRouter *gin.RouterGroup) {
 			}
 
 			if err := resource.DB.Current.Raw(`
-			SELECT COUNT(*) FROM library WHERE library MATCH ?
+			SELECT COUNT(*) FROM library_q WHERE library_q MATCH ?
 			`, query.Q).Row().Scan(&count); err != nil {
 				panic(err)
 			}
 		} else {
 			if r := resource.DB.Current.Raw(fmt.Sprintf(`
-			SELECT Title, Entries FROM library
+			SELECT library_q.Title, Entry FROM library_q
+			LEFT JOIN library ON library.id = library_q.id
+			ORDER BY updated_at DESC
 			LIMIT %d OFFSET %d
 			`, perPage, (page-1)*perPage)).Find(&preresult); r.Error != nil {
 				panic(r.Error)
 			}
 
 			if err := resource.DB.Current.Raw(`
-			SELECT COUNT(*) FROM library
+			SELECT COUNT(*) FROM library_q
 			`).Row().Scan(&count); err != nil {
 				panic(err)
 			}
 		}
 
 		for _, p := range preresult {
-			entries := make([]string, 0)
-
-			if err := yaml.Unmarshal([]byte(p.Entries), &entries); err != nil {
-				panic(err)
-			}
+			entries := strings.Split(p.Entry, " ")
 
 			result = append(result, Result{
 				Title:   p.Title,

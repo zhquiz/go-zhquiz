@@ -10,6 +10,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/zhquiz/go-zhquiz/server/db"
+	myrand "github.com/zhquiz/go-zhquiz/server/rand"
 	"github.com/zhquiz/go-zhquiz/server/util"
 	"github.com/zhquiz/go-zhquiz/server/zh"
 	"gopkg.in/sakura-internet/go-rison.v3"
@@ -453,7 +454,6 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 				}
 
 				newExtra = append(newExtra, db.Extra{
-					ID:      NewULID(),
 					UserID:  userID,
 					Chinese: entry,
 					Pinyin:  pinyin,
@@ -468,7 +468,7 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 
 			for _, d := range directions {
 				if lookupDir[d].ID == "" {
-					id := NewULID()
+					id := myrand.NewULID()
 
 					newQ = append(newQ, db.Quiz{
 						ID:        id,

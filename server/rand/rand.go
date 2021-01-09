@@ -1,9 +1,12 @@
 package rand
 
 import (
+	"bytes"
 	"crypto/rand"
 	"io"
 	"log"
+
+	ulid "github.com/oklog/ulid/v2"
 )
 
 func init() {
@@ -52,4 +55,13 @@ func GenerateRandomString(n int) (string, error) {
 		bytes[i] = letters[b%byte(len(letters))]
 	}
 	return string(bytes), nil
+}
+
+// NewULID generates new ULID
+func NewULID() string {
+	entropy, err := GenerateRandomBytes(64)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	return ulid.MustNew(ulid.Now(), bytes.NewReader(entropy)).String()
 }

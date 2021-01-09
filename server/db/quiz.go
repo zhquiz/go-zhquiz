@@ -5,13 +5,14 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/zhquiz/go-zhquiz/server/rand"
 	"github.com/zhquiz/go-zhquiz/server/zh"
 	"gorm.io/gorm"
 )
 
 // Quiz is the database model for quiz
 type Quiz struct {
-	ID        string `gorm:"primaryKey;check:length(id) > 0"`
+	ID        string `gorm:"primaryKey"`
 	CreatedAt time.Time
 	UpdatedAt time.Time
 
@@ -33,6 +34,15 @@ type Quiz struct {
 	WrongStreak *uint      `gorm:"index"`
 	MaxRight    *uint      `gorm:"index"`
 	MaxWrong    *uint      `gorm:"index"`
+}
+
+// BeforeCreate generates ID if not exists
+func (q *Quiz) BeforeCreate(tx *gorm.DB) (err error) {
+	if q.ID == "" {
+		q.ID = rand.NewULID()
+	}
+
+	return
 }
 
 // AfterCreate hook

@@ -15,7 +15,7 @@ import (
 
 // User holds user data
 type User struct {
-	ID        string `gorm:"primaryKey;check:length(id) > 20"`
+	ID        string `gorm:"primaryKey"`
 	CreatedAt time.Time
 	UpdatedAt time.Time
 
@@ -23,10 +23,12 @@ type User struct {
 	APIKey string `gorm:"index,not null;check:length(api_key) > 20"`
 
 	Meta UserMeta
+}
 
-	// Relations
-	Quizzes []Quiz  `gorm:"constraint:OnDelete:CASCADE"`
-	Extras  []Extra `gorm:"constraint:OnDelete:CASCADE"`
+// BeforeCreate forces single user
+func (u *User) BeforeCreate(tx *gorm.DB) (err error) {
+	u.ID = "_"
+	return
 }
 
 // UserMeta holds User's settings
@@ -81,10 +83,8 @@ func (UserMeta) GormDBDataType(db *gorm.DB, _ *schema.Field) string {
 }
 
 // New creates new User record
-func (u *User) New(id string, email string) {
-	u.ID = id
-	u.Email = email
-
+func (u *User) New() {
+	u.Email = "DEFAULT"
 	u.NewAPIKey()
 }
 

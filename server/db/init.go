@@ -2,7 +2,6 @@ package db
 
 import (
 	"errors"
-	"io/ioutil"
 	"log"
 	"path/filepath"
 	"regexp"
@@ -11,7 +10,6 @@ import (
 	"github.com/wangbin/jiebago"
 	"github.com/zhquiz/go-zhquiz/server/zh"
 	"github.com/zhquiz/go-zhquiz/shared"
-	"gopkg.in/yaml.v2"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/schema"
@@ -49,6 +47,7 @@ func Connect() DB {
 		&User{},
 		&Quiz{},
 		&Extra{},
+		&Library{},
 	)
 
 	if r := output.Current.Raw("SELECT Name FROM sqlite_master WHERE type='table' AND name='quiz_q'").First(&struct {
@@ -112,36 +111,48 @@ func Connect() DB {
 		}
 	}
 
-	t := make([]libraryType, 0)
+	if r := output.Current.Raw("SELECT Name FROM sqlite_master WHERE type='table' AND name='library_q'").First(&struct {
+		Name string
+	}{}); r.Error != nil {
+		if errors.Is(r.Error, gorm.ErrRecordNotFound) {
+			output.Current.Exec(`
+			CREATE VIRTUAL TABLE library_q USING fts5(
+				[id],
+				[title],
+				[entry],
+			);
+			`)
 
-	b, err := ioutil.ReadFile(filepath.Join(shared.ExecDir, "assets", "library.yaml"))
-	if err != nil {
-		panic(err)
-	}
+			output.Current.Transaction(func(tx *gorm.DB) error {
+				var libs []map[string]interface{}
+				if r := zhDB.Current.Raw("SELECT title, entries FROM library").Find(&libs); r.Error != nil {
+					log.Fatalln(r.Error)
+				}
 
-	if err := yaml.Unmarshal(b, &t); err != nil {
-		panic(err)
-	}
+				for _, a := range libs {
+					a["id"] = a["title"]
+					if r := tx.Exec("INSERT INTO library (id, title, entries) VALUES (@id, @title, @entries) ON CONFLICT DO NOTHING", a); r.Error != nil {
+						panic(r.Error)
+					}
+				}
 
-	out := readLib(t, []string{}, []libraryEntry{})
+				return nil
+			})
 
-	output.Current.Exec("DROP TABLE IF EXISTS library")
-	output.Current.Exec(`
-	CREATE VIRTUAL TABLE library USING fts5(
-		[title],
-		[entries]
-	);
-	`)
+			var libs []Library
+			output.Current.Find(&libs)
 
-	output.Current.Transaction(func(tx *gorm.DB) error {
-		for _, a := range out {
-			if r := tx.Exec("INSERT INTO library (title, entries) VALUES (?, ?)", a.Title, a.Entries); r.Error != nil {
-				panic(r.Error)
-			}
+			output.Current.Transaction(func(tx *gorm.DB) error {
+				for _, lib := range libs {
+					lib.AfterCreate(tx)
+				}
+
+				return nil
+			})
+		} else {
+			panic(r.Error)
 		}
-
-		return nil
-	})
+	}
 
 	return output
 }
@@ -166,39 +177,4 @@ func parsePinyin(s string) string {
 	}
 
 	return strings.Join(out, " ")
-}
-
-type libraryType struct {
-	Title    string
-	Entries  []string
-	Children []libraryType
-}
-
-type libraryEntry struct {
-	Title   string
-	Entries string
-}
-
-func readLib(t []libraryType, parent []string, current []libraryEntry) []libraryEntry {
-	for _, a := range t {
-		title := append(parent, a.Title)
-
-		if len(a.Entries) != 0 {
-			entries, err := yaml.Marshal(a.Entries)
-			if err != nil {
-				log.Fatalln(err)
-			}
-
-			current = append(current, libraryEntry{
-				Title:   strings.Join(title, " / "),
-				Entries: string(entries),
-			})
-		}
-
-		if len(a.Children) != 0 {
-			current = readLib(a.Children, title, current)
-		}
-	}
-
-	return current
 }

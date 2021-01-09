@@ -3,6 +3,7 @@ package db
 import (
 	"time"
 
+	"github.com/zhquiz/go-zhquiz/server/rand"
 	"gorm.io/gorm"
 )
 
@@ -21,6 +22,15 @@ type Extra struct {
 	Type        string `json:"type"`
 	Description string `json:"description"`
 	Tag         string `json:"tag"`
+}
+
+// BeforeCreate generates ID if not exists
+func (u *Extra) BeforeCreate(tx *gorm.DB) (err error) {
+	if u.ID == "" {
+		u.ID = rand.NewULID()
+	}
+
+	return
 }
 
 // AfterCreate hook
