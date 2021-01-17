@@ -13,10 +13,6 @@ type Library struct {
 	ID        string `gorm:"primarykey" json:"id"`
 	CreatedAt time.Time
 	UpdatedAt time.Time
-	DeletedAt gorm.DeletedAt `gorm:"index"`
-
-	UserID string `gorm:"index:idx_library_user_title,unique" json:"-"`
-	User   User   `gorm:"foreignKey:UserID" json:"-"`
 
 	Title       string      `gorm:"index:idx_library_user_title,unique;not null" json:"title"`
 	Entries     StringArray `json:"entries"`
@@ -36,7 +32,7 @@ func (u *Library) BeforeCreate(tx *gorm.DB) (err error) {
 // AfterCreate hook
 func (u *Library) AfterCreate(tx *gorm.DB) (err error) {
 	tx.Exec(`
-	INSERT INTO library_q (id, title, entry, [description], tag)
+	INSERT INTO library_q (id, title, [entry], [description], tag)
 	VALUES (@id, @title, @entry, @description, @tag)
 	`, map[string]interface{}{
 		"id":          u.ID,

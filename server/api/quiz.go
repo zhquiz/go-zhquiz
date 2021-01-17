@@ -13,9 +13,7 @@ import (
 	myrand "github.com/zhquiz/go-zhquiz/server/rand"
 	"github.com/zhquiz/go-zhquiz/server/util"
 	"github.com/zhquiz/go-zhquiz/server/zh"
-	"gopkg.in/sakura-internet/go-rison.v3"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 func routerQuiz(apiRouter *gin.RouterGroup) {
@@ -62,12 +60,6 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 	})
 
 	r.POST("/srsLevel", func(ctx *gin.Context) {
-		userID := getUserID(ctx)
-		if userID == "" {
-			ctx.AbortWithStatus(401)
-			return
-		}
-
 		var body struct {
 			Entries []string `form:"entries" binding:"required,min=1"`
 			Type    string   `form:"type" binding:"oneof=hanzi vocab sentence extra ''"`
@@ -78,30 +70,37 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 			return
 		}
 
-		where := "user_id = @userID AND [entry] IN @entries AND [Type] IN @type"
-		cond := map[string]interface{}{
-			"userID":  userID,
-			"entries": body.Entries,
-			"type":    []string{body.Type, "extra"},
-		}
-
-		var quizzes []db.Quiz
-
-		clause := resource.DB.Current.Model(&db.Quiz{}).
-			Select("entry", "srs_level").
-			Where(where, cond)
-
-		if r := clause.Find(&quizzes); r.Error != nil {
-			panic(r.Error)
-		}
-
 		out := make([]gin.H, 0)
 
-		for _, q := range quizzes {
-			out = append(out, gin.H{
-				"entry":    q.Entry,
-				"srsLevel": q.SRSLevel,
-			})
+		chunkSize := 500
+		for i := 0; i < len(body.Entries); i += chunkSize {
+			chunkEnd := i + chunkSize
+			if chunkEnd > len(body.Entries) {
+				chunkEnd = len(body.Entries)
+			}
+
+			where := "[entry] IN @entries AND [Type] IN @type"
+			cond := map[string]interface{}{
+				"entries": body.Entries[i:chunkEnd],
+				"type":    []string{body.Type, "extra"},
+			}
+
+			var quizzes []db.Quiz
+
+			clause := resource.DB.Current.Model(&db.Quiz{}).
+				Select("entry", "srs_level").
+				Where(where, cond)
+
+			if r := clause.Find(&quizzes); r.Error != nil {
+				panic(r.Error)
+			}
+
+			for _, q := range quizzes {
+				out = append(out, gin.H{
+					"entry":    q.Entry,
+					"srsLevel": q.SRSLevel,
+				})
+			}
 		}
 
 		ctx.JSON(200, gin.H{
@@ -110,12 +109,6 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 	})
 
 	r.PATCH("/mark", func(ctx *gin.Context) {
-		userID := getUserID(ctx)
-		if userID == "" {
-			ctx.AbortWithStatus(401)
-			return
-		}
-
 		var query struct {
 			ID   string `form:"id" binding:"required"`
 			Type string `form:"type" binding:"required,oneof=right wrong repeat"`
@@ -128,7 +121,7 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 
 		var quiz db.Quiz
 		if r := resource.DB.Current.
-			Where("user_id = ? AND id = ?", userID, query.ID).
+			Where("id = ?", query.ID).
 			First(&quiz); r.Error != nil {
 			panic(r.Error)
 		}
@@ -148,53 +141,14 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 		})
 	})
 
-	r.GET("/allTags", func(ctx *gin.Context) {
-		userID := getUserID(ctx)
-		if userID == "" {
-			ctx.AbortWithStatus(401)
-			return
-		}
-
-		var tagEls []struct {
-			Name string
-		}
-
-		if r := resource.DB.Current.Model(&db.Quiz{}).
-			Select("tag.Name").
-			Joins("JOIN quiz_tag ON quiz_tag.quiz_id = quiz.id").
-			Joins("JOIN tag ON quiz_tag.tag_id = tag.id").
-			Group("tag.Name").
-			Scan(&tagEls); r.Error != nil {
-			panic(r.Error)
-		}
-
-		var result []string
-		for _, t := range tagEls {
-			result = append(result, t.Name)
-		}
-
-		ctx.JSON(200, gin.H{
-			"result": result,
-		})
-	})
-
 	r.GET("/init", func(ctx *gin.Context) {
-		userID := getUserID(ctx)
-		if userID == "" {
-			ctx.AbortWithStatus(401)
-			return
-		}
-
 		var query struct {
-			RS string `form:"_"`
-		}
-
-		var rs struct {
-			Type      []string `json:"type" validate:"required,min=1"`
-			Stage     []string `json:"stage" validate:"required,min=1"`
-			Direction []string `json:"direction" validate:"required,min=1"`
-			IsDue     bool     `json:"isDue"`
-			Q         string   `json:"q"`
+			Type         string `form:"type"`
+			Stage        string `form:"stage"`
+			Direction    string `form:"direction"`
+			IncludeUndue string `form:"includeUndue"`
+			IncludeExtra string `form:"includeExtra"`
+			Q            string `form:"q"`
 		}
 
 		if e := ctx.BindQuery(&query); e != nil {
@@ -202,27 +156,46 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 			return
 		}
 
-		if e := rison.Unmarshal([]byte(query.RS), &rs, rison.Rison); e != nil {
-			ctx.AbortWithError(400, e)
+		if len(query.Type) == 0 {
+			ctx.JSON(200, gin.H{
+				"quiz":     make([]string, 0),
+				"upcoming": make([]string, 0),
+			})
 			return
 		}
 
-		if e := validate.Struct(&rs); e != nil {
-			ctx.AbortWithError(400, e)
+		if len(query.Stage) == 0 {
+			ctx.JSON(200, gin.H{
+				"quiz":     make([]string, 0),
+				"upcoming": make([]string, 0),
+			})
 			return
 		}
+
+		if len(query.Direction) == 0 {
+			ctx.JSON(200, gin.H{
+				"quiz":     make([]string, 0),
+				"upcoming": make([]string, 0),
+			})
+			return
+		}
+
+		qType := strings.Split(query.Type, ",")
+		stage := strings.Split(query.Stage, ",")
+		direction := strings.Split(query.Direction, ",")
 
 		// No need to await
 		go func() {
 			var user db.User
-			if r := resource.DB.Current.Where("id = ?", userID).First(&user); r.Error != nil {
+			if r := resource.DB.Current.First(&user); r.Error != nil {
 				panic(r.Error)
 			}
 
-			user.Meta.Settings.Quiz.Direction = rs.Direction
-			user.Meta.Settings.Quiz.Stage = rs.Stage
-			user.Meta.Settings.Quiz.Type = rs.Type
-			user.Meta.Settings.Quiz.IsDue = rs.IsDue
+			user.Meta.Settings.Quiz.Direction = direction
+			user.Meta.Settings.Quiz.Stage = stage
+			user.Meta.Settings.Quiz.Type = qType
+			user.Meta.Settings.Quiz.IncludeExtra = (query.IncludeExtra != "")
+			user.Meta.Settings.Quiz.IncludeUndue = (query.IncludeUndue != "")
 
 			if r := resource.DB.Current.Save(&user); r.Error != nil {
 				panic(r.Error)
@@ -231,12 +204,12 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 
 		q := resource.DB.Current.Model(&db.Quiz{})
 
-		if rs.Q != "" {
+		if query.Q != "" {
 			var sel []struct {
 				ID string
 			}
 			// Ignore errors
-			resource.DB.Current.Raw("SELECT id FROM quiz_q WHERE quiz_q MATCH ?", rs.Q).Find(&sel)
+			resource.DB.Current.Raw("SELECT id FROM quiz_q WHERE quiz_q MATCH ?", query.Q).Find(&sel)
 
 			var ids []string
 			for _, s := range sel {
@@ -252,7 +225,7 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 
 		var orCond []string
 
-		stageSet := util.MakeSet(rs.Stage)
+		stageSet := util.MakeSet(stage)
 		if stageSet["new"] {
 			orCond = append(orCond, "srs_level IS NULL")
 		}
@@ -276,7 +249,7 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 		var quizzes []db.Quiz
 
 		if r := q.
-			Where("user_id = ? AND [type] IN ? AND direction IN ?", userID, rs.Type, rs.Direction).
+			Where("[type] IN ? AND [direction] IN ?", qType, direction).
 			Find(&quizzes); r.Error != nil {
 			panic(r.Error)
 		}
@@ -284,7 +257,7 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 		var quiz []quizInitOutput
 		var upcoming []quizInitOutput
 
-		if rs.IsDue {
+		if query.IncludeUndue == "" {
 			now := time.Now()
 
 			for _, it := range quizzes {
@@ -335,12 +308,6 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 	})
 
 	r.PUT("/", func(ctx *gin.Context) {
-		userID := getUserID(ctx)
-		if userID == "" {
-			ctx.AbortWithStatus(401)
-			return
-		}
-
 		var body struct {
 			Entries []string `json:"entries" binding:"required,min=1"`
 			Type    string   `json:"type" binding:"required,oneof=hanzi vocab sentence extra"`
@@ -352,7 +319,7 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 		var existingQ []db.Quiz
 
 		if r := resource.DB.Current.
-			Where("user_id = ? AND entry IN ? AND type = ?", userID, body.Entries, body.Type).
+			Where("entry IN ? AND type = ?", body.Entries, body.Type).
 			Find(&existingQ); r.Error != nil {
 			panic(r.Error)
 		}
@@ -367,9 +334,10 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 		}
 
 		type Result struct {
-			IDs   []string `json:"ids"`
-			Entry string   `json:"entry"`
-			Type  string   `json:"type"`
+			IDs    []string `json:"ids"`
+			Entry  string   `json:"entry"`
+			Type   string   `json:"type"`
+			Source string   `json:"source"`
 		}
 		result := make([]Result, 0)
 		ids := make([]string, 0)
@@ -379,9 +347,10 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 
 		for _, entry := range body.Entries {
 			subresult := Result{
-				IDs:   make([]string, 0),
-				Entry: entry,
-				Type:  "extra",
+				IDs:    make([]string, 0),
+				Entry:  entry,
+				Type:   "vocab",
+				Source: "",
 			}
 			result = append(result, subresult)
 
@@ -402,9 +371,8 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 							directions = append(directions, "te")
 						}
 					}
-					subresult.Type = "vocab"
 				} else {
-					subresult.Type = "extra"
+					subresult.Source = "extra"
 				}
 			case "hanzi":
 				if r := resource.Zh.Current.
@@ -413,9 +381,7 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 					if !errors.Is(r.Error, gorm.ErrRecordNotFound) {
 						panic(r.Error)
 					}
-					subresult.Type = "extra"
-				} else {
-					subresult.Type = "hanzi"
+					subresult.Source = "extra"
 				}
 			case "sentence":
 				if r := resource.Zh.Current.
@@ -424,13 +390,11 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 					if !errors.Is(r.Error, gorm.ErrRecordNotFound) {
 						panic(r.Error)
 					}
-					subresult.Type = "extra"
-				} else {
-					subresult.Type = "sentence"
+					subresult.Source = "extra"
 				}
 			}
 
-			if subresult.Type == "extra" {
+			if subresult.Source == "extra" {
 				pinyin := ""
 				english := ""
 
@@ -454,10 +418,10 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 				}
 
 				newExtra = append(newExtra, db.Extra{
-					UserID:  userID,
 					Chinese: entry,
 					Pinyin:  pinyin,
 					English: english,
+					Type:    subresult.Type,
 				})
 			}
 
@@ -472,10 +436,10 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 
 					newQ = append(newQ, db.Quiz{
 						ID:        id,
-						UserID:    userID,
 						Entry:     entry,
 						Type:      subresult.Type,
 						Direction: d,
+						Source:    subresult.Source,
 					})
 
 					subresult.IDs = append(subresult.IDs, id)
@@ -487,16 +451,24 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 			}
 		}
 
-		if len(newExtra) > 0 {
-			resource.DB.Current.Clauses(clause.OnConflict{
-				DoNothing: true,
-			}).Create(&newExtra)
-		}
-
-		if len(newQ) > 0 {
-			if r := resource.DB.Current.Create(newQ); r.Error != nil {
-				panic(r.Error)
+		e := resource.DB.Current.Transaction(func(tx *gorm.DB) error {
+			if len(newExtra) > 0 {
+				if r := tx.Create(&newExtra); r.Error != nil {
+					return r.Error
+				}
 			}
+
+			if len(newQ) > 0 {
+				if r := tx.Create(newQ); r.Error != nil {
+					return r.Error
+				}
+			}
+
+			return nil
+		})
+
+		if e != nil {
+			panic(e)
 		}
 
 		ctx.JSON(201, gin.H{
@@ -505,18 +477,26 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 		})
 	})
 
-	r.POST("/delete", func(ctx *gin.Context) {
-		var body struct {
-			IDs []string `json:"ids" binding:"required,min=1"`
+	r.DELETE("/", func(ctx *gin.Context) {
+		var query struct {
+			IDs string `form:"ids" binding:"required,min=1"`
 		}
 
-		if e := ctx.BindJSON(&body); e != nil {
+		if e := ctx.BindQuery(&query); e != nil {
 			ctx.AbortWithError(400, e)
 			return
 		}
 
-		if r := resource.DB.Current.Where("id IN ?", body.IDs).Delete(&db.Quiz{}); r.Error != nil {
-			panic(r.Error)
+		e := resource.DB.Current.Transaction(func(tx *gorm.DB) error {
+			if r := tx.Where("id IN ?", strings.Split(query.IDs, ",")).Delete(&db.Quiz{}); r.Error != nil {
+				return r.Error
+			}
+
+			return nil
+		})
+
+		if e != nil {
+			panic(e)
 		}
 
 		ctx.JSON(201, gin.H{
@@ -562,21 +542,13 @@ type getterBody struct {
 }
 
 func quizGetter(ctx *gin.Context, body getterBody) {
-	userID := getUserID(ctx)
-	if userID == "" {
-		ctx.AbortWithStatus(401)
-		return
-	}
-
 	sel := []string{}
 	sMap := map[string]string{
-		"id":        "ID",
-		"entry":     "[Entry]",
-		"type":      "[Type]",
-		"direction": "Direction",
-		"front":     "Front",
-		"back":      "Back",
-		"mnemonic":  "Mnemonic",
+		"id":        "quiz.id id",
+		"entry":     "quiz.entry entry",
+		"type":      "quiz.type type",
+		"direction": "quiz.direction direction",
+		"source":    "quiz.source source",
 	}
 
 	for _, s := range body.Select {
@@ -591,16 +563,14 @@ func quizGetter(ctx *gin.Context, body getterBody) {
 		return
 	}
 
-	where := "user_id = @userID"
-	cond := map[string]interface{}{
-		"userID": userID,
-	}
+	andWhere := make([]string, 0)
+	cond := map[string]interface{}{}
 
 	if len(body.IDs) > 0 {
-		where = where + " AND id IN @ids"
+		andWhere = append(andWhere, "quiz.id IN @ids")
 		cond["ids"] = body.IDs
 	} else if len(body.Entries) > 0 {
-		where = where + " AND [entry] IN @entries"
+		andWhere = append(andWhere, "quiz.entry IN @entries")
 		cond["entries"] = body.Entries
 	} else {
 		ctx.AbortWithError(400, fmt.Errorf("either IDs or Entries must be specified"))
@@ -608,38 +578,18 @@ func quizGetter(ctx *gin.Context, body getterBody) {
 	}
 
 	if body.Type != "" {
-		where = where + " AND [Type] = @type"
+		andWhere = append(andWhere, "quiz.type = @type")
 		cond["type"] = body.Type
 	}
 
-	var quizzes []db.Quiz
+	out := make([]map[string]interface{}, 0)
 
 	clause := resource.DB.Current.Model(&db.Quiz{}).
 		Select(sel).
-		Where(where, cond)
+		Where(strings.Join(andWhere, " AND "), cond)
 
-	if r := clause.Find(&quizzes); r.Error != nil {
+	if r := clause.Find(&out); r.Error != nil {
 		panic(r.Error)
-	}
-
-	out := make([]gin.H, 0)
-	getMap := map[string]func(q *db.Quiz) interface{}{
-		"id":        func(q *db.Quiz) interface{} { return q.ID },
-		"entry":     func(q *db.Quiz) interface{} { return q.Entry },
-		"type":      func(q *db.Quiz) interface{} { return q.Type },
-		"direction": func(q *db.Quiz) interface{} { return q.Direction },
-	}
-
-	for _, q := range quizzes {
-		it := gin.H{}
-		for _, s := range body.Select {
-			k := getMap[s]
-			if k != nil {
-				it[s] = k(&q)
-			}
-		}
-
-		out = append(out, it)
 	}
 
 	ctx.JSON(200, gin.H{

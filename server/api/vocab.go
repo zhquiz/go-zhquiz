@@ -85,15 +85,9 @@ func routerVocab(apiRouter *gin.RouterGroup) {
 	})
 
 	r.GET("/level", func(ctx *gin.Context) {
-		userID := getUserID(ctx)
-		if userID == "" {
-			ctx.AbortWithStatus(401)
-			return
-		}
-
 		var existing []db.Quiz
 		if r := resource.DB.Current.
-			Where("user_id = ? AND [type] = 'vocab' AND srs_level IS NOT NULL", userID).
+			Where("[type] = 'vocab' AND srs_level IS NOT NULL").
 			Find(&existing); r.Error != nil {
 			panic(r.Error)
 		}
@@ -128,12 +122,6 @@ func routerVocab(apiRouter *gin.RouterGroup) {
 	})
 
 	r.GET("/random", func(ctx *gin.Context) {
-		userID := getUserID(ctx)
-		if userID == "" {
-			ctx.AbortWithStatus(401)
-			return
-		}
-
 		var query struct {
 			Level    string `form:"level"`
 			LevelMin string `form:"levelMin"`
@@ -168,7 +156,7 @@ func routerVocab(apiRouter *gin.RouterGroup) {
 
 		var existing []db.Quiz
 		if r := resource.DB.Current.
-			Where("user_id = ? AND [type] = 'vocab' AND srs_level IS NOT NULL AND next_review IS NOT NULL", userID).
+			Where("[type] = 'vocab' AND srs_level IS NOT NULL AND next_review IS NOT NULL").
 			Find(&existing); r.Error != nil {
 			panic(r.Error)
 		}

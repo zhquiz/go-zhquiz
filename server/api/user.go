@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/zhquiz/go-zhquiz/server/db"
 )
@@ -13,12 +12,6 @@ func routerUser(apiRouter *gin.RouterGroup) {
 	r := apiRouter.Group("/user")
 
 	r.GET("/", func(ctx *gin.Context) {
-		userID := getUserID(ctx)
-		if userID == "" {
-			ctx.AbortWithStatus(401)
-			return
-		}
-
 		var query struct {
 			Select string `form:"select" binding:"required"`
 		}
@@ -31,15 +24,13 @@ func routerUser(apiRouter *gin.RouterGroup) {
 		qSel := strings.Split(query.Select, ",")
 		sel := []string{}
 		sMap := map[string]string{
-			"level":                     "Meta",
-			"levelMin":                  "Meta",
-			"forvo":                     "Meta",
-			"apiKey":                    "APIKey",
-			"settings.quiz":             "Meta",
-			"settings.level.whatToShow": "Meta",
-			"settings.sentence.length":  "Meta",
-			"settings.sentence.min":     "Meta",
-			"settings.sentence.max":     "Meta",
+			"level":                     "json_extract(meta, '$.level') [level]",
+			"levelMin":                  "json_extract(meta, '$.levelMin') levelMin",
+			"forvo":                     "json_extract(meta, '$.forvo') forvo",
+			"settings.quiz":             "json_extract(meta, '$.settings.quiz') [settings.quiz]",
+			"settings.level.whatToShow": "json_extract(meta, '$.settings.level.whatToShow') [settings.level.whatToShow]",
+			"settings.sentence.min":     "json_extract(meta, '$.settings.sentence.min') [settings.sentence.min]",
+			"settings.sentence.max":     "json_extract(meta, '$.settings.sentence.max') [settings.sentence.max]",
 		}
 
 		for _, s := range qSel {
@@ -54,41 +45,16 @@ func routerUser(apiRouter *gin.RouterGroup) {
 			return
 		}
 
-		var dbUser db.User
+		out := map[string]interface{}{}
 
-		if r := resource.DB.Current.Select(sel).Where("ID = ?", userID).First(&dbUser); r.Error != nil {
+		if r := resource.DB.Current.Model(&db.User{}).Select(strings.Join(sel, ",")).First(&out); r.Error != nil {
 			panic(r.Error)
-		}
-
-		out := gin.H{}
-		outMap := map[string]func() interface{}{
-			"level":                     func() interface{} { return dbUser.Meta.Level },
-			"levelMin":                  func() interface{} { return dbUser.Meta.LevelMin },
-			"forvo":                     func() interface{} { return *dbUser.Meta.Forvo },
-			"apiKey":                    func() interface{} { return dbUser.APIKey },
-			"settings.quiz":             func() interface{} { return dbUser.Meta.Settings.Quiz },
-			"settings.level.whatToShow": func() interface{} { return dbUser.Meta.Settings.Level.WhatToShow },
-			"settings.sentence.min":     func() interface{} { return dbUser.Meta.Settings.Sentence.Min },
-			"settings.sentence.max":     func() interface{} { return dbUser.Meta.Settings.Sentence.Max },
-		}
-
-		for _, s := range qSel {
-			v := outMap[s]
-			if v != nil {
-				out[s] = v()
-			}
 		}
 
 		ctx.JSON(200, out)
 	})
 
 	r.PATCH("/", func(ctx *gin.Context) {
-		userID := getUserID(ctx)
-		if userID == "" {
-			ctx.AbortWithStatus(401)
-			return
-		}
-
 		var body struct {
 			LevelMin    *uint `json:"levelMin"`
 			Level       *uint `json:"level"`
@@ -103,7 +69,7 @@ func routerUser(apiRouter *gin.RouterGroup) {
 
 		var dbUser db.User
 
-		if r := resource.DB.Current.Where("ID = ?", userID).First(&dbUser); r.Error != nil {
+		if r := resource.DB.Current.First(&dbUser); r.Error != nil {
 			panic(r.Error)
 		}
 
@@ -133,15 +99,6 @@ func routerUser(apiRouter *gin.RouterGroup) {
 
 		ctx.JSON(201, gin.H{
 			"result": "updated",
-		})
-	})
-
-	r.DELETE("/signOut", func(ctx *gin.Context) {
-		session := sessions.Default(ctx)
-		session.Clear()
-
-		ctx.JSON(201, gin.H{
-			"result": "signed out",
 		})
 	})
 }

@@ -4,13 +4,16 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-
-	"github.com/zhquiz/go-zhquiz/server/rand"
 )
 
 // UserDataDir is used to store all writable data
 func UserDataDir() string {
-	return os.Getenv("USER_DATA_DIR")
+	dir := os.Getenv("USER_DATA_DIR")
+	if dir == "" {
+		return ExecDir
+	}
+
+	return dir
 }
 
 // MediaPath returns path to media folder, and mkdir if necessary
@@ -31,15 +34,9 @@ func Port() string {
 	return getenvOrDefault("PORT", "35594")
 }
 
-// APISecret returns ZHQUIZ_API_SECRET for programmatic API access
-func APISecret() string {
-	return getenvOrDefaultFn("ZHQUIZ_API_SECRET", func() string {
-		s, err := rand.GenerateRandomString(64)
-		if err != nil {
-			log.Fatalln(err)
-		}
-		return s
-	})
+// IsDesktop decides whether to run in desktop mode
+func IsDesktop() bool {
+	return os.Getenv("ZHQUIZ_DESKTOP") != "0"
 }
 
 // DatabaseURL returns DATABASE_URL
@@ -47,24 +44,4 @@ func DatabaseURL() string {
 	return getenvOrDefaultFn("DATABASE_URL", func() string {
 		return filepath.Join(UserDataDir(), "data.db")
 	})
-}
-
-// SpeakFn return ZHQUIZ_SPEAK for programmatic speak function
-func SpeakFn() string {
-	s := getenvOrDefaultFn("ZHQUIZ_SPEAK", func() string {
-		defaultPath := filepath.Join(UserDataDir(), "speak.sh")
-
-		stat, err := os.Stat(defaultPath)
-		if err == nil && !stat.IsDir() {
-			return defaultPath
-		}
-
-		return "0"
-	})
-
-	if s == "0" {
-		return ""
-	}
-
-	return s
 }

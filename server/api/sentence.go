@@ -53,9 +53,10 @@ func routerSentence(apiRouter *gin.RouterGroup) {
 
 	r.GET("/q", func(ctx *gin.Context) {
 		var query struct {
-			Q       string  `form:"q" binding:"required"`
-			Page    *string `form:"page"`
-			PerPage *string `form:"perPage"`
+			Q        string  `form:"q"`
+			Page     *string `form:"page"`
+			PerPage  *string `form:"perPage"`
+			Generate *string `form:"generate"`
 		}
 
 		if e := ctx.BindQuery(&query); e != nil {
@@ -85,19 +86,76 @@ func routerSentence(apiRouter *gin.RouterGroup) {
 			isCount = true
 		}
 
+		generate := 0
+		if query.Generate != nil {
+			i, err := strconv.Atoi(*query.Generate)
+			if err != nil {
+				ctx.AbortWithError(400, errors.New("generate must be int"))
+				return
+			}
+			generate = i
+		}
+
+		var user db.User
+		if r := resource.DB.Current.First(&user); r.Error != nil {
+			panic(r.Error)
+		}
+		levelMin := *user.Meta.LevelMin
+		if levelMin == 0 {
+			levelMin = 1
+		}
+		levelMax := *user.Meta.Level
+		if levelMax == 0 {
+			levelMax = 60
+		}
+
+		var sentenceMin uint = 0
+		if user.Meta.Settings.Sentence.Min != nil {
+			sentenceMin = *user.Meta.Settings.Sentence.Min
+		}
+
+		var sentenceMax uint = 0
+		if user.Meta.Settings.Sentence.Max != nil {
+			sentenceMax = *user.Meta.Settings.Sentence.Max
+		}
+
 		type Result struct {
 			Chinese string `json:"chinese"`
 			English string `json:"english"`
 		}
 		result := make([]Result, 0)
 
+		andCond := []string{
+			"[level] >= @levelMin",
+			"[level] <= @levelMax",
+		}
+		cond := map[string]interface{}{
+			"q":           "%" + query.Q + "%",
+			"levelMin":    levelMin,
+			"levelMax":    levelMax,
+			"sentenceMin": sentenceMin,
+			"sentenceMax": sentenceMax,
+		}
+
+		if query.Q != "" {
+			andCond = append(andCond, "chinese LIKE @q")
+		} else {
+			if sentenceMin != 0 {
+				andCond = append(andCond, "length(chinese) >= @sentenceMin")
+			}
+
+			if sentenceMax != 0 {
+				andCond = append(andCond, "length(chinese) <= @sentenceMax")
+			}
+		}
+
 		if r := resource.Zh.Current.Raw(fmt.Sprintf(`
 		SELECT Chinese, English
 		FROM sentence
-		WHERE chinese LIKE '%%'||?||'%%'
+		WHERE %s
 		ORDER BY level, frequency DESC
 		LIMIT %d OFFSET %d
-		`, perPage, (page-1)*perPage), query.Q).Find(&result); r.Error != nil {
+		`, strings.Join(andCond, " AND "), perPage, (page-1)*perPage), cond).Find(&result); r.Error != nil {
 			panic(r.Error)
 		}
 
@@ -114,17 +172,17 @@ func routerSentence(apiRouter *gin.RouterGroup) {
 
 		if isCount {
 			var count int
-			if r := resource.Zh.Current.Raw(`
+			if r := resource.Zh.Current.Raw(fmt.Sprintf(`
 			SELECT COUNT(*)
 			FROM sentence
-			WHERE chinese LIKE '%'||?||'%'
-			`, query.Q).Scan(&count); r.Error != nil {
+			WHERE %s
+			`, strings.Join(andCond, " AND ")), cond).Scan(&count); r.Error != nil {
 				panic(r.Error)
 			}
 			out.Count = &count
 		}
 
-		if len(out.Result) <= 5 {
+		if len(out.Result) <= generate {
 			var dbSentences []db.Sentence
 			if r := resource.DB.Current.Where("chinese LIKE '%'||?||'%'", query.Q).Limit(10 - len(out.Result)).Find(&dbSentences); r.Error != nil {
 				panic(r.Error)
@@ -137,7 +195,7 @@ func routerSentence(apiRouter *gin.RouterGroup) {
 				})
 			}
 
-			if len(out.Result) <= 5 {
+			if len(out.Result) <= generate {
 				func() {
 					doc, err := goquery.NewDocument(fmt.Sprintf("http://www.jukuu.com/search.php?q=%s", url.QueryEscape(query.Q)))
 					if err != nil {
@@ -190,10 +248,10 @@ func routerSentence(apiRouter *gin.RouterGroup) {
 				}()
 			}
 
-			if len(out.Result) > 10 {
+			if len(out.Result) > generate {
 				var newResult []Result
 				for _, r := range out.Result {
-					if len(newResult) < 10 {
+					if len(newResult) < generate {
 						newResult = append(newResult, r)
 					}
 				}
@@ -204,140 +262,7 @@ func routerSentence(apiRouter *gin.RouterGroup) {
 		ctx.JSON(200, out)
 	})
 
-	r.GET("/all", func(ctx *gin.Context) {
-		userID := getUserID(ctx)
-		if userID == "" {
-			ctx.AbortWithStatus(401)
-			return
-		}
-
-		var query struct {
-			Page     string `form:"page" binding:"required"`
-			PerPage  string `form:"perPage" binding:"required"`
-			Level    string `form:"level" binding:"required"`
-			LevelMin string `form:"levelMin" binding:"required"`
-		}
-
-		if e := ctx.BindQuery(&query); e != nil {
-			ctx.AbortWithError(400, e)
-			return
-		}
-
-		page := 1
-		{
-			i, err := strconv.Atoi(query.Page)
-			if err != nil {
-				ctx.AbortWithError(400, errors.New("page must be int"))
-				return
-			}
-			page = i
-		}
-
-		isCount := false
-		perPage := 5
-		{
-			i, err := strconv.Atoi(query.PerPage)
-			if err != nil {
-				ctx.AbortWithError(400, errors.New("perPage must be int"))
-				return
-			}
-			perPage = i
-			isCount = true
-		}
-
-		level := 60
-		{
-			i, err := strconv.Atoi(query.Level)
-			if err != nil {
-				ctx.AbortWithError(400, errors.New("level must be int"))
-				return
-			}
-			level = i
-		}
-
-		levelMin := 1
-		{
-			i, err := strconv.Atoi(query.LevelMin)
-			if err != nil {
-				ctx.AbortWithError(400, errors.New("levelMin must be int"))
-				return
-			}
-			levelMin = i
-		}
-
-		where := "level <= @level AND level >= @levelMin"
-		cond := map[string]interface{}{
-			"level":    level,
-			"levelMin": levelMin,
-		}
-
-		var dbUser db.User
-
-		if r := resource.DB.Current.Select("Meta").Where("ID = ?", userID).First(&dbUser); r.Error != nil {
-			panic(r.Error)
-		}
-
-		if dbUser.Meta.Settings.Sentence.Min != nil {
-			cond["sentenceMin"] = dbUser.Meta.Settings.Sentence.Min
-			where = where + " AND length(chinese) >= @sentenceMin"
-		}
-
-		if dbUser.Meta.Settings.Sentence.Max != nil {
-			cond["sentenceMax"] = dbUser.Meta.Settings.Sentence.Max
-			where = where + " AND length(chinese) <= @sentenceMax"
-		}
-
-		type Result struct {
-			Chinese string `json:"chinese"`
-			English string `json:"english"`
-		}
-		var result []Result
-
-		if r := resource.Zh.Current.Raw(fmt.Sprintf(`
-		SELECT Chinese, English
-		FROM sentence
-		WHERE %s
-		ORDER BY level, frequency DESC
-		LIMIT %d OFFSET %d
-		`, where, perPage, (page-1)*perPage), cond).Find(&result); r.Error != nil {
-			panic(r.Error)
-		}
-
-		for i, it := range result {
-			result[i].English = strings.Split(it.English, "\u001f")[0]
-		}
-
-		out := struct {
-			Result []Result `json:"result"`
-			Count  *int     `json:"count"`
-		}{
-			Result: result,
-		}
-
-		if len(out.Result) == 0 {
-			out.Result = make([]Result, 0)
-		} else if isCount {
-			var count int
-			if r := resource.Zh.Current.Raw(fmt.Sprintf(`
-			SELECT COUNT(*) Count
-			FROM sentence
-			WHERE %s
-			`, where), cond).Scan(&count); r.Error != nil {
-				panic(r.Error)
-			}
-			out.Count = &count
-		}
-
-		ctx.JSON(200, out)
-	})
-
 	r.GET("/random", func(ctx *gin.Context) {
-		userID := getUserID(ctx)
-		if userID == "" {
-			ctx.AbortWithStatus(401)
-			return
-		}
-
 		var query struct {
 			Level    string `form:"level"`
 			LevelMin string `form:"levelMin"`
@@ -372,22 +297,22 @@ func routerSentence(apiRouter *gin.RouterGroup) {
 
 		var dbUser db.User
 
-		if r := resource.DB.Current.Select("Meta").Where("ID = ?", userID).First(&dbUser); r.Error != nil {
+		if r := resource.DB.Current.Select("Meta").First(&dbUser); r.Error != nil {
 			panic(r.Error)
 		}
 
-		where := "user_id = @userID AND [type] = 'sentence' AND srs_level IS NOT NULL AND next_review IS NOT NULL"
+		where := "[type] = @type AND srs_level IS NOT NULL AND next_review IS NOT NULL"
 		cond := map[string]interface{}{
-			"userID": userID,
+			"type":        "sentence",
+			"sentenceMin": dbUser.Meta.Settings.Sentence.Min,
+			"sentenceMax": dbUser.Meta.Settings.Sentence.Max,
 		}
 
 		if dbUser.Meta.Settings.Sentence.Min != nil {
-			cond["sentenceMin"] = dbUser.Meta.Settings.Sentence.Min
 			where = where + " AND length(entry) >= @sentenceMin"
 		}
 
 		if dbUser.Meta.Settings.Sentence.Max != nil {
-			cond["sentenceMax"] = dbUser.Meta.Settings.Sentence.Max
 			where = where + " AND length(entry) <= @sentenceMax"
 		}
 

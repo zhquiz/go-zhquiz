@@ -14,14 +14,14 @@ dev:
     reflex -s -r '\.go$' -- robo -c "{{ .robo.file }}" serve
 build:
   command: |
-    go build --tags "sqlite_fts5" -o {{ .exe }}
+    go build --tags "sqlite_fts5 sqlite_json1" -o {{ .exe }}
 build-windows:
   command: |
     xgo \
       -ldflags="-H windowsgui" \
       -branch={{ .branch }} \
       -targets=windows/amd64 \
-      -out=zhquiz -tags="sqlite_fts5" \
+      -out=zhquiz -tags="sqlite_fts5 sqlite_json1" \
       {{ .repo }}
 build-mac:
   summary: |
@@ -30,11 +30,11 @@ build-mac:
     xgo \
       -branch={{ .branch }} \
       -targets=darwin/amd64 \
-      -out=zhquiz -tags="sqlite_fts5" \
+      -out=zhquiz -tags="sqlite_fts5 sqlite_json1" \
       {{ .repo }}
 build-linux:
   command: |
-    go build --tags "sqlite_fts5" -o "zhquiz-linux-amd64"
+    go build --tags "sqlite_fts5 sqlite_json1" -o "zhquiz-linux-amd64"
 build-all:
   command: |
     robo -c "{{ .robo.file }}" build-windows

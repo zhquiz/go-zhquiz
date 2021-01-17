@@ -5,10 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"time"
 
-	"github.com/zhquiz/go-zhquiz/server/rand"
 	"gorm.io/gorm"
 	"gorm.io/gorm/schema"
 )
@@ -18,9 +16,6 @@ type User struct {
 	ID        string `gorm:"primaryKey"`
 	CreatedAt time.Time
 	UpdatedAt time.Time
-
-	Email  string `gorm:"index:,unique;not null;check:length(email) > 4"`
-	APIKey string `gorm:"index,not null;check:length(api_key) > 20"`
 
 	Meta UserMeta
 }
@@ -33,24 +28,25 @@ func (u *User) BeforeCreate(tx *gorm.DB) (err error) {
 
 // UserMeta holds User's settings
 type UserMeta struct {
-	Forvo    *string
-	Level    *uint
-	LevelMin *uint
+	Forvo    *string `json:"forvo"`
+	Level    *uint   `json:"level"`
+	LevelMin *uint   `json:"levelMin"`
 	Settings struct {
 		Level struct {
-			WhatToShow []string
-		}
+			WhatToShow []string `json:"whatToShow"`
+		} `json:"level"`
 		Quiz struct {
-			Type      []string `json:"type"`
-			Stage     []string `json:"stage"`
-			Direction []string `json:"direction"`
-			IsDue     bool     `json:"isDue"`
-		}
+			Type         []string `json:"type"`
+			Stage        []string `json:"stage"`
+			Direction    []string `json:"direction"`
+			IncludeUndue bool     `json:"includeUndue"`
+			IncludeExtra bool     `json:"includeExtra"`
+		} `json:"quiz"`
 		Sentence struct {
-			Min *uint
-			Max *uint
-		}
-	}
+			Min *uint `json:"min"`
+			Max *uint `json:"max"`
+		} `json:"sentence"`
+	} `json:"settings"`
 }
 
 // Scan scan value into Jsonb, implements sql.Scanner interface
@@ -80,22 +76,4 @@ func (UserMeta) GormDBDataType(db *gorm.DB, _ *schema.Field) string {
 		return "JSONB"
 	}
 	return "TEXT"
-}
-
-// New creates new User record
-func (u *User) New() {
-	u.Email = "DEFAULT"
-	u.NewAPIKey()
-}
-
-// NewAPIKey generates a new API key to the User, and returns it
-func (u *User) NewAPIKey() string {
-	apiKey, err := rand.GenerateRandomString(64)
-	if err != nil {
-		log.Fatalln(err)
-	}
-
-	u.APIKey = apiKey
-
-	return apiKey
 }

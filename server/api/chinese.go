@@ -1,10 +1,13 @@
 package api
 
 import (
-	"os/exec"
+	"fmt"
+	"log"
+	"net/http"
+	"net/url"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"github.com/zhquiz/go-zhquiz/shared"
 )
 
 func routerChinese(apiRouter *gin.RouterGroup) {
@@ -25,29 +28,44 @@ func routerChinese(apiRouter *gin.RouterGroup) {
 		})
 	})
 
-	speakCmd := shared.SpeakFn()
-	if speakCmd != "" {
-		r.POST("/speak", func(ctx *gin.Context) {
-			var query struct {
-				Q string `form:"q" binding:"required"`
-			}
+	r.GET("/speak", func(ctx *gin.Context) {
+		var query struct {
+			Q string `form:"q" binding:"required"`
+		}
 
-			if e := ctx.BindQuery(&query); e != nil {
-				ctx.AbortWithError(400, e)
-				return
-			}
+		if e := ctx.BindQuery(&query); e != nil {
+			ctx.AbortWithError(400, e)
+			return
+		}
 
-			cmd := exec.Command(speakCmd, query.Q)
+		params := url.Values{}
+		params.Add("ie", "UTF-8")
+		params.Add("tl", "zh-CN")
+		params.Add("q", query.Q)
+		params.Add("total", "1")
+		params.Add("idx", "0")
+		params.Add("client", "tw-ob")
+		params.Add("textlen", strconv.Itoa(len(query.Q)))
 
-			if e := cmd.Start(); e != nil {
-				panic(e)
-			}
+		req, err := http.NewRequest("GET", fmt.Sprintf("http://translate.google.com/translate_tts?%s", params.Encode()), nil)
+		if err != nil {
+			log.Fatalln(err)
+		}
 
-			ctx.JSON(200, gin.H{
-				"result": "success",
-			})
-		})
-	}
+		req.Header.Add("Referrer", "http://translate.google.com/")
+		req.Header.Add("User-Agent", getUserAgent())
+		req.Header.Add("Content-Type", "application/x-www-form-urlencoded;charset=utf-8")
+
+		client := &http.Client{}
+		response, err := client.Do(req)
+		if err != nil {
+			log.Fatalln(err)
+		}
+
+		defer response.Body.Close()
+
+		ctx.DataFromReader(200, response.ContentLength, response.Header.Get("Content-Type"), response.Body, map[string]string{})
+	})
 }
 
 func cutChineseAll(s string) []string {

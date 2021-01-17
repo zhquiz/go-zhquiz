@@ -16,14 +16,11 @@ type Quiz struct {
 	CreatedAt time.Time
 	UpdatedAt time.Time
 
-	// Relationships
-	UserID string `gorm:"index:quiz_unique_idx,unique;not null"`
-	User   User
-
 	// Entry references
-	Entry     string `gorm:"index:quiz_unique_idx,unique;not null;check:length(entry) > 0"`
-	Type      string `gorm:"index:quiz_unique_idx,unique;not null;check:[type] in ('hanzi','vocab','sentence','extra')"`
+	Entry     string `gorm:"index:quiz_unique_idx,unique;not null"`
+	Type      string `gorm:"index:quiz_unique_idx,unique;not null;check:[type] in ('hanzi','vocab','sentence')"`
 	Direction string `gorm:"index:quiz_unique_idx,unique;not null;check:direction in ('se','ec','te')"`
+	Source    string `gorm:"index;not null"`
 
 	// Quiz statistics
 	SRSLevel    *int8      `gorm:"index"`

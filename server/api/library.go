@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/zhquiz/go-zhquiz/server/db"
+	"gorm.io/gorm"
 )
 
 func routerLibrary(apiRouter *gin.RouterGroup) {
@@ -103,12 +104,6 @@ func routerLibrary(apiRouter *gin.RouterGroup) {
 	})
 
 	r.PUT("/", func(ctx *gin.Context) {
-		userID := getUserID(ctx)
-		if userID == "" {
-			ctx.AbortWithStatus(401)
-			return
-		}
-
 		var body struct {
 			Title       string   `json:"title" binding:"required"`
 			Entries     []string `json:"entries" binding:"required,min=1"`
@@ -126,11 +121,18 @@ func routerLibrary(apiRouter *gin.RouterGroup) {
 			Entries:     body.Entries,
 			Description: body.Description,
 			Tag:         body.Tag,
-			UserID:      userID,
 		}
 
-		if r := resource.DB.Current.Create(&it); r.Error != nil {
-			panic(r.Error)
+		e := resource.DB.Current.Transaction(func(tx *gorm.DB) error {
+			if r := tx.Create(&it); r.Error != nil {
+				return r.Error
+			}
+
+			return nil
+		})
+
+		if e != nil {
+			panic(e)
 		}
 
 		ctx.JSON(201, gin.H{
@@ -139,12 +141,6 @@ func routerLibrary(apiRouter *gin.RouterGroup) {
 	})
 
 	r.PATCH("/", func(ctx *gin.Context) {
-		userID := getUserID(ctx)
-		if userID == "" {
-			ctx.AbortWithStatus(401)
-			return
-		}
-
 		id := ctx.Query("id")
 		if id == "" {
 			ctx.AbortWithError(400, fmt.Errorf("id to update not specified"))
@@ -170,11 +166,19 @@ func routerLibrary(apiRouter *gin.RouterGroup) {
 			Tag:         body.Tag,
 		}
 
-		if r := resource.DB.Current.
-			Model(&db.Library{}).
-			Where("user_id = ? AND id = ?", userID, id).
-			Updates(update); r.Error != nil {
-			panic(r.Error)
+		e := resource.DB.Current.Transaction(func(tx *gorm.DB) error {
+			if r := tx.
+				Model(&db.Library{}).
+				Where("id = ?", id).
+				Updates(update); r.Error != nil {
+				return r.Error
+			}
+
+			return nil
+		})
+
+		if e != nil {
+			panic(e)
 		}
 
 		ctx.JSON(201, gin.H{
@@ -183,22 +187,24 @@ func routerLibrary(apiRouter *gin.RouterGroup) {
 	})
 
 	r.DELETE("/", func(ctx *gin.Context) {
-		userID := getUserID(ctx)
-		if userID == "" {
-			ctx.AbortWithStatus(401)
-			return
-		}
-
 		id := ctx.Query("id")
 		if id == "" {
 			ctx.AbortWithError(400, fmt.Errorf("id to update not specified"))
 			return
 		}
 
-		if r := resource.DB.Current.
-			Where("user_id = ? AND id = ?", userID, id).
-			Delete(&db.Library{}); r.Error != nil {
-			panic(r.Error)
+		e := resource.DB.Current.Transaction(func(tx *gorm.DB) error {
+			if r := tx.
+				Where("id = ?", id).
+				Delete(&db.Library{}); r.Error != nil {
+				return r.Error
+			}
+
+			return nil
+		})
+
+		if e != nil {
+			panic(e)
 		}
 
 		ctx.JSON(201, gin.H{

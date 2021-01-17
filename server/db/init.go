@@ -51,6 +51,14 @@ func Connect() DB {
 		&Sentence{},
 	)
 
+	var count int64
+	output.Current.Find(&User{}).Count(&count)
+	if count == 0 {
+		if r := output.Current.Create(&User{}); r.Error != nil {
+			log.Fatalln(r.Error)
+		}
+	}
+
 	if r := output.Current.Raw("SELECT Name FROM sqlite_master WHERE type='table' AND name='quiz_q'").First(&struct {
 		Name string
 	}{}); r.Error != nil {

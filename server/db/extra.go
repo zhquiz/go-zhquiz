@@ -12,12 +12,8 @@ type Extra struct {
 	ID        string `gorm:"primarykey" json:"id"`
 	CreatedAt time.Time
 	UpdatedAt time.Time
-	DeletedAt gorm.DeletedAt `gorm:"index"`
 
-	UserID string `gorm:"index:idx_extra_user_chinese,unique;not null" json:"-"`
-	User   User   `gorm:"foreignKey:UserID" json:"-"`
-
-	Chinese     string `gorm:"index:idx_extra_user_chinese,unique;not null" json:"chinese"`
+	Chinese     string `gorm:"index:,unique;not null" json:"chinese"`
 	Pinyin      string `json:"pinyin"`
 	English     string `json:"english"`
 	Type        string `json:"type"`

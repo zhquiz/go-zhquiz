@@ -14,13 +14,17 @@ import (
 func routerExtra(apiRouter *gin.RouterGroup) {
 	r := apiRouter.Group(("/extra"))
 
-	r.GET("/q", func(ctx *gin.Context) {
-		userID := getUserID(ctx)
-		if userID == "" {
-			ctx.AbortWithStatus(401)
-			return
-		}
+	sMap := map[string]string{
+		"id":          "extra.id id",
+		"chinese":     "extra.chinese chinese",
+		"pinyin":      "extra.pinyin pinyin",
+		"english":     "extra.english english",
+		"type":        "extra.type [type]",
+		"description": "extra.description [description]",
+		"tag":         "extra.tag tag",
+	}
 
+	r.GET("/q", func(ctx *gin.Context) {
 		var query struct {
 			Q       string  `form:"q"`
 			Select  string  `form:"select"`
@@ -77,15 +81,6 @@ func routerExtra(apiRouter *gin.RouterGroup) {
 		}
 
 		sel := []string{}
-		sMap := map[string]string{
-			"id":          "ID",
-			"chinese":     "Chinese",
-			"pinyin":      "Pinyin",
-			"english":     "English",
-			"type":        "Type",
-			"description": "Description",
-			"tag":         "Tag",
-		}
 
 		for _, s := range strings.Split(query.Select, ",") {
 			k := sMap[s]
@@ -95,10 +90,11 @@ func routerExtra(apiRouter *gin.RouterGroup) {
 		}
 
 		if len(sel) == 0 {
-			sel = []string{"ID", "Chinese", "Pinyin", "English"}
+			ctx.AbortWithError(400, fmt.Errorf("not enough select"))
+			return
 		}
 
-		q := resource.DB.Current.Model(&db.Extra{}).Where("user_id = ?", userID)
+		q := resource.DB.Current.Model(&db.Extra{})
 
 		if query.Q != "" {
 			var ids []string
@@ -139,7 +135,7 @@ func routerExtra(apiRouter *gin.RouterGroup) {
 		}
 
 		if r := q.
-			Select(sel).
+			Select(strings.Join(sel, ",")).
 			Order(sorter + sortDirection).
 			Limit(perPage).
 			Offset((page - 1) * perPage).
@@ -151,12 +147,6 @@ func routerExtra(apiRouter *gin.RouterGroup) {
 	})
 
 	r.GET("/", func(ctx *gin.Context) {
-		userID := getUserID(ctx)
-		if userID == "" {
-			ctx.AbortWithStatus(401)
-			return
-		}
-
 		var query struct {
 			Entry  string `form:"entry" binding:"required"`
 			Select string `form:"select"`
@@ -168,11 +158,6 @@ func routerExtra(apiRouter *gin.RouterGroup) {
 		}
 
 		sel := []string{}
-		sMap := map[string]string{
-			"chinese": "Chinese",
-			"pinyin":  "Pinyin",
-			"english": "English",
-		}
 
 		for _, s := range strings.Split(query.Select, ",") {
 			k := sMap[s]
@@ -182,14 +167,15 @@ func routerExtra(apiRouter *gin.RouterGroup) {
 		}
 
 		if len(sel) == 0 {
-			sel = []string{"Chinese", "Pinyin", "English"}
+			ctx.AbortWithError(400, fmt.Errorf("not enough select"))
+			return
 		}
 
 		var out db.Extra
 
 		if r := resource.DB.Current.
-			Select(sel).
-			Where("user_id = ? AND chinese = ?", userID, query.Entry).
+			Select(strings.Join(sel, ",")).
+			Where("chinese = ?", query.Entry).
 			First(&out); r.Error != nil {
 			panic(r.Error)
 		}
@@ -198,12 +184,6 @@ func routerExtra(apiRouter *gin.RouterGroup) {
 	})
 
 	r.PUT("/", func(ctx *gin.Context) {
-		userID := getUserID(ctx)
-		if userID == "" {
-			ctx.AbortWithStatus(401)
-			return
-		}
-
 		var body struct {
 			Chinese     string `json:"chinese" binding:"required"`
 			Pinyin      string `json:"pinyin" binding:"required"`
@@ -317,11 +297,18 @@ func routerExtra(apiRouter *gin.RouterGroup) {
 			Type:        body.Type,
 			Description: body.Description,
 			Tag:         body.Tag,
-			UserID:      userID,
 		}
 
-		if r := resource.DB.Current.Create(&it); r.Error != nil {
-			panic(r.Error)
+		e := resource.DB.Current.Transaction(func(tx *gorm.DB) error {
+			if r := tx.Create(&it); r.Error != nil {
+				return r.Error
+			}
+
+			return nil
+		})
+
+		if e != nil {
+			panic(e)
 		}
 
 		ctx.JSON(201, gin.H{
@@ -330,12 +317,6 @@ func routerExtra(apiRouter *gin.RouterGroup) {
 	})
 
 	r.PATCH("/", func(ctx *gin.Context) {
-		userID := getUserID(ctx)
-		if userID == "" {
-			ctx.AbortWithStatus(401)
-			return
-		}
-
 		id := ctx.Query("id")
 		if id == "" {
 			ctx.AbortWithError(400, fmt.Errorf("id to update not specified"))
@@ -365,11 +346,19 @@ func routerExtra(apiRouter *gin.RouterGroup) {
 			Tag:         body.Tag,
 		}
 
-		if r := resource.DB.Current.
-			Model(&db.Extra{}).
-			Where("user_id = ? AND id = ?", userID, id).
-			Updates(update); r.Error != nil {
-			panic(r.Error)
+		e := resource.DB.Current.Transaction(func(tx *gorm.DB) error {
+			if r := tx.
+				Model(&db.Extra{}).
+				Where("id = ?", id).
+				Updates(update); r.Error != nil {
+				return r.Error
+			}
+
+			return nil
+		})
+
+		if e != nil {
+			panic(e)
 		}
 
 		ctx.JSON(201, gin.H{
@@ -378,22 +367,24 @@ func routerExtra(apiRouter *gin.RouterGroup) {
 	})
 
 	r.DELETE("/", func(ctx *gin.Context) {
-		userID := getUserID(ctx)
-		if userID == "" {
-			ctx.AbortWithStatus(401)
-			return
-		}
-
 		id := ctx.Query("id")
 		if id == "" {
 			ctx.AbortWithError(400, fmt.Errorf("id to update not specified"))
 			return
 		}
 
-		if r := resource.DB.Current.
-			Where("user_id = ? AND id = ?", userID, id).
-			Delete(&db.Extra{}); r.Error != nil {
-			panic(r.Error)
+		e := resource.DB.Current.Transaction(func(tx *gorm.DB) error {
+			if r := tx.
+				Where("id = ?", id).
+				Delete(&db.Extra{}); r.Error != nil {
+				return r.Error
+			}
+
+			return nil
+		})
+
+		if e != nil {
+			panic(e)
 		}
 
 		ctx.JSON(201, gin.H{
