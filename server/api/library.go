@@ -159,7 +159,8 @@ func routerLibrary(apiRouter *gin.RouterGroup) {
 			return
 		}
 
-		update := db.Library{
+		u := db.Library{
+			ID:          id,
 			Title:       body.Title,
 			Entries:     body.Entries,
 			Description: body.Description,
@@ -167,11 +168,8 @@ func routerLibrary(apiRouter *gin.RouterGroup) {
 		}
 
 		e := resource.DB.Current.Transaction(func(tx *gorm.DB) error {
-			if r := tx.
-				Model(&db.Library{}).
-				Where("id = ?", id).
-				Updates(update); r.Error != nil {
-				return r.Error
+			if r := u.FullUpdate(tx); r != nil {
+				return r
 			}
 
 			return nil

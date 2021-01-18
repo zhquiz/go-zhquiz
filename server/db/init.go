@@ -100,6 +100,7 @@ func Connect() DB {
 				[chinese],
 				[pinyin],
 				[english],
+				[type],
 				[description],
 				[tag]
 			);

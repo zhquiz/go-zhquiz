@@ -17,7 +17,7 @@ type Library struct {
 	Title       string      `gorm:"index:idx_library_user_title,unique;not null" json:"title"`
 	Entries     StringArray `json:"entries"`
 	Description string      `json:"description"`
-	Tag         string      `json:"tag"`
+	Tag         string      `gorm:"-" json:"tag"`
 }
 
 // BeforeCreate generates ID if not exists
@@ -33,19 +33,20 @@ func (u *Library) BeforeCreate(tx *gorm.DB) (err error) {
 func (u *Library) AfterCreate(tx *gorm.DB) (err error) {
 	tx.Exec(`
 	INSERT INTO library_q (id, title, [entry], [description], tag)
-	VALUES (@id, @title, @entry, @description, @tag)
+	SELECT @id, @title, @entry, @description, @tag
+	WHERE NOT EXISTS (SELECT 1 FROM library_q WHERE id = @id)
 	`, map[string]interface{}{
 		"id":          u.ID,
 		"title":       u.Title,
 		"entry":       strings.Join(u.Entries, " "),
-		"description": u.Description,
+		"description": parseChinese(u.Description),
 		"tag":         u.Tag,
 	})
 	return
 }
 
-// BeforeUpdate makes sure description and tag are always updated
-func (u *Library) BeforeUpdate(tx *gorm.DB) (err error) {
+// FullUpdate makes sure description and tag are always updated
+func (u *Library) FullUpdate(tx *gorm.DB) error {
 	if u.Description == "" {
 		u.Description = " "
 	}
@@ -54,13 +55,11 @@ func (u *Library) BeforeUpdate(tx *gorm.DB) (err error) {
 		u.Tag = " "
 	}
 
-	return
-}
+	if r := tx.Where("id = ?", u.ID).Updates(&u); r.Error != nil {
+		return r.Error
+	}
 
-// AfterUpdate hook
-func (u *Library) AfterUpdate(tx *gorm.DB) (err error) {
-
-	tx.Exec(`
+	if r := tx.Exec(`
 	UPDATE library_q
 	SET title = @title, entry = @entry, [description] = @description, tag = @tag
 	WHERE id = @id
@@ -68,10 +67,13 @@ func (u *Library) AfterUpdate(tx *gorm.DB) (err error) {
 		"id":          u.ID,
 		"title":       u.Title,
 		"entry":       strings.Join(u.Entries, " "),
-		"description": u.Description,
+		"description": parseChinese(u.Description),
 		"tag":         u.Tag,
-	})
-	return
+	}); r.Error != nil {
+		return r.Error
+	}
+
+	return nil
 }
 
 // AfterDelete hook

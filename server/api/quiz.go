@@ -14,6 +14,7 @@ import (
 	"github.com/zhquiz/go-zhquiz/server/util"
 	"github.com/zhquiz/go-zhquiz/server/zh"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 func routerQuiz(apiRouter *gin.RouterGroup) {
@@ -421,10 +422,11 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 				}
 
 				newExtra = append(newExtra, db.Extra{
-					Chinese: entry,
-					Pinyin:  pinyin,
-					English: english,
-					Type:    subresult.Type,
+					Chinese:     entry,
+					Pinyin:      pinyin,
+					English:     english,
+					Type:        subresult.Type,
+					Description: body.Description,
 				})
 			}
 
@@ -438,11 +440,12 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 					id := myrand.NewULID()
 
 					newQ = append(newQ, db.Quiz{
-						ID:        id,
-						Entry:     entry,
-						Type:      subresult.Type,
-						Direction: d,
-						Source:    subresult.Source,
+						ID:          id,
+						Entry:       entry,
+						Type:        subresult.Type,
+						Direction:   d,
+						Source:      subresult.Source,
+						Description: body.Description,
 					})
 
 					subresult.IDs = append(subresult.IDs, id)
@@ -456,7 +459,9 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 
 		e := resource.DB.Current.Transaction(func(tx *gorm.DB) error {
 			if len(newExtra) > 0 {
-				if r := tx.CreateInBatches(&newExtra, 5); r.Error != nil {
+				if r := tx.Clauses(clause.OnConflict{
+					DoNothing: true,
+				}).CreateInBatches(&newExtra, 5); r.Error != nil {
 					return r.Error
 				}
 			}

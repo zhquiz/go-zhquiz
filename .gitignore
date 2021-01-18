@@ -15,8 +15,8 @@
 # vendor/
 
 /gin.log
-/data.db
-*.db-*
+/*.db
+/*.db-*
 /*.backup.*
 /modify.sql
 .env

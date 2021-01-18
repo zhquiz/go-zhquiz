@@ -18,10 +18,10 @@ func routerExtra(apiRouter *gin.RouterGroup) {
 		"id":          "extra.id id",
 		"chinese":     "extra.chinese chinese",
 		"pinyin":      "extra.pinyin pinyin",
-		"english":     "extra.english english",
-		"type":        "extra.type [type]",
+		"english":     "extra_q.english english",
+		"type":        "extra_q.type [type]",
 		"description": "extra.description [description]",
-		"tag":         "extra.tag tag",
+		"tag":         "extra_q.tag tag",
 	}
 
 	r.GET("/q", func(ctx *gin.Context) {
@@ -94,47 +94,32 @@ func routerExtra(apiRouter *gin.RouterGroup) {
 			return
 		}
 
-		q := resource.DB.Current.Model(&db.Extra{})
+		q := resource.DB.Current.Model(&db.Extra{}).Joins("LEFT JOIN extra_q ON extra_q.id = extra.id")
 
 		if query.Q != "" {
-			var ids []string
-			var result []struct {
-				ID string
-			}
-
-			// Don't error if malformed Q
-			resource.DB.Current.Raw(`
-			SELECT id FROM extra_q WHERE extra_q MATCH ?
-			`, query.Q).Find(&result)
-
-			for _, r := range result {
-				ids = append(ids, r.ID)
-			}
-
-			if len(ids) > 0 {
-				q = q.Where("id IN ?", ids)
-			} else {
-				q = q.Where("FALSE")
-			}
+			q = q.Where(`extra.id IN (
+				SELECT id FROM extra_q WHERE extra_q MATCH ?
+			)`, query.Q)
 		}
 
 		var getCount struct {
 			Count int
 		}
 
-		if r := q.Select("COUNT(ID) AS [Count]").Scan(&getCount); r.Error != nil {
+		if r := q.Select("COUNT(1) AS [Count]").Scan(&getCount); r.Error != nil {
 			panic(r.Error)
 		}
 
 		out := struct {
-			Result []db.Extra `json:"result"`
-			Count  int        `json:"count"`
+			Result []map[string]interface{} `json:"result"`
+			Count  int                      `json:"count"`
 		}{
-			Result: make([]db.Extra, 0),
+			Result: make([]map[string]interface{}, 0),
 			Count:  getCount.Count,
 		}
 
 		if r := q.
+			Group("extra.id").
 			Select(strings.Join(sel, ",")).
 			Order(sorter + sortDirection).
 			Limit(perPage).
@@ -171,11 +156,14 @@ func routerExtra(apiRouter *gin.RouterGroup) {
 			return
 		}
 
-		var out db.Extra
+		out := map[string]interface{}{}
 
 		if r := resource.DB.Current.
+			Model(&db.Extra{}).
+			Joins("LEFT JOIN extra_q ON extra_q.id = extra.id").
 			Select(strings.Join(sel, ",")).
-			Where("chinese = ?", query.Entry).
+			Where("extra.chinese = ?", query.Entry).
+			Group("extra.id").
 			First(&out); r.Error != nil {
 			panic(r.Error)
 		}
@@ -337,7 +325,8 @@ func routerExtra(apiRouter *gin.RouterGroup) {
 			return
 		}
 
-		update := db.Extra{
+		u := db.Extra{
+			ID:          id,
 			Chinese:     body.Chinese,
 			Pinyin:      body.Pinyin,
 			English:     body.English,
@@ -346,12 +335,17 @@ func routerExtra(apiRouter *gin.RouterGroup) {
 			Tag:         body.Tag,
 		}
 
+		if u.Description == "" {
+			u.Description = " "
+		}
+
+		if u.Tag == "" {
+			u.Tag = " "
+		}
+
 		e := resource.DB.Current.Transaction(func(tx *gorm.DB) error {
-			if r := tx.
-				Model(&db.Extra{}).
-				Where("id = ?", id).
-				Updates(update); r.Error != nil {
-				return r.Error
+			if r := u.FullUpdate(tx); r != nil {
+				return r
 			}
 
 			return nil

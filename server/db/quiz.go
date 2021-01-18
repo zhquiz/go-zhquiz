@@ -22,6 +22,9 @@ type Quiz struct {
 	Direction string `gorm:"index:quiz_unique_idx,unique;not null;check:direction in ('se','ec','te')"`
 	Source    string `gorm:"index;not null"`
 
+	Description string `gorm:"-"`
+	Tag         string `gorm:"-"`
+
 	// Quiz statistics
 	SRSLevel    *int8      `gorm:"index"`
 	NextReview  *time.Time `gorm:"index"`
@@ -47,8 +50,8 @@ func (q *Quiz) AfterCreate(tx *gorm.DB) (err error) {
 	entry := q.Entry
 	pinyin := ""
 	english := ""
-	description := ""
-	tag := ""
+	description := q.Description
+	tag := q.Tag
 	level := ""
 
 	var desc []struct {
@@ -120,9 +123,29 @@ func (q *Quiz) AfterCreate(tx *gorm.DB) (err error) {
 		}
 	}
 
+	if q.Source == "extra" {
+		var extra Extra
+		tx.Select(`
+		extra.description [Description],
+		extra_q.tag       [Tag]
+		`).Joins("LEFT JOIN extra_q ON extra.id = extra_q.id").
+			Where("extra.chinese = ? AND type = ?", q.Entry, q.Type).
+			Group("extra.id").
+			First(&extra)
+
+		if extra.Description != "" {
+			description += " " + extra.Description
+		}
+
+		if extra.Tag != "" {
+			tag += " " + extra.Tag
+		}
+	}
+
 	tx.Exec(`
 	INSERT INTO quiz_q (id, [entry], [level], [pinyin], [english], [description], [tag])
-	VALUES (@id, @entry, @level, @pinyin, @english, @description, @tag)
+	SELECT @id, @entry, @level, @pinyin, @english, @description, @tag
+	WHERE NOT EXISTS (SELECT 1 FROM quiz_q WHERE id = @id)
 	`, map[string]interface{}{
 		"id":          q.ID,
 		"entry":       parseChinese(entry),
