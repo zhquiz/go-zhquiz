@@ -26,7 +26,7 @@ func main() {
 	res := api.Prepare()
 	defer res.Cleanup()
 
-	if shared.IsDesktop() {
+	if !shared.IsDebug() {
 		server.Serve(&res)
 
 		systray.Run(func() {

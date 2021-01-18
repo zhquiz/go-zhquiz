@@ -5,7 +5,7 @@ desktop:
 serve:
   command: |
     robo -c "{{ .robo.file }}" build
-    ZHQUIZ_DESKTOP=0 ./{{ .exe }}
+    DEBUG=1 ./{{ .exe }}
 dev:
   command: |
     export PORT=${SERVER_PORT:-5000}

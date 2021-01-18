@@ -182,7 +182,7 @@ func routerSentence(apiRouter *gin.RouterGroup) {
 			out.Count = &count
 		}
 
-		if len(out.Result) <= generate {
+		if len(out.Result) <= generate/2 {
 			var dbSentences []db.Sentence
 			if r := resource.DB.Current.Where("chinese LIKE '%'||?||'%'", query.Q).Limit(10 - len(out.Result)).Find(&dbSentences); r.Error != nil {
 				panic(r.Error)
@@ -195,14 +195,14 @@ func routerSentence(apiRouter *gin.RouterGroup) {
 				})
 			}
 
-			if len(out.Result) <= generate {
+			if len(out.Result) <= generate/2 {
 				func() {
 					doc, err := goquery.NewDocument(fmt.Sprintf("http://www.jukuu.com/search.php?q=%s", url.QueryEscape(query.Q)))
 					if err != nil {
 						return
 					}
 
-					moreResult := make([]Result, 10)
+					moreResult := make([]Result, generate)
 
 					doc.Find("table tr.c td:last-child").Each(func(i int, item *goquery.Selection) {
 						if i < len(moreResult) {

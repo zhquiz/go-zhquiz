@@ -34,14 +34,14 @@ func Port() string {
 	return getenvOrDefault("PORT", "35594")
 }
 
-// IsDesktop decides whether to run in desktop mode
-func IsDesktop() bool {
-	return os.Getenv("ZHQUIZ_DESKTOP") != "0"
-}
-
 // DatabaseURL returns DATABASE_URL
 func DatabaseURL() string {
 	return getenvOrDefaultFn("DATABASE_URL", func() string {
 		return filepath.Join(UserDataDir(), "data.db")
 	})
+}
+
+// IsDebug decides whether to run in debug mode (e.g. development server)
+func IsDebug() bool {
+	return os.Getenv("DEBUG") != ""
 }

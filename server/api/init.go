@@ -24,6 +24,11 @@ type Resource struct {
 	Zh zh.DB
 }
 
+// Options is server options
+type Options struct {
+	Token string
+}
+
 // Cleanup cleans up Resource.
 func (res Resource) Cleanup() {
 	log.Println("Cleaning up")
@@ -46,14 +51,23 @@ func Prepare() Resource {
 }
 
 // Register registers API paths to Gin Engine.
-func (res Resource) Register(r *gin.Engine) {
+func (res Resource) Register(r *gin.Engine, opts *Options) {
 	r.GET("/server/settings", func(ctx *gin.Context) {
 		ctx.JSON(200, gin.H{
 			"ready": true,
 		})
 	})
 
-	apiRouter := r.Group("/api")
+	apiRouter := r.Group("/api", func(c *gin.Context) {
+		cookie, _ := c.Cookie("csrf_token")
+
+		if cookie != opts.Token {
+			c.AbortWithStatus(401)
+			return
+		}
+
+		c.Next()
+	})
 
 	routerChinese(apiRouter)
 	routerExtra(apiRouter)

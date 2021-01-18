@@ -7,7 +7,6 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -17,12 +16,17 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/zhquiz/go-zhquiz/server/api"
+	"github.com/zhquiz/go-zhquiz/server/rand"
 	"github.com/zhquiz/go-zhquiz/shared"
 )
 
 // Serve starts the server.
 // Runs `go func` by default.
 func Serve(res *api.Resource) *gin.Engine {
+	if !shared.IsDebug() {
+		gin.SetMode(gin.ReleaseMode)
+	}
+
 	app := gin.New()
 
 	app.Use(gin.LoggerWithFormatter(func(param gin.LogFormatterParams) string {
@@ -66,17 +70,18 @@ func Serve(res *api.Resource) *gin.Engine {
 		c.Next()
 	})
 
+	serverOptions := api.Options{
+		Token: "",
+	}
+
+	if !shared.IsDebug() {
+		token, _ := rand.GenerateRandomString(64)
+		serverOptions.Token = token
+	}
+
 	app.Use(func(c *gin.Context) {
 		if c.Request.Method == "GET" {
-			if strings.HasPrefix(c.Request.URL.Path, "/docs/") || c.Request.URL.Path == "/docs" {
-				static.Serve("/docs", static.LocalFile(filepath.Join(shared.ExecDir, "docs"), true))(c)
-				return
-			}
-
-			if strings.HasPrefix(c.Request.URL.Path, "/media/") {
-				static.Serve("/media", static.LocalFile(shared.MediaPath(), false))(c)
-				return
-			}
+			c.SetCookie("csrf_token", serverOptions.Token, 2592000, "/", "localhost", false, true)
 
 			static.Serve("/", static.LocalFile(filepath.Join(shared.ExecDir, "public"), true))(c)
 			return
@@ -84,13 +89,7 @@ func Serve(res *api.Resource) *gin.Engine {
 		c.Next()
 	})
 
-	if _, err := os.Stat(filepath.Join(shared.ExecDir, "public")); os.IsNotExist(err) {
-		app.GET("/", func(c *gin.Context) {
-			c.Redirect(http.StatusTemporaryRedirect, "/docs")
-		})
-	}
-
-	res.Register(app)
+	res.Register(app, &serverOptions)
 
 	port := shared.Port()
 	fmt.Printf("Server running at http://localhost:%s\n", port)
