@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -45,10 +46,25 @@ func routerUser(apiRouter *gin.RouterGroup) {
 			return
 		}
 
-		out := map[string]interface{}{}
+		getter := map[string]interface{}{}
 
-		if r := resource.DB.Current.Model(&db.User{}).Select(strings.Join(sel, ",")).First(&out); r.Error != nil {
+		if r := resource.DB.Current.Model(&db.User{}).Select(strings.Join(sel, ",")).First(&getter); r.Error != nil {
 			panic(r.Error)
+		}
+
+		out := map[string]interface{}{}
+		for k, v := range getter {
+			switch t := v.(type) {
+			case string:
+				var v0 interface{}
+				if err := json.Unmarshal([]byte(t), &v0); err != nil {
+					out[k] = v
+				} else {
+					out[k] = v0
+				}
+			default:
+				out[k] = v
+			}
 		}
 
 		ctx.JSON(200, out)
@@ -56,10 +72,11 @@ func routerUser(apiRouter *gin.RouterGroup) {
 
 	r.PATCH("/", func(ctx *gin.Context) {
 		var body struct {
-			LevelMin    *uint `json:"levelMin"`
-			Level       *uint `json:"level"`
-			SentenceMin *uint `json:"sentenceMin"`
-			SentenceMax *uint `json:"sentenceMax"`
+			LevelMin    *uint  `json:"levelMin"`
+			Level       *uint  `json:"level"`
+			SentenceMin *uint  `json:"sentenceMin"`
+			SentenceMax *uint  `json:"sentenceMax"`
+			WhatToShow  string `json:"settings.level.whatToShow"`
 		}
 
 		if e := ctx.BindJSON(&body); e != nil {
@@ -91,6 +108,10 @@ func routerUser(apiRouter *gin.RouterGroup) {
 			} else {
 				dbUser.Meta.Settings.Sentence.Max = body.SentenceMax
 			}
+		}
+
+		if body.WhatToShow != "" {
+			dbUser.Meta.Settings.Level.WhatToShow = body.WhatToShow
 		}
 
 		if r := resource.DB.Current.Save(&dbUser); r.Error != nil {

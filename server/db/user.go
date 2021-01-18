@@ -33,7 +33,7 @@ type UserMeta struct {
 	LevelMin *uint   `json:"levelMin"`
 	Settings struct {
 		Level struct {
-			WhatToShow []string `json:"whatToShow"`
+			WhatToShow string `json:"whatToShow"`
 		} `json:"level"`
 		Quiz struct {
 			Type         []string `json:"type"`

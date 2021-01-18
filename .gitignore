@@ -16,6 +16,7 @@
 
 /gin.log
 /data.db
+*.db-*
 /*.backup.*
 /modify.sql
 .env

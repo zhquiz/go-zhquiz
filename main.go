@@ -45,7 +45,7 @@ func main() {
 				for {
 					select {
 					case <-openBtn.ClickedCh:
-						url := fmt.Sprintf("http://localhost:%s/random", shared.Port())
+						url := fmt.Sprintf("http://localhost:%s", shared.Port())
 
 						switch runtime.GOOS {
 						case "linux":

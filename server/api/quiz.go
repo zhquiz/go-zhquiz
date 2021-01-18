@@ -197,7 +197,9 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 			user.Meta.Settings.Quiz.IncludeExtra = (query.IncludeExtra != "")
 			user.Meta.Settings.Quiz.IncludeUndue = (query.IncludeUndue != "")
 
-			if r := resource.DB.Current.Save(&user); r.Error != nil {
+			if r := resource.DB.Current.Where("id = ?", user.ID).Updates(&db.User{
+				Meta: user.Meta,
+			}); r.Error != nil {
 				panic(r.Error)
 			}
 		}()
@@ -309,8 +311,9 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 
 	r.PUT("/", func(ctx *gin.Context) {
 		var body struct {
-			Entries []string `json:"entries" binding:"required,min=1"`
-			Type    string   `json:"type" binding:"required,oneof=hanzi vocab sentence extra"`
+			Entries     []string `json:"entries" binding:"required,min=1"`
+			Type        string   `json:"type" binding:"required,oneof=hanzi vocab sentence extra"`
+			Description string   `json:"description"`
 		}
 		if e := ctx.BindJSON(&body); e != nil {
 			ctx.AbortWithError(400, e)
@@ -453,13 +456,13 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 
 		e := resource.DB.Current.Transaction(func(tx *gorm.DB) error {
 			if len(newExtra) > 0 {
-				if r := tx.Create(&newExtra); r.Error != nil {
+				if r := tx.CreateInBatches(&newExtra, 5); r.Error != nil {
 					return r.Error
 				}
 			}
 
 			if len(newQ) > 0 {
-				if r := tx.Create(newQ); r.Error != nil {
+				if r := tx.CreateInBatches(&newQ, 5); r.Error != nil {
 					return r.Error
 				}
 			}
@@ -477,18 +480,18 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 		})
 	})
 
-	r.DELETE("/", func(ctx *gin.Context) {
-		var query struct {
-			IDs string `form:"ids" binding:"required,min=1"`
+	r.POST("/delete", func(ctx *gin.Context) {
+		var body struct {
+			IDs []string `json:"ids" binding:"required,min=1"`
 		}
 
-		if e := ctx.BindQuery(&query); e != nil {
+		if e := ctx.BindJSON(&body); e != nil {
 			ctx.AbortWithError(400, e)
 			return
 		}
 
 		e := resource.DB.Current.Transaction(func(tx *gorm.DB) error {
-			if r := tx.Where("id IN ?", strings.Split(query.IDs, ",")).Delete(&db.Quiz{}); r.Error != nil {
+			if r := tx.Where("id IN ?", body.IDs).Delete(&db.Quiz{}); r.Error != nil {
 				return r.Error
 			}
 
