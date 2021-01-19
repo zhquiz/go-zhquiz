@@ -4,7 +4,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/zhquiz/go-zhquiz/server/rand"
+	"github.com/jkomyno/nanoid"
 	"gorm.io/gorm"
 )
 
@@ -23,7 +23,22 @@ type Library struct {
 // BeforeCreate generates ID if not exists
 func (u *Library) BeforeCreate(tx *gorm.DB) (err error) {
 	if u.ID == "" {
-		u.ID = rand.NewULID()
+		for {
+			id, err := nanoid.Nanoid(6)
+			if err != nil {
+				return err
+			}
+
+			var count int64
+			if r := tx.Model(Library{}).Where("id = ?", id).Count(&count); r.Error != nil {
+				return err
+			}
+
+			if count == 0 {
+				u.ID = id
+				return nil
+			}
+		}
 	}
 
 	return

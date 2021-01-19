@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/jkomyno/nanoid"
 	"github.com/zhquiz/go-zhquiz/server/db"
-	myrand "github.com/zhquiz/go-zhquiz/server/rand"
 	"github.com/zhquiz/go-zhquiz/server/util"
 	"github.com/zhquiz/go-zhquiz/server/zh"
 	"gorm.io/gorm"
@@ -197,6 +197,7 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 			user.Meta.Settings.Quiz.Type = qType
 			user.Meta.Settings.Quiz.IncludeExtra = (query.IncludeExtra != "")
 			user.Meta.Settings.Quiz.IncludeUndue = (query.IncludeUndue != "")
+			user.Meta.Settings.Quiz.Q = query.Q
 
 			if r := resource.DB.Current.Where("id = ?", user.ID).Updates(&db.User{
 				Meta: user.Meta,
@@ -437,7 +438,24 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 
 			for _, d := range directions {
 				if lookupDir[d].ID == "" {
-					id := myrand.NewULID()
+					id := ""
+
+					for {
+						id1, err := nanoid.Nanoid(6)
+						if err != nil {
+							panic(err)
+						}
+
+						var count int64
+						if r := resource.DB.Current.Model(db.Quiz{}).Where("id = ?", id1).Count(&count); r.Error != nil {
+							panic(err)
+						}
+
+						if count == 0 {
+							id = id1
+							break
+						}
+					}
 
 					newQ = append(newQ, db.Quiz{
 						ID:          id,

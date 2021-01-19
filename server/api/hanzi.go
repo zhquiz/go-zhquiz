@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/zhquiz/go-zhquiz/server/db"
@@ -60,36 +59,17 @@ func routerHanzi(apiRouter *gin.RouterGroup) {
 	})
 
 	r.GET("/random", func(ctx *gin.Context) {
-		var query struct {
-			Level    string `form:"level"`
-			LevelMin string `form:"levelMin"`
+		var user db.User
+		if r := resource.DB.Current.First(&user); r.Error != nil {
+			panic(r.Error)
 		}
-
-		if e := ctx.BindQuery(&query); e != nil {
-			ctx.AbortWithError(400, e)
-			return
+		levelMin := *user.Meta.LevelMin
+		if levelMin == 0 {
+			levelMin = 1
 		}
-
-		level := 60
-
-		if query.Level != "" {
-			v, e := strconv.Atoi(query.Level)
-			if e != nil {
-				ctx.AbortWithError(400, e)
-				return
-			}
-			level = v
-		}
-
-		levelMin := 1
-
-		if query.LevelMin != "" {
-			v, e := strconv.Atoi(query.LevelMin)
-			if e != nil {
-				ctx.AbortWithError(400, e)
-				return
-			}
-			levelMin = v
+		levelMax := *user.Meta.Level
+		if levelMax == 0 {
+			levelMax = 60
 		}
 
 		var existing []db.Quiz
@@ -107,7 +87,7 @@ func routerHanzi(apiRouter *gin.RouterGroup) {
 		params := map[string]interface{}{
 			"entries":  entries,
 			"levelMin": levelMin,
-			"level":    level,
+			"level":    levelMax,
 		}
 
 		where := "english IS NOT NULL AND hanzi_level >= @levelMin AND hanzi_level <= @level"

@@ -41,6 +41,7 @@ type UserMeta struct {
 			Direction    []string `json:"direction"`
 			IncludeUndue bool     `json:"includeUndue"`
 			IncludeExtra bool     `json:"includeExtra"`
+			Q            string   `json:"q"`
 		} `json:"quiz"`
 		Sentence struct {
 			Min *uint `json:"min"`

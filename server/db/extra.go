@@ -3,7 +3,7 @@ package db
 import (
 	"time"
 
-	"github.com/zhquiz/go-zhquiz/server/rand"
+	"github.com/jkomyno/nanoid"
 	"gorm.io/gorm"
 )
 
@@ -24,7 +24,22 @@ type Extra struct {
 // BeforeCreate generates ID if not exists
 func (u *Extra) BeforeCreate(tx *gorm.DB) (err error) {
 	if u.ID == "" {
-		u.ID = rand.NewULID()
+		for {
+			id, err := nanoid.Nanoid(6)
+			if err != nil {
+				return err
+			}
+
+			var count int64
+			if r := tx.Model(Extra{}).Where("id = ?", id).Count(&count); r.Error != nil {
+				return err
+			}
+
+			if count == 0 {
+				u.ID = id
+				return nil
+			}
+		}
 	}
 
 	return

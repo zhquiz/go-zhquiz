@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/zhquiz/go-zhquiz/server/rand"
+	"github.com/jkomyno/nanoid"
 	"github.com/zhquiz/go-zhquiz/server/zh"
 	"gorm.io/gorm"
 )
@@ -37,12 +37,27 @@ type Quiz struct {
 }
 
 // BeforeCreate generates ID if not exists
-func (q *Quiz) BeforeCreate(tx *gorm.DB) (err error) {
+func (q *Quiz) BeforeCreate(tx *gorm.DB) error {
 	if q.ID == "" {
-		q.ID = rand.NewULID()
+		for {
+			id, err := nanoid.Nanoid(6)
+			if err != nil {
+				return err
+			}
+
+			var count int64
+			if r := tx.Model(Quiz{}).Where("id = ?", id).Count(&count); r.Error != nil {
+				return err
+			}
+
+			if count == 0 {
+				q.ID = id
+				return nil
+			}
+		}
 	}
 
-	return
+	return nil
 }
 
 // AfterCreate hook
