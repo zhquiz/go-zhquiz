@@ -49,7 +49,7 @@ func (u *Library) AfterCreate(tx *gorm.DB) (err error) {
 	tx.Exec(`
 	INSERT INTO library_q (id, title, [entry], [description], tag)
 	SELECT @id, @title, @entry, @description, @tag
-	WHERE NOT EXISTS (SELECT 1 FROM library_q WHERE id = @id)
+	WHERE EXISTS (SELECT 1 FROM library WHERE id = @id)
 	`, map[string]interface{}{
 		"id":          u.ID,
 		"title":       u.Title,

@@ -160,7 +160,7 @@ func (q *Quiz) AfterCreate(tx *gorm.DB) (err error) {
 	tx.Exec(`
 	INSERT INTO quiz_q (id, [entry], [level], [pinyin], [english], [description], [tag])
 	SELECT @id, @entry, @level, @pinyin, @english, @description, @tag
-	WHERE NOT EXISTS (SELECT 1 FROM quiz_q WHERE id = @id)
+	WHERE EXISTS (SELECT 1 FROM quiz WHERE id = @id)
 	`, map[string]interface{}{
 		"id":          q.ID,
 		"entry":       parseChinese(entry),

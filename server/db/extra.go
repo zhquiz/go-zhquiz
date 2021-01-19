@@ -50,7 +50,7 @@ func (u *Extra) AfterCreate(tx *gorm.DB) (err error) {
 	tx.Exec(`
 	INSERT INTO extra_q (id, chinese, pinyin, english, [type], description, tag)
 	SELECT @id, @chinese, @pinyin, @english, @type, @description, @tag
-	WHERE NOT EXISTS (SELECT 1 FROM extra_q WHERE id = @id)
+	WHERE EXISTS (SELECT 1 FROM extra WHERE id = @id)
 	`, map[string]interface{}{
 		"id":          u.ID,
 		"chinese":     parseChinese(u.Chinese),
