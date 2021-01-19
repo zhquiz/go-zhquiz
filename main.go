@@ -6,15 +6,14 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"runtime"
-	"strings"
 	"time"
 
 	"github.com/gen2brain/dlgs"
 	"github.com/getlantern/systray"
+	"github.com/zhquiz/go-zhquiz/desktop"
 	"github.com/zhquiz/go-zhquiz/server"
 	"github.com/zhquiz/go-zhquiz/server/api"
 	"github.com/zhquiz/go-zhquiz/shared"
@@ -38,24 +37,19 @@ func main() {
 			systray.SetIcon(favicon)
 			systray.SetTitle("ZhQuiz")
 
-			openBtn := systray.AddMenuItem("Open ZhQuiz", "Open ZhQuiz in web browser")
+			url := fmt.Sprintf("http://localhost:%s", shared.Port())
+
+			openChromeBtn := systray.AddMenuItem("Open ZhQuiz", "Open ZhQuiz in Chrome App")
+			openDefaultBtn := systray.AddMenuItem("Open ZhQuiz in web browser", "Open ZhQuiz in web browser")
 			closeBtn := systray.AddMenuItem("Quit", "Quit ZhQuiz")
 
 			go func() {
 				for {
 					select {
-					case <-openBtn.ClickedCh:
-						url := fmt.Sprintf("http://localhost:%s", shared.Port())
-
-						switch runtime.GOOS {
-						case "linux":
-							exec.Command("xdg-open", url).Run()
-						case "darwin":
-							exec.Command("open", url).Run()
-						case "windows":
-							r := strings.NewReplacer("&", "^&")
-							exec.Command("cmd", "/c", "start", r.Replace(url)).Run()
-						}
+					case <-openChromeBtn.ClickedCh:
+						desktop.OpenURLInChromeApp(url+"/etabs.html", url)
+					case <-openDefaultBtn.ClickedCh:
+						desktop.OpenURLInDefaultBrowser(url)
 					case <-closeBtn.ClickedCh:
 						systray.Quit()
 					}
@@ -67,6 +61,7 @@ func main() {
 			terminateAppRunning := false
 			terminateApp := func() {
 				terminateAppRunning = true
+
 				yes, err := dlgs.Question(
 					"Server failed to start",
 					"The server is taking too long to start. Do you want to terminate the app?",
@@ -74,7 +69,7 @@ func main() {
 				)
 
 				if err != nil {
-					log.Fatalln(err)
+					panic(err)
 				}
 
 				if yes {
@@ -85,8 +80,6 @@ func main() {
 				terminateAppRunning = true
 				attempts = 0
 			}
-
-			url := fmt.Sprintf("http://localhost:%s", shared.Port())
 
 			for {
 				time.Sleep(1 * time.Second)
@@ -102,6 +95,23 @@ func main() {
 			}
 
 			systray.SetTooltip(fmt.Sprintf("Server running at %s", url))
+
+			if <-desktop.OpenURLInChromeApp(url+"/etabs.html", url) && runtime.GOOS != "darwin" {
+				yes, err := dlgs.Question(
+					"App closed",
+					"Do you want to shut down the ZhQuiz server?",
+					false,
+				)
+
+				if err != nil {
+					panic(err)
+				}
+
+				if yes {
+					systray.Quit()
+					return
+				}
+			}
 		}, func() {
 			res.Cleanup()
 		})
