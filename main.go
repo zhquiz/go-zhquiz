@@ -11,7 +11,6 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/gen2brain/dlgs"
 	"github.com/getlantern/systray"
 	"github.com/zhquiz/go-zhquiz/desktop"
 	"github.com/zhquiz/go-zhquiz/server"
@@ -62,15 +61,10 @@ func main() {
 			terminateApp := func() {
 				terminateAppRunning = true
 
-				yes, err := dlgs.Question(
+				yes := desktop.MessageBox(
 					"Server failed to start",
 					"The server is taking too long to start. Do you want to terminate the app?",
-					false,
 				)
-
-				if err != nil {
-					panic(err)
-				}
 
 				if yes {
 					systray.Quit()
@@ -97,20 +91,7 @@ func main() {
 			systray.SetTooltip(fmt.Sprintf("Server running at %s", url))
 
 			if <-desktop.OpenURLInChromeApp(url+"/etabs.html", url) && runtime.GOOS != "darwin" {
-				yes, err := dlgs.Question(
-					"App closed",
-					"Do you want to shut down the ZhQuiz server?",
-					false,
-				)
-
-				if err != nil {
-					panic(err)
-				}
-
-				if yes {
-					systray.Quit()
-					return
-				}
+				systray.Quit()
 			}
 		}, func() {
 			res.Cleanup()

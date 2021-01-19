@@ -3,8 +3,6 @@ package desktop
 import (
 	"os"
 	"runtime"
-
-	"github.com/gen2brain/dlgs"
 )
 
 // ChromeExecutable returns a string which points to the preferred Chrome
@@ -65,15 +63,10 @@ func LocateChrome() string {
 // PromptDownload asks user if he wants to download and install Chrome, and
 // opens a download web page if the user agrees.
 func PromptDownload() {
-	yes, err := dlgs.Question(
+	yes := MessageBox(
 		"Chrome not found",
 		"No Chrome/Chromium installation was found. Would you like to download and install it now?",
-		false,
 	)
-
-	if err != nil {
-		panic(err)
-	}
 
 	if yes {
 		OpenURLInDefaultBrowser("https://www.google.com/chrome/")
