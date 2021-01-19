@@ -4,10 +4,15 @@ package desktop
 
 import (
 	"fmt"
+	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"path/filepath"
 	"time"
 
+	"github.com/getlantern/systray"
 	"github.com/zhquiz/go-zhquiz/server/api"
 	"github.com/zhquiz/go-zhquiz/shared"
 )
@@ -50,7 +55,45 @@ func Start(res *api.Resource) {
 		}
 	}
 
-	<-OpenURLInChromeApp(url+"/etabs.html", url)
+	ui := OpenURLInChromeApp(url+"/etabs.html", url)
+
+	if ui != nil {
+		defer (*ui).Close()
+
+		sigc := make(chan os.Signal)
+		signal.Notify(sigc, os.Interrupt)
+		select {
+		case <-sigc:
+		case <-(*ui).Done():
+		}
+	} else {
+		systray.Run(func() {
+			favicon, err := ioutil.ReadFile(filepath.Join(shared.ExecDir, "public", "favicon.ico"))
+			if err != nil {
+				log.Fatalln(err)
+			}
+
+			systray.SetIcon(favicon)
+			systray.SetTitle("ZhQuiz")
+
+			url := fmt.Sprintf("http://localhost:%s", shared.Port())
+			systray.SetTooltip(fmt.Sprintf("Server running at %s", url))
+
+			openDefaultBtn := systray.AddMenuItem("Open ZhQuiz in web browser", "Open ZhQuiz in web browser")
+			closeBtn := systray.AddMenuItem("Quit", "Quit ZhQuiz")
+
+			go func() {
+				for {
+					select {
+					case <-openDefaultBtn.ClickedCh:
+						OpenURLInDefaultBrowser(url)
+					case <-closeBtn.ClickedCh:
+						systray.Quit()
+					}
+				}
+			}()
+		}, func() {})
+	}
 
 	res.Cleanup()
 }

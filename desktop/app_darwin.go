@@ -7,16 +7,21 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
 	"path/filepath"
 	"time"
 
 	"github.com/getlantern/systray"
 	"github.com/zhquiz/go-zhquiz/server/api"
 	"github.com/zhquiz/go-zhquiz/shared"
+	"github.com/zserge/lorca"
 )
 
 // Start starts the app in Chrome App, if possible
 func Start(res *api.Resource) {
+	var ui *lorca.UI
+
 	systray.Run(func() {
 		favicon, err := ioutil.ReadFile(filepath.Join(shared.ExecDir, "public", "favicon.ico"))
 		if err != nil {
@@ -36,7 +41,21 @@ func Start(res *api.Resource) {
 			for {
 				select {
 				case <-openChromeBtn.ClickedCh:
-					OpenURLInChromeApp(url+"/etabs.html", url)
+					go func() {
+						if ui != nil {
+							return
+						}
+
+						ui = OpenURLInChromeApp(url+"/etabs.html", url)
+						if ui != nil {
+							defer func() {
+								(*ui).Close()
+								ui = nil
+							}()
+
+							<-(*ui).Done()
+						}
+					}()
 				case <-openDefaultBtn.ClickedCh:
 					OpenURLInDefaultBrowser(url)
 				case <-closeBtn.ClickedCh:
@@ -80,8 +99,25 @@ func Start(res *api.Resource) {
 
 		systray.SetTooltip(fmt.Sprintf("Server running at %s", url))
 
-		OpenURLInChromeApp(url+"/etabs.html", url)
+		ui = OpenURLInChromeApp(url+"/etabs.html", url)
+		if ui != nil {
+			defer func() {
+				(*ui).Close()
+				ui = nil
+			}()
+
+			sigc := make(chan os.Signal)
+			signal.Notify(sigc, os.Interrupt)
+			select {
+			case <-sigc:
+			case <-(*ui).Done():
+			}
+		}
 	}, func() {
+		if ui != nil {
+			(*ui).Close()
+		}
+
 		res.Cleanup()
 	})
 }
