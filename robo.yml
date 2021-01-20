@@ -8,6 +8,10 @@ serve:
     DEBUG=1 ./{{ .exe }}
 dev:
   command: |
+    cd __packages__/ui
+    yarn dev
+serve-dev:
+  command: |
     export PORT=${SERVER_PORT:-5000}
     # increase the file watch limit, might be required on MacOS
     ulimit -n 1000
@@ -40,6 +44,17 @@ build-all:
     robo -c "{{ .robo.file }}" build-windows
     robo -c "{{ .robo.file }}" build-mac
     robo -c "{{ .robo.file }}" build-linux
+dist:
+  command: |
+    cd __packages__/ui
+    yarn build
+    cd -
+
+    robo -c "{{ .robo.file }}" build-all
+
+    cd __packages__/nodejs
+    yarn ts-node scripts/dist.ts
+    cd -
 
 ##########
 # Settings

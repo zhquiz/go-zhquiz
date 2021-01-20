@@ -1,16 +1,27 @@
-## Configuration
+# ZhQuiz
 
-Configuration is done through environmental variables. For the list of configurable vars, see [/shared/var.go](/shared/var.go).
+ZhQuiz, a full-offline Chinese quizzing desktop app
 
-For some reasons, Chinese TTS is bad on Linux Firefox. You may try
+![Preview GIF](/docs/preview.gif)
 
-- <http://www.eguidedog.net/zhspeak.php>
-- `pip install gtts`
+<https://youtu.be/iomE0xiYoqY>
 
-To enable script speaking, create `/speak.sh`. `/speak.sh %s` will be run instead of speaking on the web browser.
+## Features
 
-## Development mode
+- HSK vocabularies made into 60 levels
+- Flashcards showing statuses of success
+- Custom vocabularies input by users
 
-To run in server mode, set env var `ZHQUIZ_DESKTOP=0`
+## Downloads
 
-[reflex](https://github.com/cespare/reflex) is required to reload the server.
+See <https://github.com/zhquiz/go-zhquiz/releases>.
+
+## Speech (text-to-speech, TTS)
+
+By default, the app will try to use Google TTS, if online and available.
+
+However, for offline, it will fallback to operating system's default TTS.
+
+- For Windows, you will also need to install Chinese Language Support.
+- For macOS, you will need to enable Chinese voice (Ting-Ting) in accessibility.
+- For Linux, you might need to install `espeak` and `speech-dispatcher`, if not preinstalled already.

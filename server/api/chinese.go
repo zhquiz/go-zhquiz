@@ -59,7 +59,7 @@ func routerChinese(apiRouter *gin.RouterGroup) {
 		client := &http.Client{}
 		response, err := client.Do(req)
 		if err != nil {
-			log.Fatalln(err)
+			panic(err)
 		}
 
 		defer response.Body.Close()
