@@ -78,9 +78,10 @@ func initWebview() chan bool {
 
 		<-(*ui).Done()
 
-		tray.openButton.Enable()
-
-		zenity.Notify("ZhQuiz server is still running. Click the systray to reactivate or shutdown.")
+		if tray.openButton != nil {
+			tray.openButton.Enable()
+			zenity.Notify("ZhQuiz server is still running. Click the systray to reactivate or shutdown.")
+		}
 
 		c <- true
 	}()

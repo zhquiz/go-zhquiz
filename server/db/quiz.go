@@ -1,8 +1,10 @@
 package db
 
 import (
+	"errors"
 	"math"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/jkomyno/nanoid"
@@ -62,28 +64,74 @@ func (q *Quiz) BeforeCreate(tx *gorm.DB) error {
 
 // AfterCreate hook
 func (q *Quiz) AfterCreate(tx *gorm.DB) (err error) {
+	var old struct {
+		ID          string
+		Description string
+		Tag         string
+	}
+
+	if r := tx.Raw(`
+	SELECT ID, Description, Tag
+	FROM quiz_q
+	WHERE id = ?
+	`, q.ID).Scan(&old); r.Error != nil && !errors.Is(r.Error, gorm.ErrRecordNotFound) {
+		panic(r.Error)
+	}
+
+	descSet := map[string]bool{}
+	tagSet := map[string]bool{}
+
+	if old.ID != "" {
+		if strings.TrimSpace(old.Description) != "" {
+			for _, d := range strings.Split(old.Description, " ") {
+				descSet[d] = true
+			}
+		}
+
+		if strings.TrimSpace(old.Tag) != "" {
+			for _, t := range strings.Split(old.Tag, " ") {
+				tagSet[t] = true
+			}
+		}
+	}
+
+	if strings.TrimSpace(q.Description) != "" {
+		for _, d := range strings.Split(parseChinese(q.Description), " ") {
+			descSet[d] = true
+		}
+	}
+
+	if strings.TrimSpace(q.Tag) != "" {
+		for _, d := range strings.Split(parseChinese(q.Tag), " ") {
+			tagSet[d] = true
+		}
+	}
+
 	entry := q.Entry
 	pinyin := ""
 	english := ""
-	description := q.Description
-	tag := q.Tag
 	level := ""
 
-	var desc []struct {
+	var getter []struct {
 		Description string
 		Tag         string
 	}
 
 	zhDB.Current.Raw(`
 	SELECT [Description], [Tag] FROM token_q WHERE entry = ?
-	`, q.Entry).Find(&desc)
+	`, q.Entry).Find(&getter)
 
-	for _, d := range desc {
-		if d.Description != "" {
-			description += d.Description + " "
+	for _, d := range getter {
+		if strings.TrimSpace(d.Description) != "" {
+			for _, k := range strings.Split(parseChinese(d.Description), " ") {
+				descSet[k] = true
+			}
 		}
-		if d.Tag != "" {
-			tag += d.Tag + " "
+
+		if strings.TrimSpace(d.Tag) != "" {
+			for _, k := range strings.Split(parseChinese(d.Tag), " ") {
+				tagSet[k] = true
+			}
 		}
 	}
 
@@ -102,7 +150,7 @@ func (q *Quiz) AfterCreate(tx *gorm.DB) (err error) {
 			english += v.English + " "
 
 			if v.Source != "" {
-				tag += v.Source + " "
+				tagSet[v.Source] = true
 			}
 		}
 
@@ -148,28 +196,61 @@ func (q *Quiz) AfterCreate(tx *gorm.DB) (err error) {
 			Group("extra.id").
 			First(&extra)
 
-		if extra.Description != "" {
-			description += " " + extra.Description
+		if strings.TrimSpace(extra.Description) != "" {
+			for _, d := range strings.Split(parseChinese(extra.Description), " ") {
+				descSet[d] = true
+			}
 		}
 
-		if extra.Tag != "" {
-			tag += " " + extra.Tag
+		if strings.TrimSpace(extra.Tag) != "" {
+			for _, d := range strings.Split(parseChinese(extra.Tag), " ") {
+				tagSet[d] = true
+			}
 		}
 	}
 
-	tx.Exec(`
-	INSERT INTO quiz_q (id, [entry], [level], [pinyin], [english], [description], [tag])
-	SELECT @id, @entry, @level, @pinyin, @english, @description, @tag
-	WHERE EXISTS (SELECT 1 FROM quiz WHERE id = @id)
-	`, map[string]interface{}{
-		"id":          q.ID,
-		"entry":       parseChinese(entry),
-		"level":       level,
-		"pinyin":      parsePinyin(pinyin),
-		"english":     english,
-		"description": description,
-		"tag":         tag,
-	})
+	old.Description = func() string {
+		desc := make([]string, 0)
+		for k := range descSet {
+			desc = append(desc, k)
+		}
+
+		return strings.Join(desc, " ")
+	}()
+
+	old.Tag = func() string {
+		tags := make([]string, 0)
+		for k := range tagSet {
+			tags = append(tags, k)
+		}
+
+		return strings.Join(tags, " ")
+	}()
+
+	if old.ID != "" {
+		if r := tx.Exec(`
+		UPDATE quiz_q SET description = @Description, tag = @Tag WHERE id = @ID
+		`, old); r.Error != nil {
+			panic(r.Error)
+		}
+	} else {
+		if r := tx.Exec(`
+		INSERT INTO quiz_q (id, [entry], [level], [pinyin], [english], [description], [tag])
+		SELECT @id, @entry, @level, @pinyin, @english, @description, @tag
+		WHERE EXISTS (SELECT 1 FROM quiz WHERE id = @id)
+		`, map[string]interface{}{
+			"id":          q.ID,
+			"entry":       parseChinese(entry),
+			"level":       level,
+			"pinyin":      parsePinyin(pinyin),
+			"english":     english,
+			"description": old.Description,
+			"tag":         old.Tag,
+		}); r.Error != nil {
+			panic(r.Error)
+		}
+	}
+
 	return
 }
 

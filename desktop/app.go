@@ -41,8 +41,6 @@ var tray systrayList
 
 // Start starts the app in Chrome App, if possible
 func Start(res *api.Resource) {
-	var ui *lorca.UI
-
 	systray.Run(func() {
 		favicon, err := ioutil.ReadFile(filepath.Join(shared.ExecDir, "public", "favicon.ico"))
 		if err != nil {
@@ -107,6 +105,7 @@ func Start(res *api.Resource) {
 			OpenURLInDefaultBrowser(url)
 		}
 	}, func() {
+		tray.openButton = nil
 		if ui != nil {
 			(*ui).Close()
 		}
