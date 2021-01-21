@@ -29,8 +29,8 @@ func setenv(key string, value string) {
 	os.Setenv(key, value)
 }
 
-// GetenvOrDefault writes to .env if env not exists
-func getenvOrDefault(key string, value string) string {
+// getenvOrSetDefault writes to .env if env not exists
+func getenvOrSetDefault(key string, value string) string {
 	v := os.Getenv(key)
 	if v == "" {
 		v = value
@@ -40,8 +40,8 @@ func getenvOrDefault(key string, value string) string {
 	return v
 }
 
-// GetenvOrDefaultFn writes to .env if env not exists, using function
-func getenvOrDefaultFn(key string, fn func() string) string {
+// getenvOrSetDefaultFn writes to .env if env not exists, using function
+func getenvOrSetDefaultFn(key string, fn func() string) string {
 	v := os.Getenv(key)
 	if v == "" {
 		v = fn()

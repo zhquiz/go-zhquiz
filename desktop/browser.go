@@ -25,12 +25,11 @@ func OpenURLInDefaultBrowser(u string) {
 	}
 }
 
-// OpenURLInChromeApp opens url in Chrome or Chromium windowed mode
-func OpenURLInChromeApp() chan bool {
+// initWebview opens url in Chrome or Chromium windowed mode
+func initWebview() chan bool {
 	c := make(chan bool)
-	browser := lorca.LocateChrome()
 
-	if browser == "" {
+	if lorca.LocateChrome() == "" {
 		go func() {
 			yes, e := zenity.Question(
 				"No Chrome/Chromium installation was found.\nWould you like to download and install it now?",
@@ -47,7 +46,11 @@ func OpenURLInChromeApp() chan bool {
 				OpenURLInDefaultBrowser("https://www.google.com/chrome/")
 			}
 		}()
+
+		zenity.Notify("ZhQuiz server is running in systray. Click the systray to activate or shutdown.")
+
 		OpenURLInDefaultBrowser(url)
+
 		c <- false
 		return c
 	}

@@ -18,18 +18,19 @@ import (
 var url string
 
 type systrayList struct {
-	openButton    *systray.MenuItem
-	browserButton *systray.MenuItem
-	closeButton   *systray.MenuItem
+	openButton  *systray.MenuItem
+	closeButton *systray.MenuItem
 }
 
 func (s systrayList) init() {
 	for {
 		select {
 		case <-s.openButton.ClickedCh:
-			OpenURLInChromeApp()
-		case <-s.browserButton.ClickedCh:
-			OpenURLInDefaultBrowser(url)
+			if shared.IsChromeApp() && lorca.LocateChrome() != "" {
+				initWebview()
+			} else {
+				OpenURLInDefaultBrowser(url)
+			}
 		case <-s.closeButton.ClickedCh:
 			systray.Quit()
 		}
@@ -49,14 +50,12 @@ func Start(res *api.Resource) {
 		}
 
 		systray.SetIcon(favicon)
-		systray.SetTitle("ZhQuiz")
 
-		url = fmt.Sprintf("http://localhost:%s", shared.Port())
+		url = fmt.Sprintf("http://localhost:%d", shared.Port())
 
 		tray = systrayList{
-			openButton:    systray.AddMenuItem("Open ZhQuiz", "Open ZhQuiz in Chrome App"),
-			browserButton: systray.AddMenuItem("Open ZhQuiz in web browser", "Open ZhQuiz in web browser"),
-			closeButton:   systray.AddMenuItem("Quit", "Quit ZhQuiz"),
+			openButton:  systray.AddMenuItem("Open ZhQuiz", "Open ZhQuiz"),
+			closeButton: systray.AddMenuItem("Quit", "Quit ZhQuiz"),
 		}
 
 		go tray.init()
@@ -100,9 +99,13 @@ func Start(res *api.Resource) {
 			}
 		}
 
-		systray.SetTooltip(fmt.Sprintf("Server running at %s", url))
+		systray.SetTooltip(fmt.Sprintf("ZhQuiz server running at %s", url))
 
-		OpenURLInChromeApp()
+		if shared.IsChromeApp() {
+			initWebview()
+		} else {
+			OpenURLInDefaultBrowser(url)
+		}
 	}, func() {
 		if ui != nil {
 			(*ui).Close()
