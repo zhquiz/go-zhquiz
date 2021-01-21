@@ -20,33 +20,29 @@ type Library struct {
 	Tag         string      `gorm:"-" json:"tag"`
 }
 
-// BeforeCreate generates ID if not exists
-func (u *Library) BeforeCreate(tx *gorm.DB) (err error) {
-	if u.ID == "" {
-		for {
-			id, err := nanoid.Nanoid(6)
-			if err != nil {
-				return err
-			}
+// Create creates along with q
+func (u *Library) Create(tx *gorm.DB) error {
+	for u.ID == "" {
+		id, err := nanoid.Nanoid(6)
+		if err != nil {
+			return err
+		}
 
-			var count int64
-			if r := tx.Model(Library{}).Where("id = ?", id).Count(&count); r.Error != nil {
-				return err
-			}
+		var count int64
+		if r := tx.Model(Library{}).Where("id = ?", id).Count(&count); r.Error != nil {
+			return err
+		}
 
-			if count == 0 {
-				u.ID = id
-				return nil
-			}
+		if count == 0 {
+			u.ID = id
 		}
 	}
 
-	return
-}
+	if r := tx.Create(u); r.Error != nil {
+		return r.Error
+	}
 
-// AfterCreate hook
-func (u *Library) AfterCreate(tx *gorm.DB) (err error) {
-	tx.Exec(`
+	if r := tx.Exec(`
 	INSERT INTO library_q (id, title, [entry], [description], tag)
 	SELECT @id, @title, @entry, @description, @tag
 	WHERE EXISTS (SELECT 1 FROM library WHERE id = @id)
@@ -56,18 +52,21 @@ func (u *Library) AfterCreate(tx *gorm.DB) (err error) {
 		"entry":       strings.Join(u.Entries, " "),
 		"description": parseChinese(u.Description),
 		"tag":         u.Tag,
-	})
-	return
+	}); r.Error != nil {
+		return r.Error
+	}
+
+	return nil
 }
 
-// FullUpdate makes sure description and tag are always updated
-func (u *Library) FullUpdate(tx *gorm.DB) error {
+// Update makes sure description and tag are always updated
+func (u *Library) Update(tx *gorm.DB) error {
 	if u.Description == "" {
 		u.Description = " "
 	}
 
-	if u.Tag == "" {
-		u.Tag = " "
+	if r := tx.Updates(u); r.Error != nil {
+		return r.Error
 	}
 
 	if r := tx.Where("id = ?", u.ID).Updates(&u); r.Error != nil {
@@ -91,11 +90,18 @@ func (u *Library) FullUpdate(tx *gorm.DB) error {
 	return nil
 }
 
-// AfterDelete hook
-func (u *Library) AfterDelete(tx *gorm.DB) (err error) {
-	tx.Exec(`
+// Delete ensures q delete
+func (u *Library) Delete(tx *gorm.DB) error {
+	if r := tx.Delete(u); r.Error != nil {
+		return r.Error
+	}
+
+	if r := tx.Exec(`
 	DELETE FROM library_q
 	WHERE id = ?
-	`, u.ID)
-	return
+	`, u.ID); r.Error != nil {
+		return r.Error
+	}
+
+	return nil
 }

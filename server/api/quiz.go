@@ -14,7 +14,6 @@ import (
 	"github.com/zhquiz/go-zhquiz/server/util"
 	"github.com/zhquiz/go-zhquiz/server/zh"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 func routerQuiz(apiRouter *gin.RouterGroup) {
@@ -354,7 +353,7 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 			subresult := Result{
 				IDs:    make([]string, 0),
 				Entry:  entry,
-				Type:   "vocab",
+				Type:   body.Type,
 				Source: "",
 			}
 			result = append(result, subresult)
@@ -476,18 +475,12 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 		}
 
 		e := resource.DB.Current.Transaction(func(tx *gorm.DB) error {
-			if len(newExtra) > 0 {
-				if r := tx.Clauses(clause.OnConflict{
-					DoNothing: true,
-				}).CreateInBatches(&newExtra, 5); r.Error != nil {
-					return r.Error
-				}
+			for _, it := range newExtra {
+				it.Create(tx)
 			}
 
-			if len(newQ) > 0 {
-				if r := tx.CreateInBatches(&newQ, 5); r.Error != nil {
-					return r.Error
-				}
+			for _, it := range newQ {
+				it.Create(tx)
 			}
 
 			return nil
@@ -514,8 +507,14 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 		}
 
 		e := resource.DB.Current.Transaction(func(tx *gorm.DB) error {
-			if r := tx.Where("id IN ?", body.IDs).Delete(&db.Quiz{}); r.Error != nil {
-				return r.Error
+			for _, id := range body.IDs {
+				q := db.Quiz{
+					ID: id,
+				}
+
+				if e := q.Delete(tx); e != nil {
+					return e
+				}
 			}
 
 			return nil

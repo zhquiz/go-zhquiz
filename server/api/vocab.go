@@ -152,7 +152,7 @@ func routerVocab(apiRouter *gin.RouterGroup) {
 			"level":    levelMax,
 		}
 
-		sqlString := "vocab_level >= @levelMin AND vocab_level <= @level"
+		sqlString := "vocab_level >= @levelMin AND vocab_level <= @level AND English IS NOT NULL"
 
 		if len(entries) > 0 {
 			sqlString = "entry NOT IN @entries AND " + sqlString

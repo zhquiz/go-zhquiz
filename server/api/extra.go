@@ -344,7 +344,7 @@ func routerExtra(apiRouter *gin.RouterGroup) {
 		}
 
 		e := resource.DB.Current.Transaction(func(tx *gorm.DB) error {
-			if r := u.FullUpdate(tx); r != nil {
+			if r := u.Update(tx); r != nil {
 				return r
 			}
 
@@ -368,10 +368,11 @@ func routerExtra(apiRouter *gin.RouterGroup) {
 		}
 
 		e := resource.DB.Current.Transaction(func(tx *gorm.DB) error {
-			if r := tx.
-				Where("id = ?", id).
-				Delete(&db.Extra{}); r.Error != nil {
-				return r.Error
+			ex := db.Extra{
+				ID: id,
+			}
+			if e := ex.Delete(tx); e != nil {
+				return e
 			}
 
 			return nil

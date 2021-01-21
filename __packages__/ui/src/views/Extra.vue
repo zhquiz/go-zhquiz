@@ -105,7 +105,7 @@
       :id="selected.id"
       ref="context"
       :entry="selected.chinese"
-      :type="selected.type"
+      :type="selected.type || 'vocab'"
       :description="selected.description"
       source="extra"
       :additional="additionalContext"

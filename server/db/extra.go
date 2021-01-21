@@ -24,32 +24,28 @@ type Extra struct {
 	Tag         string `gorm:"-" json:"tag"`
 }
 
-// BeforeCreate generates ID if not exists
-func (u *Extra) BeforeCreate(tx *gorm.DB) (err error) {
-	if u.ID == "" {
-		for {
-			id, err := nanoid.Nanoid(6)
-			if err != nil {
-				return err
-			}
+// Create ensures q update
+func (u *Extra) Create(tx *gorm.DB) error {
+	for u.ID == "" {
+		id, err := nanoid.Nanoid(6)
+		if err != nil {
+			return err
+		}
 
-			var count int64
-			if r := tx.Model(Extra{}).Where("id = ?", id).Count(&count); r.Error != nil {
-				return err
-			}
+		var count int64
+		if r := tx.Model(Extra{}).Where("id = ?", id).Count(&count); r.Error != nil {
+			return err
+		}
 
-			if count == 0 {
-				u.ID = id
-				return nil
-			}
+		if count == 0 {
+			u.ID = id
 		}
 	}
 
-	return
-}
+	if r := tx.Create(u); r.Error != nil {
+		return r.Error
+	}
 
-// AfterCreate hook
-func (u *Extra) AfterCreate(tx *gorm.DB) (err error) {
 	var old struct {
 		ID          string
 		Description string
@@ -57,10 +53,10 @@ func (u *Extra) AfterCreate(tx *gorm.DB) (err error) {
 	}
 
 	if r := tx.Raw(`
-	SELECT extra.id ID, extra.description Description, extra_q.tag Tag
-	FROM extra
-	LEFT JOIN extra_q ON extra.id = extra_q.id
-	WHERE extra.id = ?
+	SELECT extra_q.id ID, extra.description Description, extra_q.tag Tag
+	FROM extra_q
+	LEFT JOIN extra ON extra.id = extra_q.id
+	WHERE extra_q.id = ?
 	`, u.ID).Scan(&old); r.Error != nil && !errors.Is(r.Error, gorm.ErrRecordNotFound) {
 		panic(r.Error)
 	}
@@ -157,17 +153,17 @@ func (u *Extra) AfterCreate(tx *gorm.DB) (err error) {
 		}
 	}
 
-	return
+	return nil
 }
 
-// FullUpdate makes sure description and tag are always updated
-func (u *Extra) FullUpdate(tx *gorm.DB) error {
+// Update makes sure description and tag are always updated
+func (u *Extra) Update(tx *gorm.DB) error {
 	if u.Description == "" {
 		u.Description = " "
 	}
 
-	if u.Tag == "" {
-		u.Tag = " "
+	if r := tx.Updates(u); r.Error != nil {
+		return r.Error
 	}
 
 	if r := tx.Where("id = ?", u.ID).Updates(&u); r.Error != nil {
@@ -176,7 +172,7 @@ func (u *Extra) FullUpdate(tx *gorm.DB) error {
 
 	if r := tx.Exec(`
 	UPDATE extra_q
-	SET chinese = @chinese, pinyin = @pinyin, english = @english, [description] = @description, tag = @tag
+	SET chinese = @chinese, pinyin = @pinyin, english = @english, [type] = @type, [description] = @description, tag = @tag
 	WHERE id = @id
 	`, map[string]interface{}{
 		"id":          u.ID,
@@ -193,11 +189,35 @@ func (u *Extra) FullUpdate(tx *gorm.DB) error {
 	return nil
 }
 
-// AfterDelete hook
-func (u *Extra) AfterDelete(tx *gorm.DB) (err error) {
-	tx.Exec(`
+// Delete ensures q delete and quiz delete
+func (u *Extra) Delete(tx *gorm.DB) error {
+	if r := tx.Raw(`
+	SELECT extra.chinese Chinese, extra_q.type [Type]
+	FROM extra
+	LEFT JOIN extra_q ON extra_q.id = extra.id
+	WHERE extra.id = ?
+	`, u.ID).Scan(u); r.Error != nil {
+		return r.Error
+	}
+
+	if r := tx.Delete(u); r.Error != nil {
+		return r.Error
+	}
+
+	if r := tx.Exec(`
 	DELETE FROM extra_q
 	WHERE id = ?
-	`, u.ID)
-	return
+	`, u.ID); r.Error != nil {
+		return r.Error
+	}
+
+	if r := tx.Where("entry = @entry AND [type] = @type AND source = @source", map[string]interface{}{
+		"entry":  u.Chinese,
+		"type":   u.Type,
+		"source": "extra",
+	}).Delete(&Quiz{}); r.Error != nil {
+		return r.Error
+	}
+
+	return nil
 }

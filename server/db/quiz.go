@@ -38,32 +38,29 @@ type Quiz struct {
 	MaxWrong    *uint      `gorm:"index"`
 }
 
-// BeforeCreate generates ID if not exists
-func (q *Quiz) BeforeCreate(tx *gorm.DB) error {
-	if q.ID == "" {
-		for {
-			id, err := nanoid.Nanoid(6)
-			if err != nil {
-				return err
-			}
+// Create ensures q update
+func (q *Quiz) Create(tx *gorm.DB) (err error) {
+	for q.ID == "" {
+		id, err := nanoid.Nanoid(6)
+		if err != nil {
+			return err
+		}
 
-			var count int64
-			if r := tx.Model(Quiz{}).Where("id = ?", id).Count(&count); r.Error != nil {
-				return err
-			}
+		var count int64
+		if r := tx.Model(Quiz{}).Where("id = ?", id).Count(&count); r.Error != nil {
+			return err
+		}
 
-			if count == 0 {
-				q.ID = id
-				return nil
-			}
+		if count == 0 {
+			q.ID = id
+			return nil
 		}
 	}
 
-	return nil
-}
+	if r := tx.Create(q); r.Error != nil {
+		return r.Error
+	}
 
-// AfterCreate hook
-func (q *Quiz) AfterCreate(tx *gorm.DB) (err error) {
 	var old struct {
 		ID          string
 		Description string
@@ -254,13 +251,20 @@ func (q *Quiz) AfterCreate(tx *gorm.DB) (err error) {
 	return
 }
 
-// AfterDelete hook
-func (q *Quiz) AfterDelete(tx *gorm.DB) (err error) {
-	tx.Exec(`
+// Delete ensures q delete
+func (q *Quiz) Delete(tx *gorm.DB) error {
+	if r := tx.Delete(q); r.Error != nil {
+		return r.Error
+	}
+
+	if r := tx.Exec(`
 	DELETE FROM quiz_q
 	WHERE id = ?
-	`, q.ID)
-	return
+	`, q.ID); r.Error != nil {
+		return r.Error
+	}
+
+	return nil
 }
 
 var srsMap []time.Duration = []time.Duration{

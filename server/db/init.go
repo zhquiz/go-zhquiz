@@ -80,7 +80,7 @@ func Connect() DB {
 
 			output.Current.Transaction(func(tx *gorm.DB) error {
 				for _, q := range quizzes {
-					q.AfterCreate(tx)
+					q.Create(tx)
 				}
 
 				return nil
@@ -111,7 +111,7 @@ func Connect() DB {
 
 			output.Current.Transaction(func(tx *gorm.DB) error {
 				for _, ex := range extras {
-					ex.AfterCreate(tx)
+					ex.Create(tx)
 				}
 
 				return nil
@@ -135,32 +135,31 @@ func Connect() DB {
 			);
 			`)
 
-			output.Current.Transaction(func(tx *gorm.DB) error {
+			if e := output.Current.Transaction(func(tx *gorm.DB) error {
 				var libs []map[string]interface{}
 				if r := zhDB.Current.Raw("SELECT title, entries FROM library").Find(&libs); r.Error != nil {
 					log.Fatalln(r.Error)
 				}
 
 				for _, a := range libs {
-					a["id"] = " " + a["title"].(string)
-					if r := tx.Exec("INSERT INTO library (id, title, entries) VALUES (@id, @title, @entries) ON CONFLICT DO NOTHING", a); r.Error != nil {
-						log.Fatalln(r.Error)
+					lib := Library{
+						ID:    " " + a["title"].(string),
+						Title: a["title"].(string),
+					}
+
+					if e := lib.Entries.Scan(a["entries"]); e != nil {
+						return e
+					}
+
+					if e := lib.Create(tx); e != nil {
+						return e
 					}
 				}
 
 				return nil
-			})
-
-			var libs []Library
-			output.Current.Find(&libs)
-
-			output.Current.Transaction(func(tx *gorm.DB) error {
-				for _, lib := range libs {
-					lib.AfterCreate(tx)
-				}
-
-				return nil
-			})
+			}); e != nil {
+				panic(e)
+			}
 		} else {
 			log.Fatalln(r.Error)
 		}

@@ -168,8 +168,8 @@ func routerLibrary(apiRouter *gin.RouterGroup) {
 		}
 
 		e := resource.DB.Current.Transaction(func(tx *gorm.DB) error {
-			if r := u.FullUpdate(tx); r != nil {
-				return r
+			if e := u.Update(tx); e != nil {
+				return e
 			}
 
 			return nil
@@ -192,10 +192,12 @@ func routerLibrary(apiRouter *gin.RouterGroup) {
 		}
 
 		e := resource.DB.Current.Transaction(func(tx *gorm.DB) error {
-			if r := tx.
-				Where("id = ?", id).
-				Delete(&db.Library{}); r.Error != nil {
-				return r.Error
+			lib := db.Library{
+				ID: id,
+			}
+
+			if e := lib.Delete(tx); e != nil {
+				return e
 			}
 
 			return nil
