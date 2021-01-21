@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -129,8 +130,11 @@ func routerSentence(apiRouter *gin.RouterGroup) {
 			"[level] >= @levelMin",
 			"[level] <= @levelMax",
 		}
+
+		q := "%" + string(regexp.MustCompile("[^\\p{Han}]+").ReplaceAll([]byte(query.Q), []byte("%"))) + "%"
+
 		cond := map[string]interface{}{
-			"q":           "%" + query.Q + "%",
+			"q":           q,
 			"levelMin":    levelMin,
 			"levelMax":    levelMax,
 			"sentenceMin": sentenceMin,
@@ -184,7 +188,7 @@ func routerSentence(apiRouter *gin.RouterGroup) {
 
 		if len(out.Result) <= generate/2 {
 			var dbSentences []db.Sentence
-			if r := resource.DB.Current.Where("chinese LIKE '%'||?||'%'", query.Q).Limit(10 - len(out.Result)).Find(&dbSentences); r.Error != nil {
+			if r := resource.DB.Current.Where("chinese LIKE ?", q).Limit(10 - len(out.Result)).Find(&dbSentences); r.Error != nil {
 				panic(r.Error)
 			}
 
@@ -235,7 +239,7 @@ func routerSentence(apiRouter *gin.RouterGroup) {
 						}
 					}
 
-					if r := resource.DB.Current.Where("chinese LIKE '%'||?||'%'", query.Q).Limit(10 - len(out.Result)).Find(&dbSentences); r.Error != nil {
+					if r := resource.DB.Current.Where("chinese LIKE ?", q).Limit(10 - len(out.Result)).Find(&dbSentences); r.Error != nil {
 						panic(r.Error)
 					}
 
