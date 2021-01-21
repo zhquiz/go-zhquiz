@@ -92,9 +92,10 @@ func Serve(res *api.Resource) *gin.Engine {
 	res.Register(app, &serverOptions)
 
 	port := shared.Port()
-	fmt.Printf("Server running at http://localhost:%s\n", port)
+	fmt.Printf("Server running at http://localhost:%d\n", port)
+
 	srv := &http.Server{
-		Addr:    ":" + port,
+		Addr:    fmt.Sprintf(":%d", port),
 		Handler: app,
 	}
 

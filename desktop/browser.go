@@ -6,53 +6,87 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/ncruces/zenity"
 	"github.com/zserge/lorca"
 )
 
+var ui *lorca.UI
+
 // OpenURLInDefaultBrowser opens specified URL in the default web browser
-func OpenURLInDefaultBrowser(url string) {
+func OpenURLInDefaultBrowser(u string) {
 	switch runtime.GOOS {
 	case "linux":
-		exec.Command("xdg-open", url).Run()
+		exec.Command("xdg-open", u).Run()
 	case "darwin":
-		exec.Command("open", url).Run()
+		exec.Command("open", u).Run()
 	case "windows":
 		r := strings.NewReplacer("&", "^&")
-		exec.Command("cmd", "/c", "start", r.Replace(url)).Run()
+		exec.Command("cmd", "/c", "start", r.Replace(u)).Run()
 	}
 }
 
-// OpenURLInChromeApp opens url in Chrome or Chromium windowed mode
-func OpenURLInChromeApp(url string, fallbackURL string) *lorca.UI {
-	browser := lorca.LocateChrome()
+// initWebview opens url in Chrome or Chromium windowed mode
+func initWebview() chan bool {
+	c := make(chan bool)
 
-	if browser == "" {
+	if lorca.LocateChrome() == "" {
 		go func() {
-			yes := MessageBox(
-				"Chrome not found",
-				"No Chrome/Chromium installation was found. Would you like to download and install it now?",
+			yes, e := zenity.Question(
+				"No Chrome/Chromium installation was found.\nWould you like to download and install it now?",
+				zenity.Title("Chrome not found"),
+				zenity.Icon(zenity.QuestionIcon),
+				zenity.NoWrap(),
 			)
+
+			if e != nil {
+				panic(e)
+			}
 
 			if yes {
 				OpenURLInDefaultBrowser("https://www.google.com/chrome/")
 			}
 		}()
-		OpenURLInDefaultBrowser(fallbackURL)
-		return nil
+
+		zenity.Notify("ZhQuiz server is running in systray. Click the systray to activate or shutdown.")
+
+		OpenURLInDefaultBrowser(url)
+
+		c <- false
+		return c
 	}
 
-	ui, err := lorca.New(url, "", 1024, 768)
+	u, err := lorca.New(url+"/etabs.html", "", 1024, 768)
 	if err != nil {
 		log.Fatal(err)
 	}
-	ui.SetBounds(lorca.Bounds{
+
+	ui = &u
+
+	u.SetBounds(lorca.Bounds{
 		WindowState: lorca.WindowStateMaximized,
 	})
 
-	// A simple way to know when UI is ready (uses body.onload event in JS)
-	ui.Bind("openExternal", func(url string) {
+	u.Bind("openExternal", func(url string) {
 		OpenURLInDefaultBrowser(url)
 	})
 
-	return &ui
+	go func() {
+		defer func() {
+			(*ui).Close()
+			ui = nil
+		}()
+
+		<-(*ui).Done()
+
+		if tray.openButton != nil {
+			tray.openButton.Enable()
+			zenity.Notify("ZhQuiz server is still running. Click the systray to reactivate or shutdown.")
+		}
+
+		c <- true
+	}()
+
+	tray.openButton.Disable()
+
+	return c
 }

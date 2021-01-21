@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strconv"
 )
 
 // UserDataDir is used to store all writable data
@@ -30,18 +31,23 @@ func MediaPath() string {
 }
 
 // Port gets server port, or "default" port value
-func Port() string {
-	return getenvOrDefault("PORT", "35594")
-}
+func Port() int {
+	defaultPort := 35594
 
-// DatabaseURL returns DATABASE_URL
-func DatabaseURL() string {
-	return getenvOrDefaultFn("DATABASE_URL", func() string {
-		return filepath.Join(UserDataDir(), "data.db")
-	})
+	port := getenvOrSetDefault("PORT", strconv.Itoa(defaultPort))
+	if p, e := strconv.Atoi(port); e == nil {
+		return p
+	}
+
+	return defaultPort
 }
 
 // IsDebug decides whether to run in debug mode (e.g. development server)
 func IsDebug() bool {
 	return os.Getenv("DEBUG") != ""
+}
+
+// IsChromeApp decides whether to run in Chrome App (i.e. windowed mode)
+func IsChromeApp() bool {
+	return getenvOrSetDefault("ZHQUIZ_CHROME_APP", "1") != "0"
 }

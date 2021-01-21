@@ -30,7 +30,7 @@ func Connect() DB {
 
 	output := DB{}
 
-	db, err := gorm.Open(sqlite.Open(shared.DatabaseURL()), &gorm.Config{
+	db, err := gorm.Open(sqlite.Open(filepath.Join(shared.UserDataDir(), "data.db")), &gorm.Config{
 		NamingStrategy: schema.NamingStrategy{
 			SingularTable: true,
 		},
