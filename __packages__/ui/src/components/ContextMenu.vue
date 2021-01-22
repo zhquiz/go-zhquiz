@@ -110,6 +110,8 @@ export default class ContextMenu extends Vue {
   @Prop() type?: string
   @Prop() source?: string
   @Prop() description?: string
+  @Prop({ default: () => ({}) }) pinyin!: Record<string, string>
+  @Prop({ default: () => ({}) }) english!: Record<string, string>
 
   @Prop({ default: () => [] }) additional!: {
     name: string;
@@ -233,7 +235,9 @@ export default class ContextMenu extends Vue {
         entries: this.entries,
         type: this.type,
         source: this.source,
-        description: this.description
+        description: this.description,
+        pinyin: this.pinyin,
+        english: this.english
       })
 
       this.$buefy.snackbar.open(

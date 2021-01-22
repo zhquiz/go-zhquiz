@@ -149,7 +149,14 @@
       </div>
     </div>
 
-    <ContextMenu ref="context" :entry="selected.entry" :type="selected.type" />
+    <ContextMenu
+      ref="context"
+      :entry="selected.entry"
+      :type="selected.type"
+      :additional="additionalContext"
+      :pinyin="sentenceDef.pinyin"
+      :english="sentenceDef.english"
+    />
   </section>
 </template>
 
@@ -188,14 +195,41 @@ export default class VocabPage extends Vue {
 
   i = 0
 
-  sentences: Record<string, unknown>[] = []
+  sentences: {
+    chinese: string;
+    pinyin: string;
+    english: string;
+  }[] = []
 
   selected: {
-    entry?: string;
-    type?: string;
-  } = {}
+    entry: string;
+    type: string;
+  } = {
+    entry: '',
+    type: ''
+  }
 
   q0 = ''
+
+  get sentenceDef () {
+    if (this.selected.type !== 'sentence') {
+      return {}
+    }
+
+    const it = this.sentences.find((it) => it.chinese === this.selected.entry)
+    if (!it) {
+      return {}
+    }
+
+    return {
+      pinyin: {
+        [this.selected.entry]: it.pinyin
+      },
+      english: {
+        [this.selected.entry]: it.english
+      }
+    }
+  }
 
   get q () {
     const q = this.$route.query.q
@@ -235,6 +269,27 @@ export default class VocabPage extends Vue {
     }
 
     await this.onQChange(this.q0)
+  }
+
+  get additionalContext () {
+    if (!this.q) {
+      return [
+        {
+          name: 'Reload',
+          handler: async () => {
+            const {
+              data: { result }
+            } = await api.get<{
+              result: string;
+            }>('/api/vocab/random')
+
+            this.q0 = result
+          }
+        }
+      ]
+    }
+
+    return []
   }
 
   openContext (
@@ -320,6 +375,7 @@ export default class VocabPage extends Vue {
         'sentences',
         r.result.map((r) => ({
           chinese: r.chinese,
+          pinyin: toPinyin(r.chinese, { keepRest: true, toneToNumber: true }),
           english: r.english.split('\x1f')[0]
         }))
       )

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -312,12 +313,22 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 
 	r.PUT("/", func(ctx *gin.Context) {
 		var body struct {
-			Entries     []string `json:"entries" binding:"required,min=1"`
-			Type        string   `json:"type" binding:"required,oneof=hanzi vocab sentence extra"`
-			Description string   `json:"description"`
+			Entries     []string          `json:"entries" binding:"required,min=1"`
+			Type        string            `json:"type" binding:"required,oneof=hanzi vocab sentence extra"`
+			Description string            `json:"description"`
+			Pinyin      map[string]string `json:"pinyin"`
+			English     map[string]string `json:"english"`
 		}
 		if e := ctx.BindJSON(&body); e != nil {
 			ctx.AbortWithError(400, e)
+		}
+
+		if body.Pinyin == nil {
+			body.Pinyin = make(map[string]string)
+		}
+
+		if body.English == nil {
+			body.English = make(map[string]string)
 		}
 
 		var existingQ []db.Quiz
@@ -399,25 +410,42 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 			}
 
 			if subresult.Source == "extra" {
-				pinyin := ""
-				english := ""
+				pinyin := body.Pinyin[entry]
+				english := body.English[entry]
 
-				for _, seg := range cutChinese(entry) {
-					var vocab zh.Vocab
-					if r := resource.Zh.Current.Where("simplified = ? OR traditional = ?", seg, seg).Order("frequency DESC").First(&vocab); r.Error != nil {
-						if !errors.Is(r.Error, gorm.ErrRecordNotFound) {
-							panic(r.Error)
+				if pinyin == "" || english == "" {
+					pSegs := make([]string, 0)
+					eSegs := make([]string, 0)
+					reHan := regexp.MustCompile("\\p{Han}+")
+
+					for _, seg := range cutChinese(entry) {
+						if reHan.MatchString(seg) {
+							var vocab zh.Vocab
+							if r := resource.Zh.Current.Where("simplified = ? OR traditional = ?", seg, seg).Order("frequency DESC").First(&vocab); r.Error != nil {
+								if !errors.Is(r.Error, gorm.ErrRecordNotFound) {
+									panic(r.Error)
+								}
+							}
+
+							if vocab.English != "" {
+								pSegs = append(pSegs, vocab.Pinyin)
+								eSegs = append(eSegs, vocab.English)
+							} else {
+								pSegs = append(pSegs, seg)
+								eSegs = append(eSegs, seg)
+							}
+						} else {
+							pSegs = append(pSegs, seg)
+							eSegs = append(eSegs, seg)
 						}
 					}
 
-					if vocab.English != "" {
-						if english != "" {
-							pinyin += " "
-							english += "; "
-						}
+					if pinyin == "" {
+						pinyin = strings.Join(pSegs, " ")
+					}
 
-						pinyin += vocab.Pinyin
-						english += vocab.English
+					if english == "" {
+						english = strings.Join(eSegs, "; ")
 					}
 				}
 

@@ -99,12 +99,15 @@ func routerVocab(apiRouter *gin.RouterGroup) {
 		type Item struct {
 			Entry    string `json:"entry"`
 			Level    int    `json:"level"`
+			Source   string `json:"source"`
 			SRSLevel *int8  `json:"srs_level"`
 		}
 		var items []Item
 
 		if r := resource.Zh.Current.Raw(`
-		SELECT Entry, vocab_level Level
+		SELECT Entry, vocab_level Level, COALESCE((
+			SELECT 'cedict' FROM vocab WHERE simplified = entry OR traditional = entry
+		), 'hsk') Source
 		FROM token
 		WHERE vocab_level IS NOT NULL
 		`).Find(&items); r.Error != nil {

@@ -191,14 +191,22 @@ func (u *Extra) Update(tx *gorm.DB) error {
 
 // Delete ensures q delete and quiz delete
 func (u *Extra) Delete(tx *gorm.DB) error {
+	var content struct {
+		Chinese string
+		Type    string
+	}
+
 	if r := tx.Raw(`
 	SELECT extra.chinese Chinese, extra_q.type [Type]
 	FROM extra
 	LEFT JOIN extra_q ON extra_q.id = extra.id
 	WHERE extra.id = ?
-	`, u.ID).Scan(u); r.Error != nil {
+	`, u.ID).Scan(&content); r.Error != nil {
 		return r.Error
 	}
+
+	u.Chinese = content.Chinese
+	u.Type = content.Type
 
 	if r := tx.Delete(u); r.Error != nil {
 		return r.Error

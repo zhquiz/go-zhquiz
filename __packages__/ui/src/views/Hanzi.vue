@@ -197,6 +197,8 @@
       :entry="selected.entry"
       :type="selected.type"
       :additional="additionalContext"
+      :pinyin="sentenceDef.pinyin"
+      :english="sentenceDef.english"
     />
   </section>
 </template>
@@ -206,6 +208,7 @@ import XRegExp from 'xregexp'
 import { Component, Ref, Vue } from 'vue-property-decorator'
 import ContextMenu from '@/components/ContextMenu.vue'
 import { api } from '@/assets/api'
+import toPinyin from 'chinese-to-pinyin'
 
 @Component<HanziPage>({
   components: {
@@ -230,14 +233,41 @@ export default class HanziPage extends Vue {
   sup: string[] = []
   variants: string[] = []
   vocabs: Record<string, unknown>[] = []
-  sentences: Record<string, unknown>[] = []
+  sentences: {
+    chinese: string;
+    pinyin: string;
+    english: string;
+  }[] = []
 
   selected: {
-    entry?: string;
-    type?: string;
-  } = {}
+    entry: string;
+    type: string;
+  } = {
+    entry: '',
+    type: ''
+  }
 
   q0 = ''
+
+  get sentenceDef () {
+    if (this.selected.type !== 'sentence') {
+      return {}
+    }
+
+    const it = this.sentences.find((it) => it.chinese === this.selected.entry)
+    if (!it) {
+      return {}
+    }
+
+    return {
+      pinyin: {
+        [this.selected.entry]: it.pinyin
+      },
+      english: {
+        [this.selected.entry]: it.english
+      }
+    }
+  }
 
   get q () {
     const q = this.$route.query.q
@@ -259,7 +289,7 @@ export default class HanziPage extends Vue {
       await this.additionalContext[0].handler()
     }
 
-    await this.onQChange(this.q0)
+    this.onQChange(this.q0)
   }
 
   get additionalContext () {
@@ -272,12 +302,7 @@ export default class HanziPage extends Vue {
               data: { result }
             } = await api.get<{
               result: string;
-            }>('/api/hanzi/random', {
-              params: {
-                levelMin: this.$accessor.levelMin,
-                level: this.$accessor.level
-              }
-            })
+            }>('/api/hanzi/random')
 
             this.q0 = result
           }
@@ -368,10 +393,15 @@ export default class HanziPage extends Vue {
     this.$set(
       this,
       'sentences',
-      result.map((r) => ({
-        chinese: r.chinese,
-        english: r.english.split('\x1f')[0]
-      }))
+      result.map((r) => {
+        const out = {
+          chinese: r.chinese,
+          pinyin: toPinyin(r.chinese, { keepRest: true, toneToNumber: true }),
+          english: r.english.split('\x1f')[0]
+        }
+
+        return out
+      })
     )
   }
 }

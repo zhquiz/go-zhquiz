@@ -2,28 +2,13 @@ package desktop
 
 import (
 	"log"
-	"os/exec"
-	"runtime"
-	"strings"
 
 	"github.com/ncruces/zenity"
+	"github.com/zhquiz/go-zhquiz/shared"
 	"github.com/zserge/lorca"
 )
 
 var ui *lorca.UI
-
-// OpenURLInDefaultBrowser opens specified URL in the default web browser
-func OpenURLInDefaultBrowser(u string) {
-	switch runtime.GOOS {
-	case "linux":
-		exec.Command("xdg-open", u).Run()
-	case "darwin":
-		exec.Command("open", u).Run()
-	case "windows":
-		r := strings.NewReplacer("&", "^&")
-		exec.Command("cmd", "/c", "start", r.Replace(u)).Run()
-	}
-}
 
 // initWebview opens url in Chrome or Chromium windowed mode
 func initWebview() chan bool {
@@ -43,13 +28,13 @@ func initWebview() chan bool {
 			}
 
 			if yes {
-				OpenURLInDefaultBrowser("https://www.google.com/chrome/")
+				shared.OpenURL("https://www.google.com/chrome/")
 			}
 		}()
 
 		zenity.Notify("ZhQuiz server is running in systray. Click the systray to activate or shutdown.")
 
-		OpenURLInDefaultBrowser(url)
+		shared.OpenURL(url)
 
 		c <- false
 		return c
@@ -67,7 +52,7 @@ func initWebview() chan bool {
 	})
 
 	u.Bind("openExternal", func(url string) {
-		OpenURLInDefaultBrowser(url)
+		shared.OpenURL(url)
 	})
 
 	go func() {

@@ -29,7 +29,7 @@ func (s systrayList) init() {
 			if shared.IsChromeApp() && lorca.LocateChrome() != "" {
 				initWebview()
 			} else {
-				OpenURLInDefaultBrowser(url)
+				shared.OpenURL(url)
 			}
 		case <-s.closeButton.ClickedCh:
 			systray.Quit()
@@ -102,7 +102,7 @@ func Start(res *api.Resource) {
 		if shared.IsChromeApp() {
 			initWebview()
 		} else {
-			OpenURLInDefaultBrowser(url)
+			shared.OpenURL(url)
 		}
 	}, func() {
 		tray.openButton = nil

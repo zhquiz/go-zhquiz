@@ -69,6 +69,7 @@
       ref="context"
       type="vocab"
       :entry="selected"
+      :pinyin="pinyinMap"
       @quiz:added="(evt) => reload(evt.entries)"
       @quiz:removed="(evt) => reload(evt.entries)"
     />
@@ -79,6 +80,7 @@
 import { Component, Ref, Vue } from 'vue-property-decorator'
 import ContextMenu from '@/components/ContextMenu.vue'
 import { api } from '@/assets/api'
+import toPinyin from 'chinese-to-pinyin'
 
 @Component<LevelPage>({
   components: {
@@ -119,6 +121,8 @@ export default class LevelPage extends Vue {
     level: number;
     entries: string[];
   }[] = []
+
+  pinyinMap: Record<string, string> = {}
 
   setCurrentData () {
     this.currentData = Object.entries(this.allData)
@@ -201,11 +205,19 @@ export default class LevelPage extends Vue {
       } = await api.get<{
         result: {
           entry: string;
+          source?: string;
           level: number;
         }[];
       }>('/api/vocab/level')
 
-      entries = result.map(({ entry, level }) => {
+      entries = result.map(({ entry, source, level }) => {
+        if (source && source !== 'cedict') {
+          this.pinyinMap[entry] = toPinyin(entry, {
+            keepRest: true,
+            toneToNumber: true
+          })
+        }
+
         const lv = level.toString()
         const levelData = this.allData[lv] || []
         levelData.push(entry)
@@ -214,6 +226,7 @@ export default class LevelPage extends Vue {
         return entry
       })
 
+      this.$set(this, 'pinyinMap', this.pinyinMap)
       this.$set(this, 'allData', this.allData)
     }
 
