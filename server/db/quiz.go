@@ -158,8 +158,29 @@ func (q *Quiz) Create(tx *gorm.DB) (err error) {
 		}
 
 	case "sentence":
-		var sentences []zh.Sentence
-		zhDB.Current.Where("chinese = ?", q.Entry).Find(&sentences)
+		type sen struct {
+			Pinyin  string
+			English string
+			Level   float64
+		}
+		var sentences []sen
+
+		rows, err := zhDB.Current.Raw(`
+		SELECT Pinyin, English, Level
+		FROM sentence
+		LEFT JOIN sentence_q ON sentence_q.id = sentence.id
+		WHERE chinese = ?
+		GROUP BY sentence.id
+		`, q.Entry).Rows()
+		if err != nil {
+			panic(err)
+		}
+
+		for rows.Next() {
+			var s sen
+			rows.Scan(&s)
+			sentences = append(sentences, s)
+		}
 
 		for _, s := range sentences {
 			pinyin += s.Pinyin + " "
@@ -220,6 +241,8 @@ func (q *Quiz) Create(tx *gorm.DB) (err error) {
 		for k := range tagSet {
 			tags = append(tags, k)
 		}
+
+		tags = append(tags, "level"+level)
 
 		return strings.Join(tags, " ")
 	}()

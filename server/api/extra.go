@@ -241,7 +241,7 @@ func routerExtra(apiRouter *gin.RouterGroup) {
 			var chinese string
 			if r := resource.Zh.Current.Raw(`
 			SELECT chinese
-			FROM sentence_q
+			FROM sentence
 			WHERE chinese = ?
 			LIMIT 1
 			`, body.Chinese).First(&chinese); r.Error != nil {

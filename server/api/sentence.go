@@ -37,7 +37,9 @@ func routerSentence(apiRouter *gin.RouterGroup) {
 		var result Result
 
 		if r := resource.Zh.Current.Raw(`
-		SELECT Chinese, English
+		SELECT Chinese, (
+			SELECT english FROM sentence_q WHERE id = sentence.id
+		) English
 		FROM sentence
 		WHERE chinese = ?
 		`, query.Entry).First(&result); r.Error != nil {
@@ -121,6 +123,7 @@ func routerSentence(apiRouter *gin.RouterGroup) {
 		}
 
 		type Result struct {
+			ID      int64  `json:"-"`
 			Chinese string `json:"chinese"`
 			English string `json:"english"`
 		}
@@ -131,10 +134,8 @@ func routerSentence(apiRouter *gin.RouterGroup) {
 			"[level] <= @levelMax",
 		}
 
-		q := "%" + string(regexp.MustCompile("[^\\p{Han}]+").ReplaceAll([]byte(query.Q), []byte("%"))) + "%"
-
 		cond := map[string]interface{}{
-			"q":           q,
+			"q":           query.Q,
 			"levelMin":    levelMin,
 			"levelMax":    levelMax,
 			"sentenceMin": sentenceMin,
@@ -142,7 +143,14 @@ func routerSentence(apiRouter *gin.RouterGroup) {
 		}
 
 		if query.Q != "" {
-			andCond = append(andCond, "chinese LIKE @q")
+			if regexp.MustCompile(".*\\p{Han}.*").MatchString(query.Q) {
+				cond["q"] = "%" + string(regexp.MustCompile("[^\\p{Han}]+").ReplaceAll([]byte(query.Q), []byte("%"))) + "%"
+				andCond = append(andCond, "chinese LIKE @q")
+			} else {
+				andCond = append(andCond, `id IN (
+					SELECT id FROM sentence_q WHERE sentence_q MATCH @q
+				)`)
+			}
 		} else {
 			if sentenceMin != 0 {
 				andCond = append(andCond, "length(chinese) >= @sentenceMin")
@@ -154,13 +162,45 @@ func routerSentence(apiRouter *gin.RouterGroup) {
 		}
 
 		if r := resource.Zh.Current.Raw(fmt.Sprintf(`
-		SELECT Chinese, English
+		SELECT ID, Chinese
 		FROM sentence
 		WHERE %s
 		ORDER BY level, frequency DESC
 		LIMIT %d OFFSET %d
 		`, strings.Join(andCond, " AND "), perPage, (page-1)*perPage), cond).Find(&result); r.Error != nil {
 			panic(r.Error)
+		}
+
+		if len(result) > 0 {
+			engMap := map[int64]string{}
+
+			ids := make([]int64, 0)
+			for _, r := range result {
+				ids = append(ids, r.ID)
+			}
+
+			rows, err := resource.Zh.Current.Raw(`
+			SELECT ID, English FROM sentence_q
+			WHERE ID IN ?
+			`, ids).Rows()
+			if err != nil {
+				panic(err)
+			}
+
+			for rows.Next() {
+				var id int64
+				var english string
+				if e := rows.Scan(&id, &english); e != nil {
+					panic(e)
+				}
+
+				engMap[id] = english
+			}
+
+			for i, r := range result {
+				r.English = engMap[r.ID]
+				result[i] = r
+			}
 		}
 
 		for i, it := range result {
@@ -186,9 +226,9 @@ func routerSentence(apiRouter *gin.RouterGroup) {
 			out.Count = &count
 		}
 
-		if len(out.Result) <= generate/2 {
+		if len(out.Result) <= generate {
 			var dbSentences []db.Sentence
-			if r := resource.DB.Current.Where("chinese LIKE ?", q).Limit(10 - len(out.Result)).Find(&dbSentences); r.Error != nil {
+			if r := resource.DB.Current.Where("chinese LIKE ?", cond["q"]).Limit(10 - len(out.Result)).Find(&dbSentences); r.Error != nil {
 				panic(r.Error)
 			}
 
@@ -239,7 +279,7 @@ func routerSentence(apiRouter *gin.RouterGroup) {
 						}
 					}
 
-					if r := resource.DB.Current.Where("chinese LIKE ?", q).Limit(10 - len(out.Result)).Find(&dbSentences); r.Error != nil {
+					if r := resource.DB.Current.Where("chinese LIKE ?", cond["q"]).Limit(10 - len(out.Result)).Find(&dbSentences); r.Error != nil {
 						panic(r.Error)
 					}
 
@@ -354,6 +394,7 @@ func routerSentence(apiRouter *gin.RouterGroup) {
 		}
 
 		type Result struct {
+			ID      int64   `json:"-"`
 			Result  string  `json:"result"`
 			English string  `json:"english"`
 			Level   float64 `json:"level"`
@@ -361,7 +402,7 @@ func routerSentence(apiRouter *gin.RouterGroup) {
 		var result []Result
 
 		if r := resource.Zh.Current.Raw(fmt.Sprintf(`
-		SELECT chinese Result, English, Level
+		SELECT ID, chinese Result, Level
 		FROM sentence
 		WHERE %s
 		`, where), cond).Find(&result); r.Error != nil {
@@ -372,7 +413,7 @@ func routerSentence(apiRouter *gin.RouterGroup) {
 			result = []Result{}
 
 			if r := resource.Zh.Current.Raw(fmt.Sprintf(`
-			SELECT chinese Result, English, Level
+			SELECT ID, chinese Result, Level
 			FROM sentence
 			WHERE %s
 			`, where), cond).Find(&result); r.Error != nil {
@@ -387,6 +428,14 @@ func routerSentence(apiRouter *gin.RouterGroup) {
 
 		rand.Seed(time.Now().UnixNano())
 		r := result[rand.Intn(len(result))]
+
+		if e := resource.Zh.Current.Raw(`
+		SELECT English
+		FROM sentence_q
+		WHERE id = ?
+		`, r.ID).Row().Scan(&r.English); e != nil {
+			panic(e)
+		}
 
 		ctx.JSON(200, r)
 	})

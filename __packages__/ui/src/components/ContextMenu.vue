@@ -47,12 +47,14 @@
         Search as Hanzi
       </a>
     </li>
-    <li v-if="entries.length === 1 && type != 'hanzi'">
+    <li v-if="entries.length === 1 && type !== 'hanzi'">
       <a
         role="button"
         @click="
           openInNewTab(
-            `/#/vocab?q=${encodeURIComponent(entries[0])}`,
+            `/#/vocab?${type === 'vocab' ? 'entry' : 'q'}=${encodeURIComponent(
+              entries[0]
+            )}`,
             entries[0] + ' - Vocab'
           )
         "

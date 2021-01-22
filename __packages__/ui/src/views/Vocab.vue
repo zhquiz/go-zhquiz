@@ -241,8 +241,15 @@ export default class VocabPage extends Vue {
   }
 
   get current () {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return this.entries[this.i] || ('' as any)
+    const r = this.entries[this.i]
+    if (typeof r === 'string') {
+      if (XRegExp('\\p{Han}').test(r)) {
+        return r
+      }
+      return ''
+    }
+
+    return r || ''
   }
 
   get simplified () {
@@ -252,7 +259,9 @@ export default class VocabPage extends Vue {
   }
 
   async created () {
-    this.q0 = this.q
+    const entry = this.$route.query.entry as string
+
+    this.q0 = entry || this.q
     if (!this.q0) {
       const {
         data: { result }
@@ -268,7 +277,13 @@ export default class VocabPage extends Vue {
       this.q0 = result
     }
 
-    await this.onQChange(this.q0)
+    if (entry) {
+      this.entries = [entry]
+      this.$set(this, 'entries', [entry])
+      await this.loadContent()
+    } else {
+      await this.onQChange(this.q0)
+    }
   }
 
   get additionalContext () {
@@ -302,7 +317,7 @@ export default class VocabPage extends Vue {
   }
 
   async onQChange (q: string) {
-    if (q) {
+    if (XRegExp('\\p{Han}+').test(q)) {
       let qs = await api
         .get<{
           result: string[];
@@ -314,18 +329,23 @@ export default class VocabPage extends Vue {
         .filter((h, i, arr) => arr.indexOf(h) === i)
 
       this.entries = qs
-      this.$set(this, 'entries', qs)
-      this.loadContent()
+    } else {
+      this.entries = [q]
     }
+
+    await this.loadContent()
 
     this.i = 0
   }
 
   async loadContent () {
-    const entry = this.current
+    let entry = this.entries[this.i]
+    if (!entry) {
+      return
+    }
 
     if (typeof entry === 'string') {
-      ;(async () => {
+      if (XRegExp('\\p{Han}').test(entry)) {
         const {
           data: { result }
         } = await api.get('/api/vocab', {
@@ -335,6 +355,7 @@ export default class VocabPage extends Vue {
         })
 
         if (result.length > 0) {
+          entry = result[0].simplified
           this.entries = [
             ...this.entries.slice(0, this.i),
             ...result,
@@ -350,36 +371,58 @@ export default class VocabPage extends Vue {
             ...this.entries.slice(this.i + 1)
           ]
         }
-      })()
-    }
-
-    ;(async () => {
-      const r = await api
-        .get<{
-          result: {
-            chinese: string;
-            english: string;
-          }[];
-        }>('/api/sentence/q', {
+      } else {
+        const {
+          data: { result }
+        } = await api.get('/api/vocab/q', {
           params: {
-            q: entry.simplified || entry,
-            type: 'vocab',
-            generate: 10,
-            select: 'chinese,english'
+            q: entry
           }
         })
-        .then((r) => r.data)
 
-      this.$set(
-        this,
-        'sentences',
-        r.result.map((r) => ({
-          chinese: r.chinese,
-          pinyin: toPinyin(r.chinese, { keepRest: true, toneToNumber: true }),
-          english: r.english.split('\x1f')[0]
-        }))
-      )
-    })()
+        if (result.length > 0) {
+          entry = result[0].simplified
+        } else {
+          entry = ''
+        }
+
+        this.entries = [
+          ...this.entries.slice(0, this.i),
+          ...result,
+          ...this.entries.slice(this.i + 1)
+        ]
+      }
+    }
+
+    if (!entry) {
+      return
+    }
+
+    const r = await api
+      .get<{
+        result: {
+          chinese: string;
+          english: string;
+        }[];
+      }>('/api/sentence/q', {
+        params: {
+          q: typeof entry === 'string' ? entry : entry.simplified,
+          type: 'vocab',
+          generate: 10,
+          select: 'chinese,english'
+        }
+      })
+      .then((r) => r.data)
+
+    this.$set(
+      this,
+      'sentences',
+      r.result.map((r) => ({
+        chinese: r.chinese,
+        pinyin: toPinyin(r.chinese, { keepRest: true, toneToNumber: true }),
+        english: r.english.split('\x1f')[0]
+      }))
+    )
   }
 }
 </script>

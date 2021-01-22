@@ -3,6 +3,7 @@ package api
 import (
 	"fmt"
 	"math/rand"
+	"regexp"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -64,13 +65,23 @@ func routerVocab(apiRouter *gin.RouterGroup) {
 
 		var result []Result
 
-		if r := resource.Zh.Current.Raw(`
-		SELECT Simplified, Traditional, Pinyin, English
+		where := "simplified LIKE @q OR traditional LIKE @q"
+		cond := map[string]interface{}{
+			"q": "%" + query.Q + "%",
+		}
+
+		if regexp.MustCompile("^[^\\p{Han}]+$").MatchString(query.Q) {
+			cond["q"] = query.Q
+			where = "simplified IN (SELECT entry FROM token_q WHERE token_q MATCH @q)"
+		}
+
+		if r := resource.Zh.Current.Raw(fmt.Sprintf(`
+		SELECT Simplified, Traditional, vocab.Pinyin, vocab.English
 		FROM vocab
-		WHERE simplified LIKE '%'||?||'%' OR traditional LIKE '%'||?||'%'
+		WHERE %s
 		ORDER BY frequency DESC
 		LIMIT 10
-		`, query.Q, query.Q).Find(&result); r.Error != nil {
+		`, where), cond).Find(&result); r.Error != nil {
 			panic(r.Error)
 		}
 
@@ -155,7 +166,7 @@ func routerVocab(apiRouter *gin.RouterGroup) {
 			"level":    levelMax,
 		}
 
-		sqlString := "vocab_level >= @levelMin AND vocab_level <= @level AND English IS NOT NULL"
+		sqlString := "length(entry) > 1 AND vocab_level >= @levelMin AND vocab_level <= @level"
 
 		if len(entries) > 0 {
 			sqlString = "entry NOT IN @entries AND " + sqlString
@@ -169,13 +180,46 @@ func routerVocab(apiRouter *gin.RouterGroup) {
 		var items []Item
 
 		if r := resource.Zh.Current.Raw(fmt.Sprintf(`
-		SELECT entry Result, (
-			SELECT vocab.english FROM vocab WHERE simplified = entry AND frequency IS NOT NULL
-		) English, vocab_level Level
+		SELECT entry Result, vocab_level Level
 		FROM token
 		WHERE %s
 		`, sqlString), cond).Find(&items); r.Error != nil {
 			panic(r.Error)
+		}
+
+		if len(items) > 0 {
+			simp := make([]string, 0)
+			for _, it := range items {
+				simp = append(simp, it.Result)
+			}
+
+			rows, e := resource.Zh.Current.Raw(`
+			SELECT simplified, english FROM vocab WHERE simplified IN ? AND frequency IS NOT NULL GROUP BY simplified
+			`, simp).Rows()
+
+			if e != nil {
+				panic(e)
+			}
+
+			simpMap := make(map[string]string)
+			for rows.Next() {
+				var simplified string
+				var english string
+				if e := rows.Scan(&simplified, &english); e != nil {
+					panic(e)
+				}
+				simpMap[simplified] = english
+			}
+
+			newItems := make([]Item, 0)
+			for _, it := range items {
+				it.English = simpMap[it.Result]
+				if it.English != "" {
+					newItems = append(newItems, it)
+				}
+			}
+
+			items = newItems
 		}
 
 		if len(items) < 1 {
@@ -184,14 +228,12 @@ func routerVocab(apiRouter *gin.RouterGroup) {
 			sqlString := "TRUE"
 
 			if len(entries) > 0 {
-				sqlString = "entry NOT IN @entries AND " + sqlString
+				sqlString = "length(simplified) > 1 AND simplified NOT IN @entries AND " + sqlString
 			}
 
 			if r := resource.Zh.Current.Raw(fmt.Sprintf(`
-			SELECT entry Result, (
-				SELECT vocab.english FROM vocab WHERE simplified = entry AND frequency IS NOT NULL
-			) English, vocab_level Level
-			FROM token
+			SELECT simplified Result, English
+			FROM vocab
 			WHERE %s
 			`, sqlString), cond).Find(&items); r.Error != nil {
 				panic(r.Error)
@@ -204,6 +246,12 @@ func routerVocab(apiRouter *gin.RouterGroup) {
 
 		rand.Seed(time.Now().UnixNano())
 		item := items[rand.Intn(len(items))]
+
+		if item.Level == 0 {
+			resource.Zh.Current.Raw(`
+			SELECT vocab_level FROM token WHERE entry = ?
+			`, item.Result).Row().Scan(&item.Level)
+		}
 
 		ctx.JSON(200, item)
 	})
