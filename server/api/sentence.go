@@ -143,7 +143,7 @@ func routerSentence(apiRouter *gin.RouterGroup) {
 		}
 
 		if query.Q != "" {
-			if regexp.MustCompile(".*\\p{Han}.*").MatchString(query.Q) {
+			if regexp.MustCompile("\\p{Han}").MatchString(query.Q) {
 				cond["q"] = "%" + string(regexp.MustCompile("[^\\p{Han}]+").ReplaceAll([]byte(query.Q), []byte("%"))) + "%"
 				andCond = append(andCond, "chinese LIKE @q")
 			} else {

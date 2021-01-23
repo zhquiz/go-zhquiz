@@ -116,7 +116,7 @@ export default class AppLayout extends Vue {
       },
       {
         name: 'About',
-        href: 'https://github.com/zhquiz/zhquiz',
+        href: 'https://github.com/zhquiz/go-zhquiz',
         icon: ['fab', 'github']
       }
     ]

@@ -75,9 +75,11 @@ func routerHanzi(apiRouter *gin.RouterGroup) {
 		result := make([]Result, 0)
 
 		if r := resource.Zh.Current.Raw(`
-		SELECT Entry FROM token_q
-		WHERE token_q MATCH @Q AND length(Entry) = 1
-		ORDER BY RANK
+		SELECT Entry FROM token
+		WHERE Entry IN (
+			SELECT Entry FROM token_q WHERE token_q MATCH @Q AND length(Entry) = 1
+		)
+		ORDER BY frequency DESC
 		`, query).Find(&result); r.Error != nil {
 			panic(r.Error)
 		}

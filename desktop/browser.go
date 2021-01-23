@@ -2,6 +2,7 @@ package desktop
 
 import (
 	"log"
+	"regexp"
 
 	"github.com/ncruces/zenity"
 	"github.com/zhquiz/go-zhquiz/shared"
@@ -40,7 +41,7 @@ func initWebview() chan bool {
 		return c
 	}
 
-	u, err := lorca.New(url+"/etabs.html", "", 1024, 768)
+	u, err := lorca.New(url+"/etabs.html", "", 1024, 768, "--start-maximized")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -52,7 +53,9 @@ func initWebview() chan bool {
 	})
 
 	u.Bind("openExternal", func(url string) {
-		shared.OpenURL(url)
+		if regexp.MustCompile("^https?://").MatchString(url) {
+			shared.OpenURL(url)
+		}
 	})
 
 	go func() {
