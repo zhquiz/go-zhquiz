@@ -319,6 +319,7 @@ import { Vue, Component, Prop, Ref } from 'vue-property-decorator'
 import toPinyin from 'chinese-to-pinyin'
 import ContextMenu from './ContextMenu.vue'
 import { api } from '@/assets/api'
+import XRegExp from 'xregexp'
 
 export type IQuizType = 'hanzi' | 'vocab' | 'sentence' | 'extra'
 
@@ -386,8 +387,10 @@ export default class QuizCard extends Vue {
       english: string;
     }[] = []
 
+    const re = new RegExp(entry.replace(XRegExp('[^\\p{Han}]', 'g'), '.*'))
+
     for (const [chinese, v] of Object.entries(this.dictionaryData.sentence)) {
-      if (chinese.includes(entry)) {
+      if (re.test(chinese)) {
         out.push({
           chinese,
           ...v
@@ -451,25 +454,24 @@ export default class QuizCard extends Vue {
     }
 
     this.current = (() => {
-      const it = this.quizData[this.quizArray[this.quizIndex + 1]]
+      let it: IQuizData
+      while (true) {
+        it = this.quizData[this.quizArray[this.quizIndex++]]
 
-      if (!it) {
-        return {}
-      }
+        if (it && it.entry && (it.source || it.type)) {
+          break
+        }
 
-      const entry = it.entry
-      const type = (it.source as 'extra') || it.type
-      if (!entry || !type) {
-        return {}
+        if (this.quizIndex >= this.quizArray.length) {
+          return {}
+        }
       }
 
       return {
         ...it,
-        ...this.dictionaryData[type][entry]
+        ...this.dictionaryData[(it.source as 'extra') || it.type][it.entry]
       }
     })()
-
-    this.quizIndex++
   }
 
   checkFront (relativePosition: number): boolean {
@@ -494,7 +496,7 @@ export default class QuizCard extends Vue {
     this.ctxType = type || (this.current.type as string) || ''
     this.ctxSource = entry ? '' : (this.current.source as string)
 
-    await this.context.open(ev)
+    this.context.open(ev)
   }
 
   doMask (s: string, ...ws: string[]) {

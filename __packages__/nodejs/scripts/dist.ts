@@ -9,22 +9,24 @@ execSync('rm -rf ./dist')
 fs.ensureDirSync('./dist')
 
 glob.sync('./zhquiz-*').map((f) => {
-  if (/-darwin(-|$)/.test(f)) {
-    fs.ensureDirSync(`./dist/${f}.app/Contents/MacOS`)
+  if (/-darwin/.test(f)) {
+    const filename = f.replace('darwin', 'macos')
+
+    fs.ensureDirSync(`./dist/${filename}.app/Contents/MacOS`)
 
     fs.writeFileSync(
-      `./dist/${f}.app/Contents/Info.plist`,
+      `./dist/${filename}.app/Contents/Info.plist`,
       `
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
   <key>CFBundleExecutable</key>
-  <string>${f}</string>
+  <string>zhquiz</string>
   <key>CFBundleIconFile</key>
   <string>favicon.icns</string>
   <key>CFBundleIdentifier</key>
-  <string>cc.zhquiz.${f}</string>
+  <string>cc.zhquiz.${filename}</string>
 
   <!-- avoid having a blurry icon and text -->
   <key>NSHighResolutionCapable</key>
@@ -38,25 +40,25 @@ glob.sync('./zhquiz-*').map((f) => {
     `.trim()
     )
 
-    fs.ensureDirSync(`./dist/${f}.app/Contents/Resources`)
+    fs.ensureDirSync(`./dist/${filename}.app/Contents/Resources`)
 
-    fs.copySync('./assets', `./dist/${f}.app/Contents/MacOS/assets`)
-    fs.copySync('./public', `./dist/${f}.app/Contents/MacOS/public`)
+    fs.copySync('./assets', `./dist/${filename}.app/Contents/MacOS/assets`)
+    fs.copySync('./public', `./dist/${filename}.app/Contents/MacOS/public`)
     fs.copyFileSync(
       './public/favicon.icns',
-      `./dist/${f}.app/Contents/Resources/favicon.icns`
+      `./dist/${filename}.app/Contents/Resources/favicon.icns`
     )
-    fs.copyFileSync(f, `./dist/${f}.app/Contents/MacOS/${f}`)
+    fs.copyFileSync(f, `./dist/${filename}.app/Contents/MacOS/zhquiz`)
 
     const zip = new AdmZip()
-    zip.addLocalFolder(`./dist/${f}.app`, `${f}.app`)
+    zip.addLocalFolder(`./dist/${filename}.app`, `zhquiz.app`)
 
-    zip.writeZip(`./dist/${f}.zip`)
+    zip.writeZip(`./dist/${filename}.zip`)
   } else {
     const zip = new AdmZip()
     zip.addLocalFolder('./assets', 'assets')
     zip.addLocalFolder('./public', 'public')
-    zip.addLocalFile(`./${f}`)
+    zip.addLocalFile(`./${f}`, /-windows/.test(f) ? 'zhquiz.exe' : '')
 
     zip.writeZip(`./dist/${f.replace(/\.[^.-]+$/, '')}.zip`)
   }

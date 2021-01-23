@@ -8,6 +8,8 @@ ZhQuiz, a full-offline Chinese quizzing desktop app
 
 See <https://github.com/zhquiz/go-zhquiz/releases>.
 
+Download and unzip the file depending on your operating system. Double click on `zhquiz.exe` or `zhquiz.app.`
+
 ## Features
 
 - HSK vocabularies made into 60 levels

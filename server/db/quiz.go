@@ -166,7 +166,7 @@ func (q *Quiz) Create(tx *gorm.DB) (err error) {
 		var sentences []sen
 
 		rows, err := zhDB.Current.Raw(`
-		SELECT Pinyin, English, Level
+		SELECT sentence.pinyin Pinyin, English, Level
 		FROM sentence
 		LEFT JOIN sentence_q ON sentence_q.id = sentence.id
 		WHERE chinese = ?
