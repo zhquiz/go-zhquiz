@@ -58,6 +58,35 @@ func routerHanzi(apiRouter *gin.RouterGroup) {
 		ctx.JSON(200, out)
 	})
 
+	r.GET("/q", func(ctx *gin.Context) {
+		var query struct {
+			Q string `form:"q" binding:"required"`
+		}
+
+		if e := ctx.BindQuery(&query); e != nil {
+			ctx.AbortWithError(400, e)
+			return
+		}
+
+		type Result struct {
+			Entry string `json:"entry"`
+		}
+
+		result := make([]Result, 0)
+
+		if r := resource.Zh.Current.Raw(`
+		SELECT Entry FROM token_q
+		WHERE token_q MATCH @Q AND length(Entry) = 1
+		ORDER BY RANK
+		`, query).Find(&result); r.Error != nil {
+			panic(r.Error)
+		}
+
+		ctx.JSON(200, gin.H{
+			"result": result,
+		})
+	})
+
 	r.GET("/random", func(ctx *gin.Context) {
 		var user db.User
 		if r := resource.DB.Current.First(&user); r.Error != nil {

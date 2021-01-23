@@ -1,6 +1,6 @@
 <template>
   <section>
-    <div class="HanziPage container">
+    <div class="HanziPage">
       <form class="field" @submit.prevent="q = q0">
         <div class="control">
           <input
@@ -205,7 +205,7 @@
 
 <script lang="ts">
 import XRegExp from 'xregexp'
-import { Component, Ref, Vue } from 'vue-property-decorator'
+import { Component, Ref, Vue, Watch } from 'vue-property-decorator'
 import ContextMenu from '@/components/ContextMenu.vue'
 import { api } from '@/assets/api'
 import toPinyin from 'chinese-to-pinyin'
@@ -213,14 +213,6 @@ import toPinyin from 'chinese-to-pinyin'
 @Component<HanziPage>({
   components: {
     ContextMenu
-  },
-  watch: {
-    q () {
-      this.onQChange(this.q)
-    },
-    current () {
-      this.load()
-    }
   }
 })
 export default class HanziPage extends Vue {
@@ -322,17 +314,33 @@ export default class HanziPage extends Vue {
     this.context.open(evt)
   }
 
-  onQChange (q: string) {
-    const qs = q.split('').filter((h) => XRegExp('\\p{Han}').test(h))
-    this.$set(
-      this,
-      'entries',
-      qs.filter((h, i) => qs.indexOf(h) === i)
-    )
+  @Watch('q')
+  async onQChange (q: string) {
+    if (XRegExp('\\p{Han}').test(q)) {
+      const qs = q.split('').filter((h) => XRegExp('\\p{Han}').test(h))
+      this.$set(
+        this,
+        'entries',
+        qs.filter((h, i) => qs.indexOf(h) === i)
+      )
+    } else {
+      const r = await api.get<{
+        result: {
+          entry: string;
+        }[];
+      }>('/api/hanzi/q', {
+        params: {
+          q
+        }
+      })
+      this.entries = r.data.result.map(({ entry }) => entry)
+    }
+
     this.i = 0
     this.load()
   }
 
+  @Watch('current')
   load () {
     if (this.current) {
       this.loadHanzi()

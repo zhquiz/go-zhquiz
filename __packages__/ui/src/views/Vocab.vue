@@ -1,6 +1,6 @@
 <template>
   <section>
-    <div class="VocabPage contain">
+    <div class="VocabPage">
       <form class="field" @submit.prevent="q = q0">
         <div class="control">
           <input
@@ -16,7 +16,11 @@
 
       <div class="columns">
         <div class="column is-6 entry-display">
-          <div class="vocab-display">
+          <div
+            :class="
+              simplified.length > 3 ? 'smaller-vocab-display' : 'vocab-display'
+            "
+          >
             <div
               class="clickable text-center font-zh-simp"
               @contextmenu.prevent="

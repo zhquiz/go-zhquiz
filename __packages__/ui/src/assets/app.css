@@ -37,6 +37,10 @@
   font-size: 120px;
 }
 
+.smaller-vocab-display {
+  font-size: 80px;
+}
+
 .text-w-normal {
   font-weight: normal !important;
 }
