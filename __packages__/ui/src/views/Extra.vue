@@ -229,7 +229,6 @@ export default class ExtraPage extends Vue {
     })
 
     this.tableData = result
-    this.$set(this, 'tableData', this.tableData)
     this.count = count
   }
 

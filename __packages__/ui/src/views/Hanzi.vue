@@ -318,11 +318,7 @@ export default class HanziPage extends Vue {
   async onQChange (q: string) {
     if (XRegExp('\\p{Han}').test(q)) {
       const qs = q.split('').filter((h) => XRegExp('\\p{Han}').test(h))
-      this.$set(
-        this,
-        'entries',
-        qs.filter((h, i) => qs.indexOf(h) === i)
-      )
+      this.entries = qs.filter((h, i) => qs.indexOf(h) === i)
     } else {
       const r = await api.get<{
         result: {
@@ -377,8 +373,7 @@ export default class HanziPage extends Vue {
         q: this.current
       }
     })
-
-    this.$set(this, 'vocabs', result)
+    this.vocabs = result
   }
 
   async loadSentences () {
@@ -397,20 +392,15 @@ export default class HanziPage extends Vue {
         select: 'chinese,english'
       }
     })
+    this.sentences = result.map((r) => {
+      const out = {
+        chinese: r.chinese,
+        pinyin: toPinyin(r.chinese, { keepRest: true, toneToNumber: true }),
+        english: r.english.split('\x1f')[0]
+      }
 
-    this.$set(
-      this,
-      'sentences',
-      result.map((r) => {
-        const out = {
-          chinese: r.chinese,
-          pinyin: toPinyin(r.chinese, { keepRest: true, toneToNumber: true }),
-          english: r.english.split('\x1f')[0]
-        }
-
-        return out
-      })
-    )
+      return out
+    })
   }
 }
 </script>

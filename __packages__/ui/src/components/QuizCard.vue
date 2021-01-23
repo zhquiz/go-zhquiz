@@ -361,7 +361,13 @@ export default class QuizCard extends Vue {
   dictionaryData = {
     hanzi: {} as Record<string, Record<string, unknown>>,
     vocab: {} as Record<string, Record<string, unknown>>,
-    sentence: {} as Record<string, Record<string, unknown>>,
+    sentence: {} as Record<
+      string,
+      {
+        pinyin: string;
+        english: string;
+      }
+    >,
     extra: {} as Record<string, Record<string, unknown>>
   }
 
@@ -369,8 +375,16 @@ export default class QuizCard extends Vue {
 
   getSentences (
     entry = this.current.entry as string
-  ): Record<string, unknown>[] {
-    const out: Record<string, unknown>[] = []
+  ): {
+    chinese: string;
+    pinyin: string;
+    english: string;
+  }[] {
+    const out: {
+      chinese: string;
+      pinyin: string;
+      english: string;
+    }[] = []
 
     for (const [chinese, v] of Object.entries(this.dictionaryData.sentence)) {
       if (chinese.includes(entry)) {

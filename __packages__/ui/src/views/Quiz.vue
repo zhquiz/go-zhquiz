@@ -301,23 +301,23 @@ export default class QuizPage extends Vue {
       r['settings.quiz'] || {}
 
     if (type) {
-      this.$set(this, 'type', type)
+      this.type = type
     }
 
     if (stage) {
-      this.$set(this, 'stage', stage)
+      this.stage = stage
     }
 
     if (direction) {
-      this.$set(this, 'direction', direction)
+      this.direction = direction
     }
 
     if (typeof includeExtra !== 'undefined') {
-      this.$set(this, 'includeExtra', includeExtra)
+      this.includeExtra = includeExtra
     }
 
     if (typeof includeUndue !== 'undefined') {
-      this.$set(this, 'includeUndue', includeUndue)
+      this.includeUndue = includeUndue
     }
 
     this.q = q || ''
@@ -361,7 +361,7 @@ export default class QuizPage extends Vue {
       this.quizData[it.id] = it
     })
 
-    this.$set(this, 'quizArray', quizArray)
+    this.quizArray = quizArray
     this.$set(this, 'quizData', this.quizData)
 
     this.dueIn = dueIn ? new Date(dueIn) : null

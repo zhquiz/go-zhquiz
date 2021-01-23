@@ -25,7 +25,5 @@ func main() {
 		signal.Notify(c, os.Interrupt, os.Kill)
 
 		<-c
-
-		res.Cleanup()
 	}
 }

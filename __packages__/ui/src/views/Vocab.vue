@@ -283,7 +283,6 @@ export default class VocabPage extends Vue {
 
     if (entry) {
       this.entries = [entry]
-      this.$set(this, 'entries', [entry])
       await this.loadContent()
     } else {
       await this.onQChange(this.q0)
@@ -399,6 +398,7 @@ export default class VocabPage extends Vue {
     }
 
     if (!entry) {
+      this.sentences = []
       return
     }
 
@@ -418,15 +418,11 @@ export default class VocabPage extends Vue {
       })
       .then((r) => r.data)
 
-    this.$set(
-      this,
-      'sentences',
-      r.result.map((r) => ({
-        chinese: r.chinese,
-        pinyin: toPinyin(r.chinese, { keepRest: true, toneToNumber: true }),
-        english: r.english.split('\x1f')[0]
-      }))
-    )
+    this.sentences = r.result.map((r) => ({
+      chinese: r.chinese,
+      pinyin: toPinyin(r.chinese, { keepRest: true, toneToNumber: true }),
+      english: r.english.split('\x1f')[0]
+    }))
   }
 }
 </script>

@@ -158,8 +158,6 @@ export default class LevelPage extends Vue {
         return a.entries.length > 0
       })
       .sort((a, b) => a.level - b.level)
-
-    this.$set(this, 'currentData', this.currentData)
   }
 
   getTagClass (item: string) {
