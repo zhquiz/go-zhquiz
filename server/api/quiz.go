@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -22,10 +23,12 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 
 	r.GET("/many", func(ctx *gin.Context) {
 		var query struct {
-			IDs     string `form:"ids"`
-			Entries string `form:"entries"`
-			Type    string `form:"type" binding:"oneof=hanzi vocab sentence extra ''"`
-			Select  string `form:"select"`
+			IDs       string `form:"ids"`
+			Entries   string `form:"entries"`
+			Type      string `form:"type" binding:"oneof=hanzi vocab sentence extra ''"`
+			Source    string `form:"source"`
+			Direction string `form:"direction"`
+			Select    string `form:"select"`
 		}
 
 		if e := ctx.BindQuery(&query); e != nil {
@@ -43,10 +46,12 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 		}
 
 		quizGetter(ctx, getterBody{
-			IDs:     ids,
-			Entries: entries,
-			Type:    query.Type,
-			Select:  strings.Split(query.Select, ","),
+			IDs:       ids,
+			Entries:   entries,
+			Type:      query.Type,
+			Source:    query.Source,
+			Direction: query.Direction,
+			Select:    strings.Split(query.Select, ","),
 		})
 	})
 
@@ -106,6 +111,78 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 
 		ctx.JSON(200, gin.H{
 			"result": out,
+		})
+	})
+
+	r.GET("/leech", func(ctx *gin.Context) {
+		var query struct {
+			Q       string `form:"q"`
+			Page    string `form:"page" binding:"required"`
+			PerPage string `form:"perPage" binding:"required"`
+			Sort    string `form:"sort"`
+			Order   string `form:"order" binding:"oneof=desc asc"`
+		}
+
+		if e := ctx.BindQuery(&query); e != nil {
+			ctx.AbortWithError(400, e)
+			return
+		}
+
+		page := 1
+		p, e := strconv.Atoi(query.Page)
+		if e != nil {
+			ctx.AbortWithError(400, e)
+			return
+		}
+		page = p
+
+		perPage := 5
+		p, e = strconv.Atoi(query.PerPage)
+		if e != nil {
+			ctx.AbortWithError(400, e)
+			return
+		}
+		perPage = p
+
+		sort := map[string]string{
+			"id":        "id",
+			"entry":     "entry",
+			"type":      "[type]",
+			"direction": "direction",
+			"source":    "source",
+		}[query.Sort]
+
+		if sort == "" {
+			sort = "wrong_streak DESC, last_right DESC"
+		} else {
+			sort = sort + " " + query.Order
+		}
+
+		result := make([]db.Quiz, 0)
+
+		var count int64 = 0
+
+		q := resource.DB.Current.Model(&db.Quiz{}).
+			Select("id", "entry", "type", "direction", "last_right", "wrong_streak").
+			Where("wrong_streak >= 2")
+
+		if query.Q != "" {
+			q = q.Where(`id IN (
+				SELECT id FROM quiz_q WHERE quiz_q MATCH ?
+			)`, query.Q)
+		}
+
+		if r := q.Count(&count); r.Error != nil {
+			panic(r.Error)
+		}
+
+		if r := q.Limit(perPage).Order(sort).Offset((page - 1) * perPage).Find(&result); r.Error != nil {
+			panic(r.Error)
+		}
+
+		ctx.JSON(200, gin.H{
+			"result": result,
+			"count":  count,
 		})
 	})
 
@@ -209,22 +286,9 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 		q := resource.DB.Current.Model(&db.Quiz{})
 
 		if query.Q != "" {
-			var sel []struct {
-				ID string
-			}
-			// Ignore errors
-			resource.DB.Current.Raw("SELECT id FROM quiz_q WHERE quiz_q MATCH ?", query.Q).Find(&sel)
-
-			var ids []string
-			for _, s := range sel {
-				ids = append(ids, s.ID)
-			}
-
-			if len(ids) > 0 {
-				q = q.Where("id IN ?", ids)
-			} else {
-				q = q.Where("FALSE")
-			}
+			q = q.Where(`id IN (
+				SELECT id FROM quiz_q WHERE quiz_q MATCH ?
+			)`, query.Q)
 		}
 
 		var orCond []string
@@ -588,10 +652,12 @@ func (ls quizInitOutputList) Swap(i, j int) {
 }
 
 type getterBody struct {
-	IDs     []string `json:"ids"`
-	Entries []string `json:"entries"`
-	Type    string   `json:"type"`
-	Select  []string `json:"select" binding:"required,min=1"`
+	IDs       []string `json:"ids"`
+	Entries   []string `json:"entries"`
+	Type      string   `json:"type"`
+	Source    string   `json:"source"`
+	Direction string   `json:"direction"`
+	Select    []string `json:"select" binding:"required,min=1"`
 }
 
 func quizGetter(ctx *gin.Context, body getterBody) {
@@ -633,6 +699,16 @@ func quizGetter(ctx *gin.Context, body getterBody) {
 	if body.Type != "" {
 		andWhere = append(andWhere, "quiz.type = @type")
 		cond["type"] = body.Type
+	}
+
+	if body.Source != "" {
+		andWhere = append(andWhere, "quiz.source = @source")
+		cond["source"] = body.Source
+	}
+
+	if body.Direction != "" {
+		andWhere = append(andWhere, "quiz.direction = @direction")
+		cond["direction"] = body.Direction
 	}
 
 	out := make([]map[string]interface{}, 0)

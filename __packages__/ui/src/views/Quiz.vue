@@ -171,7 +171,88 @@
 
       <QuizCard ref="quizCard" :quiz-array="quizArray" @quiz:ended="reload" />
 
+      <b-collapse class="card" animation="slide" :open.sync="leechCard.isOpen">
+        <div
+          slot="trigger"
+          slot-scope="props"
+          class="card-header"
+          role="button"
+        >
+          <p class="card-header-title">
+            Leech list
+          </p>
+          <a role="button" class="card-header-icon">
+            <fontawesome :icon="props.open ? 'caret-down' : 'caret-up'" />
+          </a>
+        </div>
+        <div class="card-content">
+          <form @submit.prevent="onLeechCardSubmit">
+            <b-field label="Search">
+              <b-input v-model="leechCard.q"></b-input>
+            </b-field>
+          </form>
+
+          <b-table
+            :data="leechCard.data"
+            paginated
+            backend-pagination
+            :total="leechCard.total"
+            :current-page.sync="leechCard.page"
+            :per-page="leechCard.perPage"
+            backend-sorting
+            :default-sort="[leechCard.sort.field, leechCard.sort.order]"
+            @sort="onLeechSort"
+            @contextmenu="onLeechContextmenu"
+          >
+            <b-table-column field="entry" label="Entry" sortable v-slot="props">
+              <span class="hover-blue cursor-pointer">
+                {{ props.row.entry }}
+              </span>
+            </b-table-column>
+
+            <b-table-column field="type" label="Type" sortable v-slot="props">
+              {{ props.row.type }}
+            </b-table-column>
+
+            <b-table-column
+              field="direction"
+              label="Direction"
+              sortable
+              v-slot="props"
+            >
+              {{ props.row.direction }}
+            </b-table-column>
+
+            <b-table-column
+              field="wrongStreak"
+              label="Wrong Streak"
+              sortable
+              v-slot="props"
+            >
+              {{ props.row.wrongStreak }}
+            </b-table-column>
+
+            <b-table-column
+              field="lastRight"
+              label="Last Right"
+              sortable
+              v-slot="props"
+            >
+              {{ props.row.lastRight | formatDate }}
+            </b-table-column>
+          </b-table>
+        </div>
+      </b-collapse>
+
       <b-loading :active="isLoading" />
+
+      <ContextMenu
+        ref="context"
+        :type="leechCard.current.type"
+        :entry="leechCard.current.entry"
+        :source="leechCard.current.source"
+        :direction="leechCard.current.direction"
+      />
     </div>
   </section>
 </template>
@@ -182,6 +263,14 @@ import { Component, Ref, Vue, Watch } from 'vue-property-decorator'
 import QuizCard, { IQuizData, IQuizType } from '@/components/QuizCard.vue'
 import ContextMenu from '@/components/ContextMenu.vue'
 import { api } from '@/assets/api'
+
+interface ILeechCard {
+  id: string;
+  entry: string;
+  type: string;
+  direction: string;
+  source?: string;
+}
 
 @Component<QuizPage>({
   components: {
@@ -234,10 +323,43 @@ import { api } from '@/assets/api'
 })
 export default class QuizPage extends Vue {
   @Ref() quizCard!: QuizCard
+  @Ref() context!: ContextMenu
 
   isLoading = false
   isInit = false
   isQuizDashboardReady = false
+
+  leechCard: {
+    q: string;
+    isOpen: boolean;
+    page: number;
+    total: number;
+    perPage: number;
+    sort: {
+      field: string;
+      order: 'desc' | 'asc';
+    };
+    data: ILeechCard[];
+    current: ILeechCard;
+  } = {
+    q: '',
+    isOpen: false,
+    page: 1,
+    total: 0,
+    perPage: 5,
+    sort: {
+      field: '',
+      order: 'desc'
+    },
+    data: [],
+    current: {
+      id: '',
+      entry: '',
+      type: '',
+      direction: '',
+      source: ''
+    }
+  }
 
   q = ''
 
@@ -370,6 +492,67 @@ export default class QuizPage extends Vue {
   async startQuiz () {
     await this.quizCard.startQuiz()
   }
+
+  @Watch('leechCard.isOpen')
+  onLeechCardOpen () {
+    if (this.leechCard.isOpen) {
+      this.leechCard.q = ''
+      this.onLeechCardSubmit()
+    }
+  }
+
+  onLeechCardSubmit () {
+    this.leechCard.page = 1
+    this.leechCard.sort = {
+      field: '',
+      order: 'asc'
+    }
+    this.loadLeechCard()
+  }
+
+  @Watch('leechCard.page')
+  async loadLeechCard () {
+    const { result, count } = await api
+      .get<{
+        result: {
+          id: string;
+          entry: string;
+          type: string;
+          direction: string;
+          source?: string;
+        }[];
+        count: number;
+      }>('/api/quiz/leech', {
+        params: {
+          q: this.leechCard.q,
+          page: this.leechCard.page,
+          perPage: this.leechCard.perPage,
+          sort: this.leechCard.sort.field,
+          order: this.leechCard.sort.order
+        }
+      })
+      .then((r) => r.data)
+
+    console.log(count)
+
+    this.leechCard.data = result
+    this.leechCard.total = count
+  }
+
+  onLeechSort (field: string, order: 'desc' | 'asc') {
+    this.leechCard.sort = {
+      field,
+      order
+    }
+    this.loadLeechCard()
+  }
+
+  onLeechContextmenu (row: ILeechCard, evt: MouseEvent) {
+    evt.preventDefault()
+
+    this.leechCard.current = row
+    this.context.open(evt)
+  }
 }
 </script>
 
@@ -452,6 +635,14 @@ export default class QuizPage extends Vue {
 
 .edit-modal .card-footer {
   padding: 1rem;
+}
+
+.hover-blue:hover {
+  color: blue;
+}
+
+.cursor-pointer {
+  cursor: pointer;
 }
 
 @keyframes ripple {

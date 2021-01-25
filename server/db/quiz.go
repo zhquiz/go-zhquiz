@@ -14,15 +14,15 @@ import (
 
 // Quiz is the database model for quiz
 type Quiz struct {
-	ID        string `gorm:"primaryKey"`
+	ID        string `gorm:"primaryKey" json:"id"`
 	CreatedAt time.Time
 	UpdatedAt time.Time
 
 	// Entry references
-	Entry     string `gorm:"index:quiz_unique_idx,unique;not null"`
-	Type      string `gorm:"index:quiz_unique_idx,unique;not null;check:[type] in ('hanzi','vocab','sentence')"`
-	Direction string `gorm:"index:quiz_unique_idx,unique;not null;check:direction in ('se','ec','te')"`
-	Source    string `gorm:"index;not null"`
+	Entry     string `gorm:"index:quiz_unique_idx,unique;not null" json:"entry"`
+	Type      string `gorm:"index:quiz_unique_idx,unique;not null;check:[type] in ('hanzi','vocab','sentence')" json:"type"`
+	Direction string `gorm:"index:quiz_unique_idx,unique;not null;check:direction in ('se','ec','te')" json:"direction"`
+	Source    string `gorm:"index;not null" json:"source"`
 
 	Description string `gorm:"-"`
 	Tag         string `gorm:"-"`
@@ -30,10 +30,10 @@ type Quiz struct {
 	// Quiz statistics
 	SRSLevel    *int8      `gorm:"index"`
 	NextReview  *time.Time `gorm:"index"`
-	LastRight   *time.Time `gorm:"index"`
+	LastRight   *time.Time `gorm:"index" json:"lastRight"`
 	LastWrong   *time.Time `gorm:"index"`
 	RightStreak *uint      `gorm:"index"`
-	WrongStreak *uint      `gorm:"index"`
+	WrongStreak *uint      `gorm:"index" json:"wrongStreak"`
 	MaxRight    *uint      `gorm:"index"`
 	MaxWrong    *uint      `gorm:"index"`
 }
@@ -306,12 +306,14 @@ func getNextReview(srsLevel int8) time.Time {
 		return time.Now().Add(srsMap[srsLevel])
 	}
 
-	return time.Now().Add(10 * time.Minute)
+	return time.Now().Add(1 * time.Hour)
 }
 
 // UpdateSRSLevel updates SRSLevel and also updates stats
 func (q *Quiz) UpdateSRSLevel(dSRSLevel int8) {
 	if dSRSLevel > 0 {
+		*q.LastRight = time.Now()
+
 		if q.RightStreak == nil {
 			var s uint = 0
 			q.RightStreak = &s
@@ -323,6 +325,8 @@ func (q *Quiz) UpdateSRSLevel(dSRSLevel int8) {
 			q.MaxRight = q.RightStreak
 		}
 	} else if dSRSLevel < 0 {
+		*q.LastWrong = time.Now()
+
 		if q.WrongStreak == nil {
 			var s uint = 0
 			q.WrongStreak = &s

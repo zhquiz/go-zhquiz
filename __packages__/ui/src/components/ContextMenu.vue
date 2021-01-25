@@ -111,6 +111,7 @@ export default class ContextMenu extends Vue {
   @Prop() entry?: string | string[]
   @Prop() type?: string
   @Prop() source?: string
+  @Prop() direction?: string
   @Prop() description?: string
   @Prop({ default: () => ({}) }) pinyin!: Record<string, string>
   @Prop({ default: () => ({}) }) english!: Record<string, string>
@@ -166,7 +167,8 @@ export default class ContextMenu extends Vue {
           entries: this.entries,
           select: ['id', 'entry'],
           type: this.type,
-          source: this.source
+          source: this.source,
+          direction: this.direction
         }
       })
 

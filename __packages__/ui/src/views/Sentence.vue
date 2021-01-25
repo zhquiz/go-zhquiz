@@ -105,7 +105,7 @@ export default class SentencePage extends Vue {
     evt.preventDefault()
 
     this.selected = row.chinese
-    await this.context.open(evt)
+    this.context.open(evt)
   }
 }
 </script>
