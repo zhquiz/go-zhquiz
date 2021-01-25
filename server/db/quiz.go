@@ -255,12 +255,15 @@ func (q *Quiz) Create(tx *gorm.DB) (err error) {
 		}
 	} else {
 		if r := tx.Exec(`
-		INSERT INTO quiz_q (id, [entry], [level], [pinyin], [english], [description], [tag])
-		SELECT @id, @entry, @level, @pinyin, @english, @description, @tag
+		INSERT INTO quiz_q (id, [entry], [pinyin], [english], [type], [direction], [source], [description], [tag])
+		SELECT @id, @entry, @pinyin, @english, @type, @direction, @source, @description, @tag
 		WHERE EXISTS (SELECT 1 FROM quiz WHERE id = @id)
 		`, map[string]interface{}{
 			"id":          q.ID,
 			"entry":       parseChinese(entry),
+			"type":        q.Type,
+			"direction":   q.Direction,
+			"source":      q.Source,
 			"level":       level,
 			"pinyin":      parsePinyin(pinyin),
 			"english":     english,
@@ -311,8 +314,10 @@ func getNextReview(srsLevel int8) time.Time {
 
 // UpdateSRSLevel updates SRSLevel and also updates stats
 func (q *Quiz) UpdateSRSLevel(dSRSLevel int8) {
+	now := time.Now()
+
 	if dSRSLevel > 0 {
-		*q.LastRight = time.Now()
+		q.LastRight = &now
 
 		if q.RightStreak == nil {
 			var s uint = 0
@@ -325,7 +330,7 @@ func (q *Quiz) UpdateSRSLevel(dSRSLevel int8) {
 			q.MaxRight = q.RightStreak
 		}
 	} else if dSRSLevel < 0 {
-		*q.LastWrong = time.Now()
+		q.LastWrong = &now
 
 		if q.WrongStreak == nil {
 			var s uint = 0

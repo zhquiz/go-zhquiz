@@ -58,7 +58,7 @@ func (u *Extra) Create(tx *gorm.DB) error {
 	LEFT JOIN extra ON extra.id = extra_q.id
 	WHERE extra_q.id = ?
 	`, u.ID).Scan(&old); r.Error != nil && !errors.Is(r.Error, gorm.ErrRecordNotFound) {
-		panic(r.Error)
+		return r.Error
 	}
 
 	descSet := map[string]bool{}
@@ -124,7 +124,7 @@ func (u *Extra) Create(tx *gorm.DB) error {
 			"description": description,
 			"id":          old.ID,
 		}); r.Error != nil {
-			panic(r.Error)
+			return r.Error
 		}
 
 		if r := tx.Exec(`
@@ -134,7 +134,21 @@ func (u *Extra) Create(tx *gorm.DB) error {
 			"tag":         old.Tag,
 			"id":          old.ID,
 		}); r.Error != nil {
-			panic(r.Error)
+			return r.Error
+		}
+
+		if r := tx.Exec(`
+		UPDATE quiz_q SET pinyin = @pinyin, english = @english, description = @description, tag = @tag
+		WHERE entry = @chinese AND source = 'extra'
+		`, map[string]interface{}{
+			"chinese":     u.Chinese,
+			"pinyin":      parsePinyin(u.Pinyin),
+			"english":     u.English,
+			"description": descriptionParsed,
+			"tag":         old.Tag,
+			"id":          old.ID,
+		}); r.Error != nil {
+			return r.Error
 		}
 	} else {
 		if r := tx.Exec(`
@@ -149,7 +163,7 @@ func (u *Extra) Create(tx *gorm.DB) error {
 			"description": descriptionParsed,
 			"tag":         old.Tag,
 		}); r.Error != nil {
-			panic(r.Error)
+			return r.Error
 		}
 	}
 
@@ -182,6 +196,21 @@ func (u *Extra) Update(tx *gorm.DB) error {
 		"type":        u.Type,
 		"description": parseChinese(u.Description),
 		"tag":         u.Tag,
+	}); r.Error != nil {
+		return r.Error
+	}
+
+	if r := tx.Exec(`
+	UPDATE quiz_q SET pinyin = @pinyin, english = @english, description = @description, tag = @tag, type = @type
+	WHERE entry = @chinese AND source = 'extra'
+	`, map[string]interface{}{
+		"chinese":     u.Chinese,
+		"type":        u.Type,
+		"pinyin":      parsePinyin(u.Pinyin),
+		"english":     u.English,
+		"description": parseChinese(u.Description),
+		"tag":         u.Tag,
+		"id":          u.ID,
 	}); r.Error != nil {
 		return r.Error
 	}

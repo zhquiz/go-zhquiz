@@ -59,8 +59,7 @@ func routerExtra(apiRouter *gin.RouterGroup) {
 		}
 
 		page := 1
-
-		if query.Page == nil {
+		{
 			a, e := strconv.Atoi(*query.Page)
 			if e != nil {
 				ctx.AbortWithError(400, e)
@@ -70,8 +69,7 @@ func routerExtra(apiRouter *gin.RouterGroup) {
 		}
 
 		perPage := 10
-
-		if query.PerPage == nil {
+		{
 			a, e := strconv.Atoi(*query.PerPage)
 			if e != nil {
 				ctx.AbortWithError(400, e)
@@ -102,29 +100,28 @@ func routerExtra(apiRouter *gin.RouterGroup) {
 			)`, query.Q)
 		}
 
-		var getCount struct {
-			Count int
-		}
+		q = q.Group("extra.id")
 
-		if r := q.Select("COUNT(1) AS [Count]").Scan(&getCount); r.Error != nil {
+		var count int64
+
+		if r := q.Count(&count); r.Error != nil {
 			panic(r.Error)
 		}
 
 		out := struct {
 			Result []map[string]interface{} `json:"result"`
-			Count  int                      `json:"count"`
+			Count  int64                    `json:"count"`
 		}{
 			Result: make([]map[string]interface{}, 0),
-			Count:  getCount.Count,
+			Count:  count,
 		}
 
 		if r := q.
-			Group("extra.id").
 			Select(strings.Join(sel, ",")).
 			Order(sorter + sortDirection).
 			Limit(perPage).
 			Offset((page - 1) * perPage).
-			Scan(&out.Result); r.Error != nil {
+			Find(&out.Result); r.Error != nil {
 			panic(r.Error)
 		}
 

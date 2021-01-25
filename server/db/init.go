@@ -51,27 +51,14 @@ func Connect() DB {
 		&Sentence{},
 	)
 
-	var count int64
-	output.Current.Find(&User{}).Count(&count)
-	if count == 0 {
-		if r := output.Current.Create(&User{}); r.Error != nil {
-			log.Fatalln(r.Error)
-		}
-	}
-
 	if r := output.Current.Raw("SELECT Name FROM sqlite_master WHERE type='table' AND name='quiz_q'").First(&struct {
 		Name string
 	}{}); r.Error != nil {
 		if errors.Is(r.Error, gorm.ErrRecordNotFound) {
 			output.Current.Exec(`
-			CREATE VIRTUAL TABLE quiz_q USING fts5(
-				[id],
-				[entry],
-				[level],
-				[pinyin],
-				[english],
-				[description],
-				[tag]
+			CREATE VIRTUAL TABLE "quiz_q" USING fts5 (
+				[id], [entry], [pinyin], [english], [description], [tag],
+				[type], [direction], [source]
 			);
 			`)
 
