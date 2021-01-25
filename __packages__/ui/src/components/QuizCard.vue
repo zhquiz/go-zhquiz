@@ -456,7 +456,7 @@ export default class QuizCard extends Vue {
     this.current = (() => {
       let it: IQuizData
       while (true) {
-        it = this.quizData[this.quizArray[this.quizIndex++]]
+        it = this.quizData[this.quizArray[++this.quizIndex]]
 
         if (it && it.entry && (it.source || it.type)) {
           break
