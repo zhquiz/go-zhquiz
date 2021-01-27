@@ -263,10 +263,9 @@ export default class VocabPage extends Vue {
   }
 
   async created () {
-    const entry = this.$route.query.entry as string
+    let entry = this.$route.query.entry as string
 
-    this.q0 = entry || this.q
-    if (!this.q0) {
+    if (!(entry || this.q)) {
       const {
         data: { result }
       } = await api.get<{
@@ -278,8 +277,10 @@ export default class VocabPage extends Vue {
         }
       })
 
-      this.q0 = result
+      entry = result
     }
+
+    this.q0 = entry || this.q
 
     if (entry) {
       const { frameElement } = window
@@ -356,6 +357,7 @@ export default class VocabPage extends Vue {
   async loadContent () {
     let entry = this.entries[this.i]
     if (!entry) {
+      this.sentences = []
       return
     }
 
