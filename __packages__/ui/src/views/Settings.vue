@@ -67,7 +67,24 @@
 import { api } from '@/assets/api'
 import { Component, Vue } from 'vue-property-decorator'
 
-@Component
+@Component<SettingsPage>({
+  async created () {
+    const { frameElement } = window
+    if (frameElement) {
+      const id = parseInt(frameElement.getAttribute('data-id') || '')
+      window.parent.setName(id, 'Settings')
+    }
+
+    this.lv = [
+      this.$accessor.settings.levelMin || this.lvRange[0],
+      this.$accessor.settings.level || this.lvRange[1]
+    ]
+    this.sentenceLength = [
+      this.$accessor.settings.sentenceMin || this.sentenceLengthRange[0],
+      this.$accessor.settings.sentenceMax || this.sentenceLengthRange[1]
+    ]
+  }
+})
 export default class SettingsPage extends Vue {
   readonly lvRange = [1, 60]
   readonly sentenceLengthRange = [2, 20]
@@ -78,17 +95,6 @@ export default class SettingsPage extends Vue {
   get email () {
     // return this.$accessor.user || ''
     return this.$store.state.user
-  }
-
-  async created () {
-    this.lv = [
-      this.$accessor.settings.levelMin || this.lvRange[0],
-      this.$accessor.settings.level || this.lvRange[1]
-    ]
-    this.sentenceLength = [
-      this.$accessor.settings.sentenceMin || this.sentenceLengthRange[0],
-      this.$accessor.settings.sentenceMax || this.sentenceLengthRange[1]
-    ]
   }
 
   clone<T> (o: T): T {

@@ -87,6 +87,11 @@ import toPinyin from 'chinese-to-pinyin'
     ContextMenu
   },
   created () {
+    const { frameElement } = window
+    if (frameElement) {
+      const id = parseInt(frameElement.getAttribute('data-id') || '')
+      window.parent.setName(id, 'Level')
+    }
     this.init()
   },
   watch: {

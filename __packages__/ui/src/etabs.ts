@@ -1,3 +1,5 @@
+/* eslint-disable no-new */
+/* eslint-disable @typescript-eslint/no-use-before-define */
 import 'buefy/dist/buefy.css'
 
 import './etabs.scss'
@@ -5,108 +7,189 @@ import './etabs.scss'
 declare global {
   interface Window {
     openExternal?: (url: string) => void;
+    setName: (id: number, name: string) => void;
   }
 }
 
-const navEl = document.querySelector('nav') as HTMLElement
 const tabEl = document.querySelector('nav > ul') as HTMLUListElement
 const mainEl = document.querySelector('main') as HTMLElement
-const originalOpen = window.open
+let plusEl = createPlusEl()
 
-navEl.classList.remove('tabs')
-tabEl.style.display = 'none'
-
-window.open = function (url = '', title = '') {
-  if (!url.startsWith('/#/')) {
-    if (window.openExternal) {
-      window.openExternal(url)
-      return null
-    }
-
-    return originalOpen(url, '_blank', 'noopener noreferrer')
-  }
-
+function createPlusEl () {
   const li = document.createElement('li')
-  li.className = 'is-active'
+  plusEl = li
 
   const liA = document.createElement('a')
-  li.append(liA)
-  liA.innerText = title
+  liA.innerText = '+'
   liA.setAttribute('role', 'button')
   liA.onclick = () => {
-    const index = Array.from(tabEl.querySelectorAll('li > a')).indexOf(liA)
-
-    tabEl.querySelectorAll('li').forEach((el, i) => {
-      if (i !== index) {
-        el.classList.remove('is-active')
-      } else {
-        el.classList.add('is-active')
-      }
-    })
-
-    mainEl.querySelectorAll('iframe').forEach((el, i) => {
-      if (i !== index) {
-        el.style.display = 'none'
-      } else {
-        el.style.display = 'block'
-      }
-    })
+    new Tab({ isPlus: true })
   }
 
-  if (tabEl.querySelector('li')) {
-    const liAClose = document.createElement('a')
-    liAClose.className = 'delete is-small'
-    liAClose.onclick = () => {
-      let i = Array.from(tabEl.querySelectorAll('li > a')).indexOf(liA)
-      if (i < 1) {
+  li.append(liA)
+  tabEl.append(li)
+
+  return li
+}
+
+const originalOpen = window.open
+window.open = function (url) {
+  return new Tab({ url }).iframeElement?.contentWindow || null
+}
+
+const tabList: Tab[] = []
+
+window.setName = function (id, name) {
+  const t = tabList[id]
+  if (t) {
+    t.titleElement.innerText = name
+  }
+}
+
+class Tab {
+  url: string
+  titleElement!: HTMLSpanElement
+  iframeElement!: HTMLIFrameElement
+
+  constructor (
+    opts: {
+      url?: string;
+      permanent?: boolean;
+      isPlus?: boolean;
+    } = {}
+  ) {
+    if (plusEl && !opts.isPlus) {
+      plusEl.remove()
+    }
+
+    const url = opts.url || '/#/'
+    this.url = url
+
+    /**
+     * 1. Divert external
+     */
+    if (!url.startsWith('/#/')) {
+      if (window.openExternal) {
+        window.openExternal(url)
         return
       }
 
-      const li = Array.from(tabEl.querySelectorAll('li'))[i]
-      if (li.classList.contains('is-active')) {
-        setTimeout(() => {
-          i--
-
-          Array.from(tabEl.querySelectorAll('li'))[i].classList.add('is-active')
-          Array.from(mainEl.querySelectorAll('iframe'))[i].style.display = ''
-        }, 10)
-      }
-
-      li.remove()
-
-      const iframe = Array.from(mainEl.querySelectorAll('iframe'))[i]
-      iframe.remove()
-
-      if (Array.from(tabEl.querySelectorAll('li')).length <= 1) {
-        navEl.classList.remove('tabs')
-        tabEl.style.display = 'none'
-      }
+      originalOpen(url, '_blank', 'noopener noreferrer')
+      return
     }
 
-    liA.append(liAClose)
+    /**
+     * 2. Deactivate
+     */
+    tabEl.querySelectorAll('li').forEach((el) => {
+      el.classList.remove('is-active')
+    })
+
+    /**
+     * 3. Add tab
+     */
+    tabEl.append(
+      (() => {
+        const li = opts.isPlus ? plusEl : document.createElement('li')
+        li.textContent = ''
+
+        li.className = 'is-active'
+
+        const liA = document.createElement('a')
+        li.append(liA)
+
+        this.titleElement = document.createElement('span')
+
+        this.titleElement.innerHTML = /* html */ `
+        <div class="loading">
+          <span>·</span>
+          <span>·</span>
+          <span>·</span>
+        </div>
+        `
+
+        liA.append(this.titleElement)
+
+        liA.setAttribute('role', 'button')
+        liA.onclick = () => {
+          const index = Array.from(tabEl.querySelectorAll('li > a')).indexOf(
+            liA
+          )
+
+          tabEl.querySelectorAll('li').forEach((el, i) => {
+            if (i !== index) {
+              el.classList.remove('is-active')
+            } else {
+              el.classList.add('is-active')
+            }
+          })
+
+          mainEl.querySelectorAll('iframe').forEach((el, i) => {
+            if (i !== index) {
+              el.style.display = 'none'
+            } else {
+              el.style.display = 'block'
+            }
+          })
+        }
+
+        if (!opts.permanent) {
+          const liAClose = document.createElement('a')
+          liAClose.className = 'delete is-small'
+          liAClose.onclick = () => {
+            let i = Array.from(tabEl.querySelectorAll('li > a')).indexOf(liA)
+            if (i < 1) {
+              return
+            }
+
+            const li = Array.from(tabEl.querySelectorAll('li'))[i]
+            if (li.classList.contains('is-active')) {
+              setTimeout(() => {
+                i--
+
+                Array.from(tabEl.querySelectorAll('li'))[i].classList.add(
+                  'is-active'
+                )
+                Array.from(mainEl.querySelectorAll('iframe'))[i].style.display =
+                  ''
+              }, 10)
+            }
+
+            li.remove()
+
+            const iframe = Array.from(mainEl.querySelectorAll('iframe'))[i]
+            iframe.remove()
+          }
+
+          liA.append(liAClose)
+        }
+
+        return li
+      })()
+    )
+
+    /**
+     * 4. Add plus
+     */
+    createPlusEl()
+
+    /**
+     * 5. Show iframe
+     */
+    const iframe = document.createElement('iframe')
+    iframe.src = url
+    iframe.setAttribute('data-id', tabList.length.toString())
+
+    this.iframeElement = iframe
+
+    mainEl.querySelectorAll('iframe').forEach((el) => {
+      el.style.display = 'none'
+    })
+
+    mainEl.append(iframe)
+
+    tabList.push(this)
   }
-
-  tabEl.querySelectorAll('li').forEach((el) => {
-    el.classList.remove('is-active')
-  })
-
-  tabEl.append(li)
-
-  if (Array.from(tabEl.querySelectorAll('li')).length > 1) {
-    navEl.classList.add('tabs')
-    tabEl.style.display = ''
-  }
-
-  const iframe = document.createElement('iframe')
-  iframe.src = url
-
-  mainEl.querySelectorAll('iframe').forEach((el) => {
-    el.style.display = 'none'
-  })
-
-  mainEl.append(iframe)
-
-  return iframe.contentWindow
 }
 
-open('/#/', 'Home')
+new Tab({ permanent: true })

@@ -76,6 +76,12 @@ export default class SentencePage extends Vue {
   @Watch('perPage')
   @Watch('q')
   async reload () {
+    const { frameElement } = window
+    if (frameElement) {
+      const id = parseInt(frameElement.getAttribute('data-id') || '')
+      window.parent.setName(id, (this.q ? this.q + ' - ' : '') + 'Sentence')
+    }
+
     const { result, count } = await api
       .get<{
         result: {

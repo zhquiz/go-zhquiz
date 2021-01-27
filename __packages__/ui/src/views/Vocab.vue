@@ -282,6 +282,12 @@ export default class VocabPage extends Vue {
     }
 
     if (entry) {
+      const { frameElement } = window
+      if (frameElement) {
+        const id = parseInt(frameElement.getAttribute('data-id') || '')
+        window.parent.setName(id, (entry ? entry + ' - ' : '') + 'Vocab')
+      }
+
       this.entries = [entry]
       await this.loadContent()
     } else {
@@ -320,6 +326,12 @@ export default class VocabPage extends Vue {
   }
 
   async onQChange (q: string) {
+    const { frameElement } = window
+    if (frameElement) {
+      const id = parseInt(frameElement.getAttribute('data-id') || '')
+      window.parent.setName(id, (q ? q + ' - ' : '') + 'Vocab')
+    }
+
     if (XRegExp('\\p{Han}+').test(q)) {
       let qs = await api
         .get<{

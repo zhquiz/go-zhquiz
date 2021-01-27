@@ -213,6 +213,15 @@ import toPinyin from 'chinese-to-pinyin'
 @Component<HanziPage>({
   components: {
     ContextMenu
+  },
+  async created () {
+    this.q0 = this.q
+
+    if (this.additionalContext[0]) {
+      await this.additionalContext[0].handler()
+    }
+
+    this.onQChange(this.q0)
   }
 })
 export default class HanziPage extends Vue {
@@ -274,16 +283,6 @@ export default class HanziPage extends Vue {
     return this.entries[this.i]
   }
 
-  async created () {
-    this.q0 = this.q
-
-    if (this.additionalContext[0]) {
-      await this.additionalContext[0].handler()
-    }
-
-    this.onQChange(this.q0)
-  }
-
   get additionalContext () {
     if (!this.q) {
       return [
@@ -316,6 +315,12 @@ export default class HanziPage extends Vue {
 
   @Watch('q')
   async onQChange (q: string) {
+    const { frameElement } = window
+    if (frameElement) {
+      const id = parseInt(frameElement.getAttribute('data-id') || '')
+      window.parent.setName(id, (q ? q + ' - ' : '') + 'Hanzi')
+    }
+
     if (XRegExp('\\p{Han}').test(q)) {
       const qs = q.split('').filter((h) => XRegExp('\\p{Han}').test(h))
       this.entries = qs.filter((h, i) => qs.indexOf(h) === i)

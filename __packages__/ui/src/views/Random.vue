@@ -66,6 +66,13 @@ import { api } from '@/assets/api'
   components: {
     ContextMenu
   },
+  created () {
+    const { frameElement } = window
+    if (frameElement) {
+      const id = parseInt(frameElement.getAttribute('data-id') || '')
+      window.parent.setName(id, 'Random')
+    }
+  },
   mounted () {
     Promise.all([
       this.hanzi.additional[0].handler(),

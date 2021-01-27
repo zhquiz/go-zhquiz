@@ -148,6 +148,11 @@ interface ILocal {
     LibraryCard
   },
   async created () {
+    const { frameElement } = window
+    if (frameElement) {
+      const id = parseInt(frameElement.getAttribute('data-id') || '')
+      window.parent.setName(id, 'Library')
+    }
     await Promise.all([this.updateLocal(), this.updateOnline()])
   }
 })

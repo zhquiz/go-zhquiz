@@ -135,6 +135,11 @@ interface IExtra {
     ContextMenu
   },
   created () {
+    const { frameElement } = window
+    if (frameElement) {
+      const id = parseInt(frameElement.getAttribute('data-id') || '')
+      window.parent.setName(id, 'Extra')
+    }
     this.load()
   }
 })

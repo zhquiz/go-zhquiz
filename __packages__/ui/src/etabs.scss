@@ -50,3 +50,35 @@ main > iframe {
     background-color: lightgray !important;
   }
 }
+
+.loading {
+  color: lightgray;
+
+  > span {
+    $n: 3;
+    $speed: 0.1s;
+
+    position: relative;
+    animation: loading (($n + 1) * $speed) infinite;
+
+    @for $i from 1 through $n {
+      &:nth-child(#{$i}) {
+        animation-delay: $i * $speed;
+      }
+    }
+  }
+
+  @keyframes loading {
+    0% {
+      color: inherit;
+    }
+
+    40% {
+      color: gray;
+    }
+
+    100% {
+      color: inherit;
+    }
+  }
+}

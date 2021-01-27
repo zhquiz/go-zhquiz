@@ -278,6 +278,12 @@ interface ILeechCard {
     ContextMenu
   },
   async created () {
+    const { frameElement } = window
+    if (frameElement) {
+      const id = parseInt(frameElement.getAttribute('data-id') || '')
+      window.parent.setName(id, 'Quiz')
+    }
+
     const r = await api
       .get<{
         'settings.quiz': {

@@ -163,6 +163,10 @@ func parseChinese(s string) string {
 		}
 	}(jieba.CutAll(s))
 
+	if len(out) == 0 {
+		out = append(out, s)
+	}
+
 	return strings.Join(out, " ")
 }
 
