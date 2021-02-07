@@ -94,10 +94,9 @@
           </b-field>
           <b-field label="Entries">
             <b-input
-              :value="edited.entries.join(' ')"
+              v-model="entryString"
               type="textarea"
               placeholder="Space separated, must not be empty"
-              @input="(ev) => (edited.entries = ev.split(/ /g))"
             ></b-input>
           </b-field>
           <b-field label="Description">
@@ -134,6 +133,7 @@
 import { api } from '@/assets/api'
 import { Component, Vue, Watch } from 'vue-property-decorator'
 import LibraryCard from '@/components/LibraryCard.vue'
+import XRegExp from 'xregexp'
 
 interface ILocal {
   id: string;
@@ -204,6 +204,19 @@ export default class LibraryPage extends Vue {
     this.$router.push({ query: { q } })
   }
 
+  get entryString () {
+    return this.edited.entries.join(' ')
+  }
+
+  set entryString (s) {
+    const out: string[] = []
+    XRegExp.forEach(s, XRegExp('\\p{Han}+'), (m) => {
+      out.push(m[0])
+    })
+
+    this.edited.entries = out
+  }
+
   additionalContext (it: ILocal) {
     if (!it.id) {
       return []
@@ -211,13 +224,13 @@ export default class LibraryPage extends Vue {
 
     return [
       {
-        name: 'Edit item',
+        name: 'Edit list',
         handler: () => {
           this.openEditModal()
         }
       },
       {
-        name: 'Delete item',
+        name: 'Delete list',
         handler: () => {
           this.doDelete(it.id)
         }
@@ -276,6 +289,7 @@ export default class LibraryPage extends Vue {
   async doCreate () {
     await api.put('/api/library', this.edited)
     this.$buefy.snackbar.open(`Created list: ${this.edited.title}`)
+    this.isEditModal = false
 
     this.local.page = 1
     await this.updateLocal()
@@ -289,6 +303,7 @@ export default class LibraryPage extends Vue {
     })
 
     this.$buefy.snackbar.open(`Updated list: ${this.edited.title}`)
+    this.isEditModal = false
 
     this.local.page = 1
     await this.updateLocal()

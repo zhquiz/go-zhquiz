@@ -178,9 +178,7 @@
           class="card-header"
           role="button"
         >
-          <p class="card-header-title">
-            Leech list
-          </p>
+          <p class="card-header-title">Leech list ({{ leechCard.total }})</p>
           <a role="button" class="card-header-icon">
             <fontawesome :icon="props.open ? 'caret-down' : 'caret-up'" />
           </a>
@@ -453,6 +451,7 @@ export default class QuizPage extends Vue {
     this.isInit = true
     this.isLoading = false
 
+    this.onLeechCardSubmit()
     await this.reload()
   }
 
@@ -499,14 +498,6 @@ export default class QuizPage extends Vue {
     await this.quizCard.startQuiz()
   }
 
-  @Watch('leechCard.isOpen')
-  onLeechCardOpen () {
-    if (this.leechCard.isOpen) {
-      this.leechCard.q = ''
-      this.onLeechCardSubmit()
-    }
-  }
-
   onLeechCardSubmit () {
     this.leechCard.page = 1
     this.leechCard.sort = {
@@ -538,8 +529,6 @@ export default class QuizPage extends Vue {
         }
       })
       .then((r) => r.data)
-
-    console.log(count)
 
     this.leechCard.data = result
     this.leechCard.total = count

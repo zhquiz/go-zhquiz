@@ -124,8 +124,8 @@ func routerLibrary(apiRouter *gin.RouterGroup) {
 		}
 
 		e := resource.DB.Current.Transaction(func(tx *gorm.DB) error {
-			if r := tx.Create(&it); r.Error != nil {
-				return r.Error
+			if e := it.Create(tx); e != nil {
+				return e
 			}
 
 			return nil
