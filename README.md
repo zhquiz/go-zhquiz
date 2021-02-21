@@ -2,7 +2,7 @@
 
 ZhQuiz, a full-offline Chinese quizzing desktop app
 
-![Preview GIF](https://github.com/zhquiz/zhquiz/docs/preview.gif?raw=true)
+![Preview GIF](https://github.com/zhquiz/zhquiz/raw/master/docs/preview.gif)
 
 ## Downloads
 
