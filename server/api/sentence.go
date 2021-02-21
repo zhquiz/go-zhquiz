@@ -232,7 +232,7 @@ func routerSentence(apiRouter *gin.RouterGroup) {
 
 		if len(out.Result) <= generate {
 			var dbSentences []db.Sentence
-			if r := resource.DB.Current.Where("chinese LIKE ?", cond["q"]).Limit(10 - len(out.Result)).Find(&dbSentences); r.Error != nil {
+			if r := resource.DB.Current.Where("chinese LIKE ?", cond["q"]).Limit(generate - len(out.Result)).Find(&dbSentences); r.Error != nil {
 				panic(r.Error)
 			}
 
@@ -283,7 +283,7 @@ func routerSentence(apiRouter *gin.RouterGroup) {
 						}
 					}
 
-					if r := resource.DB.Current.Where("chinese LIKE ?", cond["q"]).Limit(10 - len(out.Result)).Find(&dbSentences); r.Error != nil {
+					if r := resource.DB.Current.Where("chinese LIKE ?", cond["q"]).Limit(generate - len(out.Result)).Find(&dbSentences); r.Error != nil {
 						panic(r.Error)
 					}
 

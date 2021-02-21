@@ -396,7 +396,7 @@ export default class QuizCard extends Vue {
           ...v
         })
 
-        if (out.length >= 10) {
+        if (out.length >= 5) {
           return out
         }
       }
@@ -631,7 +631,7 @@ export default class QuizCard extends Vue {
             english
           }
 
-          if (this.getSentences(entry).length < 10) {
+          if (this.getSentences(entry).length < 5) {
             api
               .get<{
                 result: {
@@ -643,7 +643,7 @@ export default class QuizCard extends Vue {
                 params: {
                   q: entry,
                   select: 'chinese,english',
-                  generate: 10
+                  generate: 5
                 }
               })
               .then(({ data: { result } }) => {
@@ -711,7 +711,7 @@ export default class QuizCard extends Vue {
             english
           }
 
-          if (this.getSentences(entry).length < 10) {
+          if (this.getSentences(entry).length < 5) {
             api
               .get<{
                 result: {
@@ -723,7 +723,7 @@ export default class QuizCard extends Vue {
                 params: {
                   q: entry,
                   select: 'chinese,english',
-                  generate: 10
+                  generate: 5
                 }
               })
               .then(({ data: { result } }) => {
