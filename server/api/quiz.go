@@ -167,9 +167,7 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 			Where("wrong_streak >= 2")
 
 		if query.Q != "" {
-			q = q.Where(`id IN (
-				SELECT id FROM quiz_q WHERE quiz_q MATCH ?
-			)`, query.Q)
+			q = q.Where(qSearch(query.Q))
 		}
 
 		if r := q.Count(&count); r.Error != nil {
@@ -286,9 +284,7 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 		q := resource.DB.Current.Model(&db.Quiz{})
 
 		if query.Q != "" {
-			q = q.Where(`id IN (
-				SELECT id FROM quiz_q WHERE quiz_q MATCH ?
-			)`, query.Q)
+			q = q.Where(qSearch(query.Q))
 		}
 
 		var orCond []string
@@ -724,4 +720,139 @@ func quizGetter(ctx *gin.Context, body getterBody) {
 	ctx.JSON(200, gin.H{
 		"result": out,
 	})
+}
+
+func qSearch(q string) *gorm.DB {
+	qBuilder := resource.DB.Current.Model(&db.Quiz{})
+	segs := make([]string, 0)
+
+	reCmp := regexp.MustCompile("([><]=?)(\\d+)")
+
+	parseV := func(k string, v string, myBuilder *gorm.DB) error {
+		for _, m := range reCmp.FindAllSubmatch([]byte(v), -1) {
+			if len(m) > 2 {
+				n, _ := strconv.Atoi(string(m[2]))
+				myBuilder = myBuilder.Where(fmt.Sprintf("%s %s ?", k, string(m[1])), n)
+			}
+		}
+
+		if n, e := strconv.Atoi(v); e == nil {
+			myBuilder = myBuilder.Where(fmt.Sprintf("%s = ?", k), n)
+		}
+
+		return nil
+	}
+
+	level := ""
+	for _, seg := range strings.Split(q, " ") {
+		kv := strings.SplitN(seg, ":", 2)
+
+		switch kv[0] {
+		case "srsLevel":
+			if e := parseV("srs_level", kv[1], qBuilder); e != nil {
+				panic(e)
+			}
+		case "level":
+			level = kv[1]
+		default:
+			if seg != "" {
+				segs = append(segs, seg)
+			}
+		}
+	}
+
+	if len(segs) > 0 {
+		qBuilder = qBuilder.Where(`id IN (
+			SELECT id FROM quiz_q WHERE quiz_q MATCH ?
+		)`, strings.Join(segs, " "))
+	}
+
+	if level != "" {
+		orCond := resource.DB.Current
+
+		quizzes := make([]db.Quiz, 0)
+		if r := qBuilder.Find(&quizzes); r.Error != nil {
+			panic(r.Error)
+		}
+
+		hanzis := make([]string, 0)
+		vocabs := make([]string, 0)
+		sentences := make([]string, 0)
+
+		for _, el := range quizzes {
+			if el.Source == "extra" {
+				continue
+			}
+
+			switch el.Type {
+			case "hanzi":
+				hanzis = append(hanzis, el.Entry)
+			case "vocab":
+				vocabs = append(vocabs, el.Entry)
+			case "sentence":
+				sentences = append(sentences, el.Entry)
+			}
+		}
+
+		if len(hanzis) > 0 {
+			ts := make([]zh.Token, 0)
+			tBuilder := resource.Zh.Current.Where("entry IN ?", hanzis)
+			if e := parseV("hanzi_level", level, tBuilder); e != nil {
+				panic(e)
+			}
+			if r := tBuilder.Find(&ts); r.Error != nil {
+				panic(r.Error)
+			}
+			hanzis = []string{}
+			for _, t := range ts {
+				hanzis = append(hanzis, t.Entry)
+			}
+
+			if len(hanzis) > 0 {
+				orCond = orCond.Or("[type] = 'hanzi' AND [entry] IN ?", hanzis)
+			}
+		}
+
+		if len(vocabs) > 0 {
+			ts := make([]zh.Token, 0)
+			tBuilder := resource.Zh.Current.Where("entry IN ?", vocabs)
+			if e := parseV("vocab_level", level, tBuilder); e != nil {
+				panic(e)
+			}
+			if r := tBuilder.Find(&ts); r.Error != nil {
+				panic(r.Error)
+			}
+			vocabs = []string{}
+			for _, t := range ts {
+				vocabs = append(vocabs, t.Entry)
+			}
+
+			if len(vocabs) > 0 {
+				orCond = orCond.Or("[type] = 'vocab' AND [entry] IN ?", vocabs)
+			}
+		}
+
+		if len(sentences) > 0 {
+			ts := make([]zh.Sentence, 0)
+			tBuilder := resource.Zh.Current.Where("chinese IN ?", sentences)
+			if e := parseV("level", level, tBuilder); e != nil {
+				panic(e)
+			}
+			if r := tBuilder.Find(&ts); r.Error != nil {
+				panic(r.Error)
+			}
+			sentences = []string{}
+			for _, t := range ts {
+				sentences = append(sentences, t.Chinese)
+			}
+
+			if len(sentences) > 0 {
+				orCond = orCond.Or("[type] = 'sentence' AND [entry] IN ?", sentences)
+			}
+		}
+
+		qBuilder = qBuilder.Where(orCond.Or("FALSE"))
+	}
+
+	return qBuilder
 }

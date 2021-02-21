@@ -107,7 +107,7 @@
             <b-field label="Filter">
               <b-input
                 v-model="q"
-                placeholder="Try level:10 or tag:HSK4"
+                placeholder="Try level:>10,<=20 or tag:HSK4"
                 type="search"
               />
             </b-field>
