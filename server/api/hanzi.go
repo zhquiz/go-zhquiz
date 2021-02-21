@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/zhquiz/go-zhquiz/server/db"
@@ -161,6 +162,7 @@ func routerHanzi(apiRouter *gin.RouterGroup) {
 			return
 		}
 
+		rand.Seed(time.Now().UnixNano())
 		ctx.JSON(200, items[rand.Intn(len(items))])
 	})
 }
