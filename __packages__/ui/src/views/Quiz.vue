@@ -403,7 +403,7 @@ export default class QuizPage extends Vue {
   get newItems () {
     return this.quizArray.filter((id) => {
       const d = this.quizData[id]
-      return d && typeof d.srsLevel !== 'number'
+      return d && typeof d.nextReview !== 'string'
     })
   }
 

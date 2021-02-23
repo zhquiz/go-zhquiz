@@ -318,8 +318,8 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 			panic(r.Error)
 		}
 
-		var quiz []quizInitOutput
-		var upcoming []quizInitOutput
+		quiz := make([]quizInitOutput, 0)
+		upcoming := make([]quizInitOutput, 0)
 
 		if query.IncludeUndue == "" {
 			now := time.Now()
@@ -356,14 +356,6 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 		})
 
 		sort.Sort(quizInitOutputList(upcoming))
-
-		if len(quiz) == 0 {
-			quiz = make([]quizInitOutput, 0)
-		}
-
-		if len(upcoming) == 0 {
-			upcoming = make([]quizInitOutput, 0)
-		}
 
 		ctx.JSON(200, gin.H{
 			"quiz":     quiz,

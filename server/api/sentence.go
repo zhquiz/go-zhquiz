@@ -67,7 +67,7 @@ func routerSentence(apiRouter *gin.RouterGroup) {
 			return
 		}
 
-		page := 1
+		page := 0
 		if query.Page != nil {
 			i, err := strconv.Atoi(*query.Page)
 			if err != nil {
@@ -161,13 +161,20 @@ func routerSentence(apiRouter *gin.RouterGroup) {
 			}
 		}
 
+		order := "ORDER BY RANDOM()"
+		if page != 0 {
+			order = fmt.Sprintf(`
+			ORDER BY level, frequency DESC
+			LIMIT %d OFFSET %d
+			`, perPage, (page-1)*perPage)
+		}
+
 		if r := resource.Zh.Current.Raw(fmt.Sprintf(`
 		SELECT ID, Chinese
 		FROM sentence
 		WHERE %s
-		ORDER BY level, frequency DESC
-		LIMIT %d OFFSET %d
-		`, strings.Join(andCond, " AND "), perPage, (page-1)*perPage), cond).Find(&result); r.Error != nil {
+		%s
+		`, strings.Join(andCond, " AND "), order), cond).Find(&result); r.Error != nil {
 			panic(r.Error)
 		}
 
@@ -232,7 +239,7 @@ func routerSentence(apiRouter *gin.RouterGroup) {
 
 		if len(out.Result) <= generate {
 			var dbSentences []db.Sentence
-			if r := resource.DB.Current.Where("chinese LIKE ?", cond["q"]).Limit(generate - len(out.Result)).Find(&dbSentences); r.Error != nil {
+			if r := resource.DB.Current.Where("chinese LIKE ?", cond["q"]).Limit(generate - len(out.Result)).Order("RANDOM()").Find(&dbSentences); r.Error != nil {
 				panic(r.Error)
 			}
 
@@ -283,7 +290,7 @@ func routerSentence(apiRouter *gin.RouterGroup) {
 						}
 					}
 
-					if r := resource.DB.Current.Where("chinese LIKE ?", cond["q"]).Limit(generate - len(out.Result)).Find(&dbSentences); r.Error != nil {
+					if r := resource.DB.Current.Where("chinese LIKE ?", cond["q"]).Limit(generate - len(out.Result)).Order("RANDOM()").Find(&dbSentences); r.Error != nil {
 						panic(r.Error)
 					}
 
