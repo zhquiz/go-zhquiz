@@ -130,7 +130,7 @@
                   {{ it.chinese }}
                 </span>
                 <ul>
-                  <li>
+                  <li class="english">
                     {{ it.english }}
                   </li>
                 </ul>
@@ -153,6 +153,25 @@
             <div>
               {{ current.english }}
             </div>
+
+            <ul v-if="getSentences().length">
+              <li v-for="(it, i) in getSentences()" :key="i">
+                <span
+                  class="has-context"
+                  :title="it.pinyin"
+                  @contextmenu.prevent="
+                    (ev) => openContext(ev, it.chinese, 'sentence')
+                  "
+                >
+                  {{ it.chinese }}
+                </span>
+                <ul>
+                  <li class="english">
+                    {{ it.english }}
+                  </li>
+                </ul>
+              </li>
+            </ul>
           </div>
 
           <div v-else-if="current.type === 'vocab'">
@@ -201,7 +220,7 @@
                   {{ it.chinese }}
                 </span>
                 <ul>
-                  <li>
+                  <li class="english">
                     {{ it.english }}
                   </li>
                 </ul>
@@ -595,6 +614,45 @@ export default class QuizCard extends Vue {
             pinyin,
             english
           }
+
+          if (this.getSentences(entry).length < 5) {
+            api
+              .get<{
+                result: {
+                  id: string;
+                  chinese: string;
+                  english: string;
+                }[];
+              }>('/api/sentence/q', {
+                params: {
+                  q: entry,
+                  select: 'chinese,english',
+                  generate: 5
+                }
+              })
+              .then(({ data: { result } }) => {
+                return result.map((r) => {
+                  return {
+                    chinese: r.chinese,
+                    pinyin: toPinyin(r.chinese, {
+                      keepRest: true
+                    }),
+                    english: r.english.split('\x1f')[0]
+                  }
+                })
+              })
+              .then((sentences) => {
+                sentences.map((s) => {
+                  this.dictionaryData.sentence[s.chinese] = s
+                })
+
+                this.$set(
+                  this.dictionaryData,
+                  'sentence',
+                  this.dictionaryData.sentence
+                )
+              })
+          }
         },
         vocab: async () => {
           const { traditional, pinyin, english } =
@@ -848,6 +906,10 @@ export default class QuizCard extends Vue {
 
 .edit-modal .card-footer {
   padding: 1rem;
+}
+
+li.english:not(:hover) {
+  color: white;
 }
 
 @keyframes ripple {
