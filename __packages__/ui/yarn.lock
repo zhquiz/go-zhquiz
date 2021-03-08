@@ -806,14 +806,6 @@
     "@babel/types" "^7.4.4"
     esutils "^2.0.2"
 
-"@babel/runtime-corejs3@^7.12.1":
-  version "7.12.5"
-  resolved "https://registry.yarnpkg.com/@babel/runtime-corejs3/-/runtime-corejs3-7.12.5.tgz#ffee91da0eb4c6dae080774e94ba606368e414f4"
-  integrity sha512-roGr54CsTmNPPzZoCP1AmDXuBoNao7tnSA83TXTwt+UK5QVyh1DIJnrgYRPWKCF2flqZQXwa7Yr8v7VmLzF0YQ==
-  dependencies:
-    core-js-pure "^3.0.0"
-    regenerator-runtime "^0.13.4"
-
 "@babel/runtime@^7.11.0", "@babel/runtime@^7.8.4":
   version "7.12.5"
   resolved "https://registry.yarnpkg.com/@babel/runtime/-/runtime-7.12.5.tgz#410e7e487441e1b360c29be715d870d9b985882e"
@@ -1040,6 +1032,11 @@
   resolved "https://registry.yarnpkg.com/@types/json5/-/json5-0.0.29.tgz#ee28707ae94e11d2b827bcbe5270bcea7f3e71ee"
   integrity sha1-7ihweulOEdK4J7y+UnC86n8+ce4=
 
+"@types/lokijs@^1.5.3":
+  version "1.5.3"
+  resolved "https://registry.yarnpkg.com/@types/lokijs/-/lokijs-1.5.3.tgz#e45db0b35e53ec09a4c2ff4f253037abd56be151"
+  integrity sha512-ssiP6F7rpDqlaOzo+0Y/0dkVH2JiAjc+o7n6M4pFnfAMscf+7FthqS0cobvGJEJvxmzp4PWfMOfe0q3VETtrgQ==
+
 "@types/mime@*":
   version "2.0.3"
   resolved "https://registry.yarnpkg.com/@types/mime/-/mime-2.0.3.tgz#c893b73721db73699943bfc3653b1deb7faa4a3a"
@@ -1146,11 +1143,6 @@
     "@types/uglify-js" "*"
     "@types/webpack-sources" "*"
     source-map "^0.6.0"
-
-"@types/xregexp@^4.3.0":
-  version "4.3.0"
-  resolved "https://registry.yarnpkg.com/@types/xregexp/-/xregexp-4.3.0.tgz#e981c9b7281579019cc5740e08d206f3403e029f"
-  integrity sha512-3gJTS9gt27pS7U9q5IVqo4YvKSlkf2ck8ish6etuDj6LIRxkL/2Y8RMUtK/QzvE1Yv2zwWV5yemI2BS0GGGFnA==
 
 "@typescript-eslint/eslint-plugin@^2.33.0":
   version "2.34.0"
@@ -1855,6 +1847,11 @@ array-includes@^3.1.1:
     es-abstract "^1.18.0-next.1"
     get-intrinsic "^1.0.1"
     is-string "^1.0.5"
+
+array-shuffle@^2.0.0:
+  version "2.0.0"
+  resolved "https://registry.yarnpkg.com/array-shuffle/-/array-shuffle-2.0.0.tgz#fd36437cd7997d557055283c946e46379a7cd343"
+  integrity sha512-rJTchCppiO6QsQnN51KDH1cgMYm13B+ybxFS5GgdBdTTHpZcrq3M7SOBgzp+L9fqqnjkFDiwdEVcX1wINgl9DQ==
 
 array-union@^1.0.1, array-union@^1.0.2:
   version "1.0.2"
@@ -2903,11 +2900,6 @@ core-js-compat@^3.6.5, core-js-compat@^3.8.0:
   dependencies:
     browserslist "^4.16.0"
     semver "7.0.0"
-
-core-js-pure@^3.0.0:
-  version "3.8.2"
-  resolved "https://registry.yarnpkg.com/core-js-pure/-/core-js-pure-3.8.2.tgz#286f885c0dac1cdcd6d78397392abc25ddeca225"
-  integrity sha512-v6zfIQqL/pzTVAbZvYUozsxNfxcFb6Ks3ZfEbuneJl3FW9Jb8F6vLWB6f+qTmAu72msUdyb84V8d/yBFf7FNnw==
 
 core-js@^3.6.5:
   version "3.8.2"
@@ -5643,6 +5635,11 @@ loglevel@^1.6.8:
   version "1.7.1"
   resolved "https://registry.yarnpkg.com/loglevel/-/loglevel-1.7.1.tgz#005fde2f5e6e47068f935ff28573e125ef72f197"
   integrity sha512-Hesni4s5UkWkwCGJMQGAh71PaLUmKFM60dHvq0zi/vDhhrzuk+4GgNbTXJ12YYQJn6ZKBDNIjYcuQGKudvqrIw==
+
+lokijs@^1.5.11:
+  version "1.5.11"
+  resolved "https://registry.yarnpkg.com/lokijs/-/lokijs-1.5.11.tgz#2b2ea82ec66050e4b112c6cfc588dac22d362b13"
+  integrity sha512-YYyuBPxMn/oS0tFznQDbIX5XL1ltMcwFqCboDr8voYE4VCDzR5vAsrvQDhlnua4lBeqMqHmLvUXRTmRUzUKH1Q==
 
 loose-envify@^1.2.0:
   version "1.4.0"
@@ -9146,13 +9143,6 @@ ws@^6.0.0, ws@^6.2.1:
   integrity sha512-GIyAXC2cB7LjvpgMt9EKS2ldqr0MTrORaleiOno6TweZ6r3TKtoFQWay/2PceJ3RuBasOHzXNn5Lrw1X0bEjqA==
   dependencies:
     async-limiter "~1.0.0"
-
-xregexp@^4.4.1:
-  version "4.4.1"
-  resolved "https://registry.yarnpkg.com/xregexp/-/xregexp-4.4.1.tgz#c84a88fa79e9ab18ca543959712094492185fe65"
-  integrity sha512-2u9HwfadaJaY9zHtRRnH6BY6CQVNQKkYm3oLtC9gJXXzfsbACg5X5e4EZZGVAH+YIfa+QA9lsFQTTe3HURF3ag==
-  dependencies:
-    "@babel/runtime-corejs3" "^7.12.1"
 
 xtend@^4.0.0, xtend@~4.0.1:
   version "4.0.2"

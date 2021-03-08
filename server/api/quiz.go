@@ -331,6 +331,8 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 						SRSLevel:    it.SRSLevel,
 						WrongStreak: it.WrongStreak,
 						ID:          it.ID,
+						Entry:       it.Entry,
+						Direction:   it.Direction,
 					})
 				} else {
 					upcoming = append(upcoming, quizInitOutput{
@@ -350,10 +352,54 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 			}
 		}
 
-		rand.Seed(time.Now().UnixNano())
-		rand.Shuffle(len(quiz), func(i, j int) {
-			quiz[i], quiz[j] = quiz[j], quiz[i]
-		})
+		remainingQuiz := quiz[:]
+		quiz = []quizInitOutput{}
+
+	RAND_LOOP:
+		for {
+			switch len(remainingQuiz) {
+			case 0:
+				break RAND_LOOP
+			case 1:
+				quiz = append(quiz, remainingQuiz[0])
+				break RAND_LOOP
+			case 2:
+				if len(quiz) > 0 {
+					if quiz[0].Entry == remainingQuiz[0].Entry {
+						quiz = append(quiz, remainingQuiz[1], remainingQuiz[0])
+					} else {
+						quiz = append(quiz, remainingQuiz...)
+					}
+				} else {
+					quiz = remainingQuiz
+				}
+				break RAND_LOOP
+			}
+
+			entry := ""
+
+			if len(quiz) > 0 {
+				entry = quiz[0].Entry
+			}
+
+			n := rand.Intn(len(remainingQuiz))
+			current := remainingQuiz[n]
+
+			if current.Entry != entry {
+				quiz = append(quiz, current)
+
+				clone := remainingQuiz
+				remainingQuiz = []quizInitOutput{}
+
+				if n > 0 {
+					remainingQuiz = append(remainingQuiz, clone[:n]...)
+				}
+
+				if n+1 < len(clone) {
+					remainingQuiz = append(remainingQuiz, clone[n+1:]...)
+				}
+			}
+		}
 
 		sort.Sort(quizInitOutputList(upcoming))
 
@@ -615,6 +661,8 @@ type quizInitOutput struct {
 	SRSLevel    *int8      `json:"srsLevel"`
 	WrongStreak *uint      `json:"wrongStreak"`
 	ID          string     `json:"id"`
+	Entry       string     `json:"-"`
+	Direction   string     `json:"-"`
 }
 
 type quizInitOutputList []quizInitOutput

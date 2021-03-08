@@ -122,7 +122,12 @@
             </div>
           </b-collapse>
 
-          <b-collapse class="card" animation="slide" :open="!!sentences.length">
+          <b-collapse
+            class="card"
+            animation="slide"
+            :open="!!sentences().length"
+            :key="sentenceKey"
+          >
             <div
               slot="trigger"
               slot-scope="props"
@@ -136,7 +141,11 @@
             </div>
 
             <div class="card-content">
-              <div v-for="(s, i) in sentences" :key="i" class="sentence-entry">
+              <div
+                v-for="(s, i) in sentences()"
+                :key="i"
+                class="sentence-entry"
+              >
                 <span
                   class="clickable"
                   @contextmenu.prevent="
@@ -165,11 +174,11 @@
 </template>
 
 <script lang="ts">
-import XRegExp from 'xregexp'
 import { Component, Ref, Vue } from 'vue-property-decorator'
 import toPinyin from 'chinese-to-pinyin'
 import ContextMenu from '@/components/ContextMenu.vue'
 import { api } from '@/assets/api'
+import { findSentence, zhSentence } from '@/assets/db'
 
 @Component<VocabPage>({
   components: {
@@ -199,12 +208,6 @@ export default class VocabPage extends Vue {
 
   i = 0
 
-  sentences: {
-    chinese: string;
-    pinyin: string;
-    english: string;
-  }[] = []
-
   selected: {
     entry: string;
     type: string;
@@ -215,12 +218,27 @@ export default class VocabPage extends Vue {
 
   q0 = ''
 
+  sentenceKey = 0
+
+  sentences () {
+    return zhSentence
+      .find({
+        chinese: {
+          $containsString:
+            typeof this.current === 'string'
+              ? this.current
+              : this.current.simplified
+        }
+      })
+      .slice(0, 10)
+  }
+
   get sentenceDef () {
     if (this.selected.type !== 'sentence') {
       return {}
     }
 
-    const it = this.sentences.find((it) => it.chinese === this.selected.entry)
+    const it = zhSentence.findOne({ chinese: this.selected.entry })
     if (!it) {
       return {}
     }
@@ -247,7 +265,7 @@ export default class VocabPage extends Vue {
   get current () {
     const r = this.entries[this.i]
     if (typeof r === 'string') {
-      if (XRegExp('\\p{Han}').test(r)) {
+      if (/\p{sc=Han}/u.test(r)) {
         return r
       }
       return ''
@@ -333,7 +351,7 @@ export default class VocabPage extends Vue {
       window.parent.setName(id, (q ? q + ' - ' : '') + 'Vocab')
     }
 
-    if (XRegExp('\\p{Han}+').test(q)) {
+    if (/\p{sc=Han}+/u.test(q)) {
       let qs = await api
         .get<{
           result: string[];
@@ -341,7 +359,7 @@ export default class VocabPage extends Vue {
         .then((r) => r.data.result)
 
       qs = qs
-        .filter((h) => XRegExp('\\p{Han}+').test(h))
+        .filter((h) => /\p{sc=Han}+/u.test(h))
         .filter((h, i, arr) => arr.indexOf(h) === i)
 
       this.entries = qs
@@ -357,12 +375,11 @@ export default class VocabPage extends Vue {
   async loadContent () {
     let entry = this.entries[this.i]
     if (!entry) {
-      this.sentences = []
       return
     }
 
     if (typeof entry === 'string') {
-      if (XRegExp('\\p{Han}').test(entry)) {
+      if (/\p{sc=Han}/u.test(entry)) {
         const {
           data: { result }
         } = await api.get('/api/vocab', {
@@ -412,31 +429,17 @@ export default class VocabPage extends Vue {
     }
 
     if (!entry) {
-      this.sentences = []
       return
     }
 
-    const r = await api
-      .get<{
-        result: {
-          chinese: string;
-          english: string;
-        }[];
-      }>('/api/sentence/q', {
-        params: {
-          q: typeof entry === 'string' ? entry : entry.simplified,
-          type: 'vocab',
-          generate: 10,
-          select: 'chinese,english'
-        }
-      })
-      .then((r) => r.data)
-
-    this.sentences = r.result.map((r) => ({
-      chinese: r.chinese,
-      pinyin: toPinyin(r.chinese, { keepRest: true, toneToNumber: true }),
-      english: r.english.split('\x1f')[0]
-    }))
+    if (
+      await findSentence(
+        typeof entry === 'string' ? entry : entry.simplified,
+        10
+      )
+    ) {
+      this.sentenceKey = Math.random()
+    }
   }
 }
 </script>

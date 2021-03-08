@@ -160,7 +160,12 @@
             </div>
           </b-collapse>
 
-          <b-collapse class="card" animation="slide" :open="!!sentences.length">
+          <b-collapse
+            class="card"
+            animation="slide"
+            :open="!!sentences().length"
+            :key="sentenceKey"
+          >
             <div
               slot="trigger"
               slot-scope="props"
@@ -174,7 +179,7 @@
             </div>
 
             <div class="card-content">
-              <div v-for="(s, i) in sentences" :key="i" class="long-item">
+              <div v-for="(s, i) in sentences()" :key="i" class="long-item">
                 <span
                   class="clickable"
                   @contextmenu.prevent="
@@ -204,11 +209,10 @@
 </template>
 
 <script lang="ts">
-import XRegExp from 'xregexp'
 import { Component, Ref, Vue, Watch } from 'vue-property-decorator'
 import ContextMenu from '@/components/ContextMenu.vue'
 import { api } from '@/assets/api'
-import toPinyin from 'chinese-to-pinyin'
+import { findSentence, zhSentence } from '@/assets/db'
 
 @Component<HanziPage>({
   components: {
@@ -234,11 +238,6 @@ export default class HanziPage extends Vue {
   sup: string[] = []
   variants: string[] = []
   vocabs: Record<string, unknown>[] = []
-  sentences: {
-    chinese: string;
-    pinyin: string;
-    english: string;
-  }[] = []
 
   selected: {
     entry: string;
@@ -250,12 +249,24 @@ export default class HanziPage extends Vue {
 
   q0 = ''
 
+  sentenceKey = 0
+
+  sentences () {
+    return zhSentence
+      .find({
+        chinese: {
+          $containsString: this.current
+        }
+      })
+      .slice(0, 10)
+  }
+
   get sentenceDef () {
     if (this.selected.type !== 'sentence') {
       return {}
     }
 
-    const it = this.sentences.find((it) => it.chinese === this.selected.entry)
+    const it = zhSentence.findOne({ chinese: this.selected.entry })
     if (!it) {
       return {}
     }
@@ -321,8 +332,8 @@ export default class HanziPage extends Vue {
       window.parent.setName(id, (q ? q + ' - ' : '') + 'Hanzi')
     }
 
-    if (XRegExp('\\p{Han}').test(q)) {
-      const qs = q.split('').filter((h) => XRegExp('\\p{Han}').test(h))
+    if (/\p{sc=Han}/u.test(q)) {
+      const qs = q.split('').filter((h) => /\p{sc=Han}/u.test(h))
       this.entries = qs.filter((h, i) => qs.indexOf(h) === i)
     } else {
       const r = await api.get<{
@@ -346,13 +357,11 @@ export default class HanziPage extends Vue {
     if (this.current) {
       this.loadHanzi()
       this.loadVocab()
-      this.loadSentences()
     } else {
       this.sub = []
       this.sup = []
       this.variants = []
       this.vocabs = []
-      this.sentences = []
     }
   }
 
@@ -382,30 +391,9 @@ export default class HanziPage extends Vue {
   }
 
   async loadSentences () {
-    const {
-      data: { result }
-    } = await api.get<{
-      result: {
-        chinese: string;
-        english: string;
-      }[];
-    }>('/api/sentence/q', {
-      params: {
-        q: this.current,
-        type: 'hanzi',
-        generate: 10,
-        select: 'chinese,english'
-      }
-    })
-    this.sentences = result.map((r) => {
-      const out = {
-        chinese: r.chinese,
-        pinyin: toPinyin(r.chinese, { keepRest: true, toneToNumber: true }),
-        english: r.english.split('\x1f')[0]
-      }
-
-      return out
-    })
+    if (await findSentence(this.current, 10)) {
+      this.sentenceKey = Math.random()
+    }
   }
 }
 </script>

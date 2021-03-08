@@ -118,8 +118,8 @@
               {{ current.english }}
             </p>
 
-            <ul v-if="getSentences().length">
-              <li v-for="(it, i) in getSentences()" :key="i">
+            <ul v-if="sentences.length">
+              <li v-for="(it, i) in sentences" :key="i">
                 <span
                   class="has-context"
                   :title="it.pinyin"
@@ -154,8 +154,8 @@
               {{ current.english }}
             </div>
 
-            <ul v-if="getSentences().length">
-              <li v-for="(it, i) in getSentences()" :key="i">
+            <ul v-if="sentences.length">
+              <li v-for="(it, i) in sentences" :key="i">
                 <span
                   class="has-context"
                   :title="it.pinyin"
@@ -208,8 +208,8 @@
               </li>
             </ul>
 
-            <ul v-if="getSentences().length">
-              <li v-for="(it, i) in getSentences()" :key="i">
+            <ul v-if="sentences.length">
+              <li v-for="(it, i) in sentences" :key="i">
                 <span
                   class="has-context"
                   :title="it.pinyin"
@@ -249,8 +249,6 @@
             </ul>
           </div>
         </div>
-
-        <b-loading :active="!isQuizItemReady" :is-full-page="false" />
       </div>
 
       <div class="buttons-area">
@@ -338,7 +336,7 @@ import { Vue, Component, Prop, Ref } from 'vue-property-decorator'
 import toPinyin from 'chinese-to-pinyin'
 import ContextMenu from './ContextMenu.vue'
 import { api } from '@/assets/api'
-import XRegExp from 'xregexp'
+import { findSentence, findSentenceSync, zhSentence } from '@/assets/db'
 
 export type IQuizType = 'hanzi' | 'vocab' | 'sentence' | 'extra'
 
@@ -370,7 +368,6 @@ export default class QuizCard extends Vue {
   ctxSource = ''
 
   isQuizShownAnswer = false
-  isQuizItemReady = false
   isQuizModal = false
   quizIndex = -1
 
@@ -381,47 +378,19 @@ export default class QuizCard extends Vue {
   dictionaryData = {
     hanzi: {} as Record<string, Record<string, unknown>>,
     vocab: {} as Record<string, Record<string, unknown>>,
-    sentence: {} as Record<
-      string,
-      {
-        pinyin: string;
-        english: string;
-      }
-    >,
     extra: {} as Record<string, Record<string, unknown>>
   }
 
   current: Record<string, unknown> = {}
 
-  getSentences (
-    entry = this.current.entry as string
-  ): {
+  sentenceKey = 0
+
+  get sentences (): {
     chinese: string;
     pinyin: string;
     english: string;
   }[] {
-    const out: {
-      chinese: string;
-      pinyin: string;
-      english: string;
-    }[] = []
-
-    const re = new RegExp(entry.replace(XRegExp('[^\\p{Han}]', 'g'), '.*'))
-
-    for (const [chinese, v] of Object.entries(this.dictionaryData.sentence)) {
-      if (re.test(chinese)) {
-        out.push({
-          chinese,
-          ...v
-        })
-
-        if (out.length >= 5) {
-          return out
-        }
-      }
-    }
-
-    return out
+    return findSentenceSync(this.current.entry as string, 5)
   }
 
   async startQuiz () {
@@ -440,14 +409,12 @@ export default class QuizCard extends Vue {
     const id = this.quizArray[this.quizIndex] as string | undefined
 
     if (id) {
-      this.isQuizItemReady = false
       await api.patch('/api/quiz/mark', undefined, {
         params: {
           id,
           type
         }
       })
-      this.isQuizItemReady = true
     }
     this.initNextQuizItem()
   }
@@ -486,6 +453,13 @@ export default class QuizCard extends Vue {
         }
       }
 
+      if (it.type === 'sentence') {
+        return {
+          ...it,
+          ...(zhSentence.findOne({ chinese: it.entry }) || {})
+        }
+      }
+
       return {
         ...it,
         ...this.dictionaryData[(it.source as 'extra') || it.type][it.entry]
@@ -505,6 +479,10 @@ export default class QuizCard extends Vue {
 
     if (!entry || !type || !direction) {
       return false
+    }
+
+    if (type === 'sentence') {
+      return !!zhSentence.findOne({ chinese: entry })
     }
 
     return !!this.dictionaryData[type][entry]
@@ -586,10 +564,38 @@ export default class QuizCard extends Vue {
       }
     }
 
-    const type = (q.source as 'extra') || q.type
+    const type = (q.source as 'extra' | undefined) || (q.type as IQuizType)
     const entry = q.entry
 
     if (!entry || !type) {
+      return
+    }
+
+    if (type === 'sentence') {
+      await api
+        .get<{
+          id: string;
+          chinese: string;
+          english: string;
+        }>('/api/sentence', {
+          params: {
+            entry,
+            select: 'chinese,english'
+          }
+        })
+        .then(({ data: r }) => {
+          const oldSentence = zhSentence.findOne({ chinese: r.chinese })
+
+          if (!oldSentence) {
+            zhSentence.insert({
+              chinese: r.chinese,
+              pinyin: toPinyin(r.chinese, {
+                keepRest: true
+              }),
+              english: r.english.split('\x1f')[0]
+            })
+          }
+        })
       return
     }
 
@@ -615,43 +621,8 @@ export default class QuizCard extends Vue {
             english
           }
 
-          if (this.getSentences(entry).length < 5) {
-            api
-              .get<{
-                result: {
-                  id: string;
-                  chinese: string;
-                  english: string;
-                }[];
-              }>('/api/sentence/q', {
-                params: {
-                  q: entry,
-                  select: 'chinese,english',
-                  generate: 5
-                }
-              })
-              .then(({ data: { result } }) => {
-                return result.map((r) => {
-                  return {
-                    chinese: r.chinese,
-                    pinyin: toPinyin(r.chinese, {
-                      keepRest: true
-                    }),
-                    english: r.english.split('\x1f')[0]
-                  }
-                })
-              })
-              .then((sentences) => {
-                sentences.map((s) => {
-                  this.dictionaryData.sentence[s.chinese] = s
-                })
-
-                this.$set(
-                  this.dictionaryData,
-                  'sentence',
-                  this.dictionaryData.sentence
-                )
-              })
+          if (await findSentence(entry, 5)) {
+            this.sentenceKey = Math.random()
           }
         },
         vocab: async () => {
@@ -689,68 +660,12 @@ export default class QuizCard extends Vue {
             english
           }
 
-          if (this.getSentences(entry).length < 5) {
-            api
-              .get<{
-                result: {
-                  id: string;
-                  chinese: string;
-                  english: string;
-                }[];
-              }>('/api/sentence/q', {
-                params: {
-                  q: entry,
-                  select: 'chinese,english',
-                  generate: 5
-                }
-              })
-              .then(({ data: { result } }) => {
-                return result.map((r) => {
-                  return {
-                    chinese: r.chinese,
-                    pinyin: toPinyin(r.chinese, {
-                      keepRest: true
-                    }),
-                    english: r.english.split('\x1f')[0]
-                  }
-                })
-              })
-              .then((sentences) => {
-                sentences.map((s) => {
-                  this.dictionaryData.sentence[s.chinese] = s
-                })
-
-                this.$set(
-                  this.dictionaryData,
-                  'sentence',
-                  this.dictionaryData.sentence
-                )
-              })
+          if (await findSentence(entry, 5)) {
+            this.sentenceKey = Math.random()
           }
         },
-        sentence: async () => {
-          const ss = await api
-            .get<{
-              id: string;
-              chinese: string;
-              english: string;
-            }>('/api/sentence', {
-              params: {
-                entry,
-                select: 'chinese,english'
-              }
-            })
-            .then(({ data: r }) => {
-              return {
-                pinyin: toPinyin(r.chinese, {
-                  keepRest: true
-                }),
-                english: r.english.split('\x1f')[0]
-              }
-            })
-
-          this.dictionaryData.sentence[entry] = ss
-        },
+        // eslint-disable-next-line @typescript-eslint/no-empty-function
+        sentence: async () => {},
         extra: async () => {
           const {
             data: { pinyin, english }
@@ -769,43 +684,8 @@ export default class QuizCard extends Vue {
             english
           }
 
-          if (this.getSentences(entry).length < 5) {
-            api
-              .get<{
-                result: {
-                  id: string;
-                  chinese: string;
-                  english: string;
-                }[];
-              }>('/api/sentence/q', {
-                params: {
-                  q: entry,
-                  select: 'chinese,english',
-                  generate: 5
-                }
-              })
-              .then(({ data: { result } }) => {
-                return result.map((r) => {
-                  return {
-                    chinese: r.chinese,
-                    pinyin: toPinyin(r.chinese, {
-                      keepRest: true
-                    }),
-                    english: r.english.split('\x1f')[0]
-                  }
-                })
-              })
-              .then((sentences) => {
-                sentences.map((s) => {
-                  this.dictionaryData.sentence[s.chinese] = s
-                })
-
-                this.$set(
-                  this.dictionaryData,
-                  'sentence',
-                  this.dictionaryData.sentence
-                )
-              })
+          if (await findSentence(entry, 5)) {
+            this.sentenceKey = Math.random()
           }
         }
       }
@@ -813,8 +693,6 @@ export default class QuizCard extends Vue {
       await setTemplate[type]()
       this.$set(this, 'dictionaryData', this.dictionaryData)
     }
-
-    this.isQuizItemReady = true
   }
 }
 </script>

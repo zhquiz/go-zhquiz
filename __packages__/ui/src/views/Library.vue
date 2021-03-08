@@ -133,7 +133,6 @@
 import { api } from '@/assets/api'
 import { Component, Vue, Watch } from 'vue-property-decorator'
 import LibraryCard from '@/components/LibraryCard.vue'
-import XRegExp from 'xregexp'
 
 interface ILocal {
   id: string;
@@ -210,9 +209,12 @@ export default class LibraryPage extends Vue {
 
   set entryString (s) {
     const out: string[] = []
-    XRegExp.forEach(s, XRegExp('\\p{Han}+'), (m) => {
+
+    let m: RegExpExecArray | null = null
+    const re = /\p{sc=Han}+/gu
+    while ((m = re.exec(s))) {
       out.push(m[0])
-    })
+    }
 
     this.edited.entries = out
   }
