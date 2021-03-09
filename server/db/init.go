@@ -4,32 +4,17 @@ import (
 	"errors"
 	"log"
 	"path/filepath"
-	"regexp"
-	"strings"
 
-	"github.com/wangbin/jiebago"
 	"github.com/zhquiz/go-zhquiz/server/zh"
 	"github.com/zhquiz/go-zhquiz/shared"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 	"gorm.io/gorm/schema"
 )
 
-var jieba jiebago.Segmenter
-var zhDB zh.DB
-
-// DB is the storage for current DB
-type DB struct {
-	Current *gorm.DB
-}
-
 // Connect connects to DATABASE_URL
-func Connect() DB {
-	jieba.LoadDictionary(filepath.Join(shared.ExecDir, "assets", "dict.txt"))
-	zhDB = zh.Connect()
-
-	output := DB{}
-
+func Connect() *gorm.DB {
 	db, err := gorm.Open(sqlite.Open(filepath.Join(shared.UserDataDir(), "data.db")), &gorm.Config{
 		NamingStrategy: schema.NamingStrategy{
 			SingularTable: true,
@@ -39,144 +24,67 @@ func Connect() DB {
 		log.Fatalln(err)
 	}
 
-	output = DB{
-		Current: db,
-	}
-
-	output.Current.AutoMigrate(
+	db.AutoMigrate(
 		&User{},
+		&Tag{},
 		&Quiz{},
 		&Extra{},
 		&Library{},
-		&Sentence{},
 	)
 
-	if r := output.Current.Raw("SELECT Name FROM sqlite_master WHERE type='table' AND name='quiz_q'").First(&struct {
-		Name string
-	}{}); r.Error != nil {
-		if errors.Is(r.Error, gorm.ErrRecordNotFound) {
-			output.Current.Exec(`
-			CREATE VIRTUAL TABLE "quiz_q" USING fts5 (
-				[id], [entry], [pinyin], [english], [description], [tag],
-				[type], [direction], [source]
-			);
-			`)
-
-			var quizzes []Quiz
-			output.Current.Find(&quizzes)
-
-			output.Current.Transaction(func(tx *gorm.DB) error {
-				for _, q := range quizzes {
-					q.Create(tx)
-				}
-
-				return nil
-			})
-		} else {
-			log.Fatalln(r.Error)
-		}
+	if r := db.FirstOrCreate(&User{
+		ID:         1,
+		Identifier: "-",
+	}); r.Error != nil {
+		panic(r.Error)
 	}
 
-	if r := output.Current.Raw("SELECT Name FROM sqlite_master WHERE type='table' AND name='extra_q'").First(&struct {
-		Name string
-	}{}); r.Error != nil {
+	if r := db.First(&Library{}); r.Error != nil {
 		if errors.Is(r.Error, gorm.ErrRecordNotFound) {
-			output.Current.Exec(`
-			CREATE VIRTUAL TABLE extra_q USING fts5(
-				[id],
-				[chinese],
-				[pinyin],
-				[english],
-				[type],
-				[description],
-				[tag]
-			);
-			`)
+			zhDB := zh.Connect()
 
-			var extras []Extra
-			output.Current.Find(&extras)
-
-			output.Current.Transaction(func(tx *gorm.DB) error {
-				for _, ex := range extras {
-					ex.Create(tx)
-				}
-
-				return nil
-			})
-		} else {
-			log.Fatalln(r.Error)
-		}
-	}
-
-	if r := output.Current.Raw("SELECT Name FROM sqlite_master WHERE type='table' AND name='library_q'").First(&struct {
-		Name string
-	}{}); r.Error != nil {
-		if errors.Is(r.Error, gorm.ErrRecordNotFound) {
-			output.Current.Exec(`
-			CREATE VIRTUAL TABLE library_q USING fts5(
-				[id],
-				[title],
-				[entry],
-				[description],
-				[tag]
-			);
-			`)
-
-			if e := output.Current.Transaction(func(tx *gorm.DB) error {
-				var libs []map[string]interface{}
-				if r := zhDB.Current.Raw("SELECT title, entries FROM library").Find(&libs); r.Error != nil {
-					log.Fatalln(r.Error)
-				}
-
-				for _, a := range libs {
-					lib := Library{
-						ID:    " " + a["title"].(string),
-						Title: a["title"].(string),
-					}
-
-					if e := lib.Entries.Scan(a["entries"]); e != nil {
-						return e
-					}
-
-					if e := lib.Create(tx); e != nil {
-						return e
-					}
-				}
-
-				return nil
-			}); e != nil {
-				panic(e)
+			libs := make([]zh.Library, 0)
+			if r1 := zhDB.Find(&libs); r1.Error != nil {
+				panic(r1.Error)
 			}
+
+			db.Transaction(func(db *gorm.DB) error {
+				for _, lib := range libs {
+					if r2 := db.Create(&Library{
+						UserID:      1,
+						Title:       lib.Title,
+						Entries:     []string(lib.Entries),
+						Type:        lib.Type,
+						Tag:         []string(lib.Tag),
+						Description: lib.Description,
+					}); r2.Error != nil {
+						return r2.Error
+					}
+
+					tags := make([]Tag, 0)
+
+					for _, t := range lib.Tag {
+						for _, ent := range lib.Entries {
+							tags = append(tags, Tag{
+								UserID: 1,
+								Entry:  ent,
+								Type:   lib.Type,
+								Name:   t,
+							})
+						}
+					}
+
+					db.Clauses(clause.OnConflict{
+						DoNothing: true,
+					}).Create(&tags)
+				}
+
+				return nil
+			})
 		} else {
-			log.Fatalln(r.Error)
+			panic(r.Error)
 		}
 	}
 
-	return output
-}
-
-func parseChinese(s string) string {
-	out := make([]string, 0)
-	func(ch <-chan string) {
-		for word := range ch {
-			out = append(out, word)
-		}
-	}(jieba.CutAll(s))
-
-	if len(out) == 0 {
-		out = append(out, s)
-	}
-
-	return strings.Join(out, " ")
-}
-
-func parsePinyin(s string) string {
-	out := make([]string, 0)
-	re := regexp.MustCompile("\\d+$")
-
-	for _, c := range strings.Split(s, " ") {
-		out = append(out, re.ReplaceAllString(c, ""))
-	}
-
-	return strings.Join(out, " ")
+	return db
 }

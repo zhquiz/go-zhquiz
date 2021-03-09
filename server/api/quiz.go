@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/jkomyno/nanoid"
 	"github.com/zhquiz/go-zhquiz/server/db"
 	"github.com/zhquiz/go-zhquiz/server/util"
 	"github.com/zhquiz/go-zhquiz/server/zh"
@@ -93,7 +92,7 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 
 			var quizzes []db.Quiz
 
-			clause := resource.DB.Current.Model(&db.Quiz{}).
+			clause := resource.DB.Model(&db.Quiz{}).
 				Select("entry", "srs_level").
 				Where(where, cond)
 
@@ -162,7 +161,7 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 
 		var count int64 = 0
 
-		q := resource.DB.Current.Model(&db.Quiz{}).
+		q := resource.DB.Model(&db.Quiz{}).
 			Select("id", "entry", "type", "direction", "last_right", "wrong_streak").
 			Where("wrong_streak >= 2")
 
@@ -196,7 +195,7 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 		}
 
 		var quiz db.Quiz
-		if r := resource.DB.Current.
+		if r := resource.DB.
 			Where("id = ?", query.ID).
 			First(&quiz); r.Error != nil {
 			panic(r.Error)
@@ -208,7 +207,7 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 			"repeat": 0,
 		}[query.Type])
 
-		if r := resource.DB.Current.Save(&quiz); r.Error != nil {
+		if r := resource.DB.Save(&quiz); r.Error != nil {
 			panic(r.Error)
 		}
 
@@ -263,25 +262,26 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 		// No need to await
 		go func() {
 			var user db.User
-			if r := resource.DB.Current.First(&user); r.Error != nil {
+			if r := resource.DB.First(&user); r.Error != nil {
 				panic(r.Error)
 			}
 
-			user.Meta.Settings.Quiz.Direction = direction
-			user.Meta.Settings.Quiz.Stage = stage
-			user.Meta.Settings.Quiz.Type = qType
-			user.Meta.Settings.Quiz.IncludeExtra = (query.IncludeExtra != "")
-			user.Meta.Settings.Quiz.IncludeUndue = (query.IncludeUndue != "")
-			user.Meta.Settings.Quiz.Q = query.Q
-
-			if r := resource.DB.Current.Where("id = ?", user.ID).Updates(&db.User{
-				Meta: user.Meta,
+			if r := resource.DB.Updates(&db.User{
+				ID: user.ID,
+				S4Quiz: &db.S4QuizObject{
+					Direction:    direction,
+					Stage:        stage,
+					Type:         qType,
+					IncludeExtra: query.IncludeExtra != "",
+					IncludeUndue: query.IncludeUndue != "",
+					Q:            query.Q,
+				},
 			}); r.Error != nil {
 				panic(r.Error)
 			}
 		}()
 
-		q := resource.DB.Current.Model(&db.Quiz{})
+		q := resource.DB.Model(&db.Quiz{})
 
 		if query.Q != "" {
 			q = q.Where(qSearch(query.Q))
@@ -431,7 +431,7 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 
 		var existingQ []db.Quiz
 
-		if r := resource.DB.Current.
+		if r := resource.DB.
 			Where("entry IN ? AND type = ?", body.Entries, body.Type).
 			Find(&existingQ); r.Error != nil {
 			panic(r.Error)
@@ -447,10 +447,10 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 		}
 
 		type Result struct {
-			IDs    []string `json:"ids"`
-			Entry  string   `json:"entry"`
-			Type   string   `json:"type"`
-			Source string   `json:"source"`
+			IDs    []int  `json:"ids"`
+			Entry  string `json:"entry"`
+			Type   string `json:"type"`
+			Source string `json:"source"`
 		}
 		result := make([]Result, 0)
 		ids := make([]string, 0)
@@ -460,7 +460,7 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 
 		for _, entry := range body.Entries {
 			subresult := Result{
-				IDs:    make([]string, 0),
+				IDs:    make([]int, 0),
 				Entry:  entry,
 				Type:   body.Type,
 				Source: "",
@@ -471,8 +471,8 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 
 			switch body.Type {
 			case "vocab":
-				var items []zh.Vocab
-				if r := resource.Zh.Current.
+				var items []zh.Cedict
+				if r := resource.Zh.
 					Where("simplified = ? OR traditional = ?", entry, entry).
 					Find(&items); r.Error != nil {
 					panic(r.Error)
@@ -488,7 +488,7 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 					subresult.Source = "extra"
 				}
 			case "hanzi":
-				if r := resource.Zh.Current.
+				if r := resource.Zh.
 					Where("entry = ? AND length(entry) = 1 AND english IS NOT NULL", entry).
 					First(&zh.Token{}); r.Error != nil {
 					if !errors.Is(r.Error, gorm.ErrRecordNotFound) {
@@ -497,9 +497,9 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 					subresult.Source = "extra"
 				}
 			case "sentence":
-				if r := resource.Zh.Current.
+				if r := resource.Zh.
 					Where("chinese = ?", entry).
-					First(&zh.Sentence{}); r.Error != nil {
+					First(&zh.Tatoeba{}); r.Error != nil {
 					if !errors.Is(r.Error, gorm.ErrRecordNotFound) {
 						panic(r.Error)
 					}
@@ -518,8 +518,8 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 
 					for _, seg := range cutChinese(entry) {
 						if reHan.MatchString(seg) {
-							var vocab zh.Vocab
-							if r := resource.Zh.Current.Where("simplified = ? OR traditional = ?", seg, seg).Order("frequency DESC").First(&vocab); r.Error != nil {
+							var vocab zh.Cedict
+							if r := resource.Zh.Where("simplified = ? OR traditional = ?", seg, seg).Order("frequency DESC").First(&vocab); r.Error != nil {
 								if !errors.Is(r.Error, gorm.ErrRecordNotFound) {
 									panic(r.Error)
 								}
@@ -548,8 +548,8 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 				}
 
 				newExtra = append(newExtra, db.Extra{
-					Chinese:     entry,
-					Pinyin:      pinyin,
+					Entry:       entry,
+					Reading:     pinyin,
 					English:     english,
 					Type:        subresult.Type,
 					Description: body.Description,
@@ -562,51 +562,23 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 			}
 
 			for _, d := range directions {
-				if lookupDir[d].ID == "" {
-					id := ""
-
-					for {
-						id1, err := nanoid.Nanoid(6)
-						if err != nil {
-							panic(err)
-						}
-
-						var count int64
-						if r := resource.DB.Current.Model(db.Quiz{}).Where("id = ?", id1).Count(&count); r.Error != nil {
-							panic(err)
-						}
-
-						if count == 0 {
-							id = id1
-							break
-						}
-					}
-
+				if lookupDir[d].ID == 0 {
 					newQ = append(newQ, db.Quiz{
-						ID:          id,
-						Entry:       entry,
-						Type:        subresult.Type,
-						Direction:   d,
-						Source:      subresult.Source,
-						Description: body.Description,
+						Entry:     entry,
+						Type:      subresult.Type,
+						Direction: d,
 					})
-
-					subresult.IDs = append(subresult.IDs, id)
-					ids = append(ids, id)
-				} else {
-					subresult.IDs = append(subresult.IDs, lookupDir[d].ID)
-					ids = append(ids, lookupDir[d].ID)
 				}
 			}
 		}
 
-		e := resource.DB.Current.Transaction(func(tx *gorm.DB) error {
+		e := resource.DB.Transaction(func(tx *gorm.DB) error {
 			for _, it := range newExtra {
-				it.Create(tx)
+				tx.Create(it)
 			}
 
 			for _, it := range newQ {
-				it.Create(tx)
+				tx.Create(it)
 			}
 
 			return nil
@@ -624,7 +596,7 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 
 	r.POST("/delete", func(ctx *gin.Context) {
 		var body struct {
-			IDs []string `json:"ids" binding:"required,min=1"`
+			IDs []int `json:"ids" binding:"required,min=1"`
 		}
 
 		if e := ctx.BindJSON(&body); e != nil {
@@ -632,14 +604,14 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 			return
 		}
 
-		e := resource.DB.Current.Transaction(func(tx *gorm.DB) error {
+		e := resource.DB.Transaction(func(tx *gorm.DB) error {
 			for _, id := range body.IDs {
 				q := db.Quiz{
 					ID: id,
 				}
 
-				if e := q.Delete(tx); e != nil {
-					return e
+				if r := tx.Delete(&q); r.Error != nil {
+					return r.Error
 				}
 			}
 
@@ -660,7 +632,7 @@ type quizInitOutput struct {
 	NextReview  *time.Time `json:"nextReview"`
 	SRSLevel    *int8      `json:"srsLevel"`
 	WrongStreak *uint      `json:"wrongStreak"`
-	ID          string     `json:"id"`
+	ID          int        `json:"id"`
 	Entry       string     `json:"-"`
 	Direction   string     `json:"-"`
 }
@@ -749,7 +721,7 @@ func quizGetter(ctx *gin.Context, body getterBody) {
 
 	out := make([]map[string]interface{}, 0)
 
-	clause := resource.DB.Current.Model(&db.Quiz{}).
+	clause := resource.DB.Model(&db.Quiz{}).
 		Select(sel).
 		Where(strings.Join(andWhere, " AND "), cond)
 
@@ -763,7 +735,7 @@ func quizGetter(ctx *gin.Context, body getterBody) {
 }
 
 func qSearch(q string) *gorm.DB {
-	qBuilder := resource.DB.Current.Model(&db.Quiz{})
+	qBuilder := resource.DB.Model(&db.Quiz{})
 	segs := make([]string, 0)
 
 	reCmp := regexp.MustCompile("([><]=?)(\\d+)")
@@ -808,7 +780,7 @@ func qSearch(q string) *gorm.DB {
 	}
 
 	if level != "" {
-		orCond := resource.DB.Current
+		orCond := resource.DB
 
 		quizzes := make([]db.Quiz, 0)
 		if r := qBuilder.Find(&quizzes); r.Error != nil {
@@ -820,10 +792,6 @@ func qSearch(q string) *gorm.DB {
 		sentences := make([]string, 0)
 
 		for _, el := range quizzes {
-			if el.Source == "extra" {
-				continue
-			}
-
 			switch el.Type {
 			case "hanzi":
 				hanzis = append(hanzis, el.Entry)
@@ -836,7 +804,7 @@ func qSearch(q string) *gorm.DB {
 
 		if len(hanzis) > 0 {
 			ts := make([]zh.Token, 0)
-			tBuilder := resource.Zh.Current.Where("entry IN ?", hanzis)
+			tBuilder := resource.Zh.Where("entry IN ?", hanzis)
 			if e := parseV("hanzi_level", level, tBuilder); e != nil {
 				panic(e)
 			}
@@ -855,7 +823,7 @@ func qSearch(q string) *gorm.DB {
 
 		if len(vocabs) > 0 {
 			ts := make([]zh.Token, 0)
-			tBuilder := resource.Zh.Current.Where("entry IN ?", vocabs)
+			tBuilder := resource.Zh.Where("entry IN ?", vocabs)
 			if e := parseV("vocab_level", level, tBuilder); e != nil {
 				panic(e)
 			}
@@ -873,8 +841,8 @@ func qSearch(q string) *gorm.DB {
 		}
 
 		if len(sentences) > 0 {
-			ts := make([]zh.Sentence, 0)
-			tBuilder := resource.Zh.Current.Where("chinese IN ?", sentences)
+			ts := make([]zh.Tatoeba, 0)
+			tBuilder := resource.Zh.Where("chinese IN ?", sentences)
 			if e := parseV("level", level, tBuilder); e != nil {
 				panic(e)
 			}

@@ -32,7 +32,7 @@ func routerVocab(apiRouter *gin.RouterGroup) {
 
 		result := make([]Result, 0)
 
-		if r := resource.Zh.Current.Raw(`
+		if r := resource.Zh.Raw(`
 		SELECT Simplified, Traditional, Pinyin, English English
 		FROM vocab
 		WHERE Simplified = ? OR Traditional = ?
@@ -75,7 +75,7 @@ func routerVocab(apiRouter *gin.RouterGroup) {
 			where = "simplified IN (SELECT entry FROM token_q WHERE token_q MATCH @q)"
 		}
 
-		if r := resource.Zh.Current.Raw(fmt.Sprintf(`
+		if r := resource.Zh.Raw(fmt.Sprintf(`
 		SELECT Simplified, Traditional, vocab.Pinyin, vocab.English
 		FROM vocab
 		WHERE %s
@@ -96,7 +96,7 @@ func routerVocab(apiRouter *gin.RouterGroup) {
 
 	r.GET("/level", func(ctx *gin.Context) {
 		var existing []db.Quiz
-		if r := resource.DB.Current.
+		if r := resource.DB.
 			Where("[type] = 'vocab' AND srs_level IS NOT NULL").
 			Find(&existing); r.Error != nil {
 			panic(r.Error)
@@ -115,7 +115,7 @@ func routerVocab(apiRouter *gin.RouterGroup) {
 		}
 		var items []Item
 
-		if r := resource.Zh.Current.Raw(`
+		if r := resource.Zh.Raw(`
 		SELECT Entry, vocab_level Level, COALESCE((
 			SELECT 'cedict' FROM vocab WHERE simplified = entry OR traditional = entry
 		), 'hsk') Source
@@ -136,20 +136,20 @@ func routerVocab(apiRouter *gin.RouterGroup) {
 
 	r.GET("/random", func(ctx *gin.Context) {
 		var user db.User
-		if r := resource.DB.Current.First(&user); r.Error != nil {
+		if r := resource.DB.First(&user); r.Error != nil {
 			panic(r.Error)
 		}
-		levelMin := *user.Meta.LevelMin
+		levelMin := *user.LevelMin
 		if levelMin == 0 {
 			levelMin = 1
 		}
-		levelMax := *user.Meta.Level
+		levelMax := *user.Level
 		if levelMax == 0 {
-			levelMax = 60
+			levelMax = 10
 		}
 
 		var existing []db.Quiz
-		if r := resource.DB.Current.
+		if r := resource.DB.
 			Where("[type] = 'vocab' AND srs_level IS NOT NULL AND next_review IS NOT NULL").
 			Find(&existing); r.Error != nil {
 			panic(r.Error)
@@ -179,7 +179,7 @@ func routerVocab(apiRouter *gin.RouterGroup) {
 		}
 		var items []Item
 
-		if r := resource.Zh.Current.Raw(fmt.Sprintf(`
+		if r := resource.Zh.Raw(fmt.Sprintf(`
 		SELECT entry Result, vocab_level Level
 		FROM token
 		WHERE %s
@@ -193,7 +193,7 @@ func routerVocab(apiRouter *gin.RouterGroup) {
 				simp = append(simp, it.Result)
 			}
 
-			rows, e := resource.Zh.Current.Raw(`
+			rows, e := resource.Zh.Raw(`
 			SELECT simplified, english FROM vocab WHERE simplified IN ? AND frequency IS NOT NULL GROUP BY simplified
 			`, simp).Rows()
 
@@ -231,7 +231,7 @@ func routerVocab(apiRouter *gin.RouterGroup) {
 				sqlString = "length(simplified) > 1 AND simplified NOT IN @entries AND " + sqlString
 			}
 
-			if r := resource.Zh.Current.Raw(fmt.Sprintf(`
+			if r := resource.Zh.Raw(fmt.Sprintf(`
 			SELECT simplified Result, English
 			FROM vocab
 			WHERE %s
@@ -248,7 +248,7 @@ func routerVocab(apiRouter *gin.RouterGroup) {
 		item := items[rand.Intn(len(items))]
 
 		if item.Level == 0 {
-			resource.Zh.Current.Raw(`
+			resource.Zh.Raw(`
 			SELECT vocab_level FROM token WHERE entry = ?
 			`, item.Result).Row().Scan(&item.Level)
 		}

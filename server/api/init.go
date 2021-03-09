@@ -12,6 +12,7 @@ import (
 	"github.com/zhquiz/go-zhquiz/server/db"
 	"github.com/zhquiz/go-zhquiz/server/zh"
 	"github.com/zhquiz/go-zhquiz/shared"
+	"gorm.io/gorm"
 )
 
 var resource Resource
@@ -20,8 +21,8 @@ var jieba jiebago.Segmenter
 
 // Resource is a struct for reuse and cleanup.
 type Resource struct {
-	DB db.DB
-	Zh zh.DB
+	DB *gorm.DB
+	Zh *gorm.DB
 }
 
 // Options is server options
@@ -32,7 +33,7 @@ type Options struct {
 // Cleanup cleans up Resource.
 func (res Resource) Cleanup() {
 	log.Println("Cleaning up")
-	res.DB.Current.Commit()
+	res.DB.Commit()
 }
 
 // Prepare initializes Resource for reuse and cleanup.

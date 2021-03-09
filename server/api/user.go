@@ -48,7 +48,7 @@ func routerUser(apiRouter *gin.RouterGroup) {
 
 		getter := map[string]interface{}{}
 
-		if r := resource.DB.Current.Model(&db.User{}).Select(strings.Join(sel, ",")).First(&getter); r.Error != nil {
+		if r := resource.DB.Model(&db.User{}).Select(strings.Join(sel, ",")).First(&getter); r.Error != nil {
 			panic(r.Error)
 		}
 
@@ -72,11 +72,11 @@ func routerUser(apiRouter *gin.RouterGroup) {
 
 	r.PATCH("/", func(ctx *gin.Context) {
 		var body struct {
-			LevelMin    *uint  `json:"levelMin"`
-			Level       *uint  `json:"level"`
-			SentenceMin *uint  `json:"sentenceMin"`
-			SentenceMax *uint  `json:"sentenceMax"`
-			WhatToShow  string `json:"settings.level.whatToShow"`
+			LevelMin    *uint    `json:"levelMin"`
+			Level       *uint    `json:"level"`
+			SentenceMin *uint    `json:"sentenceMin"`
+			SentenceMax *uint    `json:"sentenceMax"`
+			WhatToShow  []string `json:"whatToShow"`
 		}
 
 		if e := ctx.BindJSON(&body); e != nil {
@@ -86,35 +86,21 @@ func routerUser(apiRouter *gin.RouterGroup) {
 
 		var dbUser db.User
 
-		if r := resource.DB.Current.First(&dbUser); r.Error != nil {
+		if r := resource.DB.First(&dbUser); r.Error != nil {
 			panic(r.Error)
 		}
 
 		if body.Level != nil {
-			dbUser.Meta.Level = body.Level
+			dbUser.Level = body.Level
 		}
 
 		if body.LevelMin != nil {
-			dbUser.Meta.LevelMin = body.LevelMin
+			dbUser.LevelMin = body.LevelMin
 		}
 
-		if body.SentenceMin != nil {
-			dbUser.Meta.Settings.Sentence.Min = body.SentenceMin
-		}
+		*dbUser.S4Level = body.WhatToShow
 
-		if body.SentenceMax != nil {
-			if *body.SentenceMax == 0 {
-				dbUser.Meta.Settings.Sentence.Max = nil
-			} else {
-				dbUser.Meta.Settings.Sentence.Max = body.SentenceMax
-			}
-		}
-
-		if body.WhatToShow != "" {
-			dbUser.Meta.Settings.Level.WhatToShow = body.WhatToShow
-		}
-
-		if r := resource.DB.Current.Save(&dbUser); r.Error != nil {
+		if r := resource.DB.Save(&dbUser); r.Error != nil {
 			panic(r.Error)
 		}
 

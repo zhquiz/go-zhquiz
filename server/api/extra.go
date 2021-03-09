@@ -9,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/zhquiz/go-zhquiz/server/db"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 func routerExtra(apiRouter *gin.RouterGroup) {
@@ -92,7 +93,7 @@ func routerExtra(apiRouter *gin.RouterGroup) {
 			return
 		}
 
-		q := resource.DB.Current.Model(&db.Extra{}).Joins("LEFT JOIN extra_q ON extra_q.id = extra.id")
+		q := resource.DB.Model(&db.Extra{}).Joins("LEFT JOIN extra_q ON extra_q.id = extra.id")
 
 		if query.Q != "" {
 			q = q.Where(`extra.id IN (
@@ -155,7 +156,7 @@ func routerExtra(apiRouter *gin.RouterGroup) {
 
 		out := map[string]interface{}{}
 
-		if r := resource.DB.Current.
+		if r := resource.DB.
 			Model(&db.Extra{}).
 			Joins("LEFT JOIN extra_q ON extra_q.id = extra.id").
 			Select(strings.Join(sel, ",")).
@@ -187,7 +188,7 @@ func routerExtra(apiRouter *gin.RouterGroup) {
 		checkVocab := func() bool {
 			var simplified string
 
-			if r := resource.Zh.Current.Raw(`
+			if r := resource.Zh.Raw(`
 			SELECT simplified
 			FROM vocab
 			WHERE simplified = ? OR traditional = ?
@@ -211,7 +212,7 @@ func routerExtra(apiRouter *gin.RouterGroup) {
 
 		checkHanzi := func() bool {
 			var entry string
-			if r := resource.Zh.Current.Raw(`
+			if r := resource.Zh.Raw(`
 			SELECT [entry]
 			FROM token
 			WHERE [entry] = ? AND english IS NOT NULL
@@ -236,7 +237,7 @@ func routerExtra(apiRouter *gin.RouterGroup) {
 
 		checkSentence := func() bool {
 			var chinese string
-			if r := resource.Zh.Current.Raw(`
+			if r := resource.Zh.Raw(`
 			SELECT chinese
 			FROM sentence
 			WHERE chinese = ?
@@ -276,15 +277,46 @@ func routerExtra(apiRouter *gin.RouterGroup) {
 		}
 
 		it := db.Extra{
-			Chinese:     body.Chinese,
-			Pinyin:      body.Pinyin,
+			Entry:       body.Chinese,
+			Reading:     body.Pinyin,
 			English:     body.English,
 			Type:        body.Type,
 			Description: body.Description,
-			Tag:         body.Tag,
 		}
 
-		e := resource.DB.Current.Transaction(func(tx *gorm.DB) error {
+		if strings.TrimSpace(body.Tag) != "" {
+			resource.DB.Transaction(func(tx *gorm.DB) error {
+				if r := tx.Delete(
+					tx.
+						Where("user_id = ?", 2, body.Type).
+						Where("`type` = ?", body.Type).
+						Where("entry = ?", body.Chinese),
+				); r.Error != nil {
+					return r.Error
+				}
+
+				tags := make([]db.Tag, 0)
+
+				for _, t := range strings.Split(body.Tag, " ") {
+					tags = append(tags, db.Tag{
+						UserID: 2,
+						Entry:  body.Chinese,
+						Type:   body.Type,
+						Name:   t,
+					})
+				}
+
+				if r := tx.Clauses(clause.OnConflict{
+					DoNothing: true,
+				}).Create(&tags); r.Error != nil {
+					return r.Error
+				}
+
+				return nil
+			})
+		}
+
+		e := resource.DB.Transaction(func(tx *gorm.DB) error {
 			if r := tx.Create(&it); r.Error != nil {
 				return r.Error
 			}
@@ -302,9 +334,15 @@ func routerExtra(apiRouter *gin.RouterGroup) {
 	})
 
 	r.PATCH("/", func(ctx *gin.Context) {
-		id := ctx.Query("id")
-		if id == "" {
+		id0 := ctx.Query("id")
+		if id0 == "" {
 			ctx.AbortWithError(400, fmt.Errorf("id to update not specified"))
+			return
+		}
+
+		id, e := strconv.Atoi(id0)
+		if e != nil {
+			ctx.AbortWithError(400, fmt.Errorf("invalid id format"))
 			return
 		}
 
@@ -322,34 +360,45 @@ func routerExtra(apiRouter *gin.RouterGroup) {
 			return
 		}
 
-		u := db.Extra{
+		resource.DB.Create(&db.Extra{
 			ID:          id,
-			Chinese:     body.Chinese,
-			Pinyin:      body.Pinyin,
+			Entry:       body.Chinese,
+			Reading:     body.Pinyin,
 			English:     body.English,
 			Type:        body.Type,
 			Description: body.Description,
-			Tag:         body.Tag,
-		}
-
-		if u.Description == "" {
-			u.Description = " "
-		}
-
-		if u.Tag == "" {
-			u.Tag = " "
-		}
-
-		e := resource.DB.Current.Transaction(func(tx *gorm.DB) error {
-			if r := u.Update(tx); r != nil {
-				return r
-			}
-
-			return nil
 		})
 
-		if e != nil {
-			panic(e)
+		if strings.TrimSpace(body.Tag) != "" {
+			resource.DB.Transaction(func(tx *gorm.DB) error {
+				if r := tx.Delete(
+					tx.
+						Where("user_id = ?", 2, body.Type).
+						Where("`type` = ?", body.Type).
+						Where("entry = ?", body.Chinese),
+				); r.Error != nil {
+					return r.Error
+				}
+
+				tags := make([]db.Tag, 0)
+
+				for _, t := range strings.Split(body.Tag, " ") {
+					tags = append(tags, db.Tag{
+						UserID: 2,
+						Entry:  body.Chinese,
+						Type:   body.Type,
+						Name:   t,
+					})
+				}
+
+				if r := tx.Clauses(clause.OnConflict{
+					DoNothing: true,
+				}).Create(&tags); r.Error != nil {
+					return r.Error
+				}
+
+				return nil
+			})
 		}
 
 		ctx.JSON(201, gin.H{
@@ -358,18 +407,23 @@ func routerExtra(apiRouter *gin.RouterGroup) {
 	})
 
 	r.DELETE("/", func(ctx *gin.Context) {
-		id := ctx.Query("id")
-		if id == "" {
+		id0 := ctx.Query("id")
+		if id0 == "" {
 			ctx.AbortWithError(400, fmt.Errorf("id to update not specified"))
 			return
 		}
 
-		e := resource.DB.Current.Transaction(func(tx *gorm.DB) error {
-			ex := db.Extra{
+		id, e := strconv.Atoi(id0)
+		if e != nil {
+			ctx.AbortWithError(400, fmt.Errorf("invalid id format"))
+			return
+		}
+
+		e = resource.DB.Transaction(func(tx *gorm.DB) error {
+			if r := tx.Delete(&db.Extra{
 				ID: id,
-			}
-			if e := ex.Delete(tx); e != nil {
-				return e
+			}); r.Error != nil {
+				return r.Error
 			}
 
 			return nil

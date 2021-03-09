@@ -1,7 +1,7 @@
 package zh
 
-// Sentence represents Tatoeba sentence repository
-type Sentence struct {
+// Tatoeba represents Tatoeba sentence repository
+type Tatoeba struct {
 	ID        int `gorm:"primaryKey"`
 	Chinese   string
 	Pinyin    string

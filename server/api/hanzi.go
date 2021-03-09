@@ -32,7 +32,7 @@ func routerHanzi(apiRouter *gin.RouterGroup) {
 			English  string `json:"english"`
 		}
 
-		if r := resource.Zh.Current.Raw(`
+		if r := resource.Zh.Raw(`
 		SELECT
 			(
 				SELECT GROUP_CONCAT(child, '') FROM token_sub WHERE parent = entry GROUP BY parent
@@ -75,7 +75,7 @@ func routerHanzi(apiRouter *gin.RouterGroup) {
 
 		result := make([]Result, 0)
 
-		if r := resource.Zh.Current.Raw(`
+		if r := resource.Zh.Raw(`
 		SELECT Entry FROM token
 		WHERE Entry IN (
 			SELECT Entry FROM token_q WHERE token_q MATCH @Q AND length(Entry) = 1
@@ -92,20 +92,20 @@ func routerHanzi(apiRouter *gin.RouterGroup) {
 
 	r.GET("/random", func(ctx *gin.Context) {
 		var user db.User
-		if r := resource.DB.Current.First(&user); r.Error != nil {
+		if r := resource.DB.First(&user); r.Error != nil {
 			panic(r.Error)
 		}
-		levelMin := *user.Meta.LevelMin
+		levelMin := *user.LevelMin
 		if levelMin == 0 {
 			levelMin = 1
 		}
-		levelMax := *user.Meta.Level
+		levelMax := *user.Level
 		if levelMax == 0 {
-			levelMax = 60
+			levelMax = 10
 		}
 
 		var existing []db.Quiz
-		if r := resource.DB.Current.
+		if r := resource.DB.
 			Where("[type] = 'hanzi' AND srs_level IS NOT NULL AND next_review IS NOT NULL").
 			Find(&existing); r.Error != nil {
 			panic(r.Error)
@@ -134,7 +134,7 @@ func routerHanzi(apiRouter *gin.RouterGroup) {
 		}
 		var items []Item
 
-		if r := resource.Zh.Current.Raw(fmt.Sprintf(`
+		if r := resource.Zh.Raw(fmt.Sprintf(`
 		SELECT entry Result, English, hanzi_level Level
 		FROM token
 		WHERE %s
@@ -148,7 +148,7 @@ func routerHanzi(apiRouter *gin.RouterGroup) {
 				where = "entry NOT IN @entries AND " + where
 			}
 
-			if r := resource.Zh.Current.Raw(fmt.Sprintf(`
+			if r := resource.Zh.Raw(fmt.Sprintf(`
 			SELECT entry Result, English, hanzi_level Level
 			FROM token
 			WHERE %s

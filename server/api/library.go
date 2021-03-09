@@ -53,7 +53,7 @@ func routerLibrary(apiRouter *gin.RouterGroup) {
 		count := 0
 
 		if query.Q != "" {
-			if r := resource.DB.Current.Raw(fmt.Sprintf(`
+			if r := resource.DB.Raw(fmt.Sprintf(`
 			SELECT ID, Title, Entry FROM library_q WHERE library_q MATCH ?
 			ORDER BY rank
 			LIMIT %d OFFSET %d
@@ -61,13 +61,13 @@ func routerLibrary(apiRouter *gin.RouterGroup) {
 				panic(r.Error)
 			}
 
-			if err := resource.DB.Current.Raw(`
+			if err := resource.DB.Raw(`
 			SELECT COUNT(*) FROM library_q WHERE library_q MATCH ?
 			`, query.Q).Row().Scan(&count); err != nil {
 				panic(err)
 			}
 		} else {
-			if r := resource.DB.Current.Raw(fmt.Sprintf(`
+			if r := resource.DB.Raw(fmt.Sprintf(`
 			SELECT library.id ID, library.Title Title, Entry FROM library_q
 			LEFT JOIN library ON library.id = library_q.id
 			ORDER BY updated_at DESC
@@ -76,7 +76,7 @@ func routerLibrary(apiRouter *gin.RouterGroup) {
 				panic(r.Error)
 			}
 
-			if err := resource.DB.Current.Raw(`
+			if err := resource.DB.Raw(`
 			SELECT COUNT(*) FROM library_q
 			`).Row().Scan(&count); err != nil {
 				panic(err)
@@ -120,12 +120,12 @@ func routerLibrary(apiRouter *gin.RouterGroup) {
 			Title:       body.Title,
 			Entries:     body.Entries,
 			Description: body.Description,
-			Tag:         body.Tag,
+			Tag:         strings.Split(body.Tag, " "),
 		}
 
-		e := resource.DB.Current.Transaction(func(tx *gorm.DB) error {
-			if e := it.Create(tx); e != nil {
-				return e
+		e := resource.DB.Transaction(func(tx *gorm.DB) error {
+			if r := tx.Create(&it); r.Error != nil {
+				return r.Error
 			}
 
 			return nil
@@ -141,9 +141,15 @@ func routerLibrary(apiRouter *gin.RouterGroup) {
 	})
 
 	r.PATCH("/", func(ctx *gin.Context) {
-		id := ctx.Query("id")
-		if id == "" {
+		id0 := ctx.Query("id")
+		if id0 == "" {
 			ctx.AbortWithError(400, fmt.Errorf("id to update not specified"))
+			return
+		}
+
+		id, e := strconv.Atoi(id0)
+		if e != nil {
+			ctx.AbortWithError(400, fmt.Errorf("invalid id format"))
 			return
 		}
 
@@ -164,12 +170,12 @@ func routerLibrary(apiRouter *gin.RouterGroup) {
 			Title:       body.Title,
 			Entries:     body.Entries,
 			Description: body.Description,
-			Tag:         body.Tag,
+			Tag:         strings.Split(body.Tag, " "),
 		}
 
-		e := resource.DB.Current.Transaction(func(tx *gorm.DB) error {
-			if e := u.Update(tx); e != nil {
-				return e
+		e = resource.DB.Transaction(func(tx *gorm.DB) error {
+			if r := tx.Updates(&u); r.Error != nil {
+				return r.Error
 			}
 
 			return nil
@@ -185,19 +191,25 @@ func routerLibrary(apiRouter *gin.RouterGroup) {
 	})
 
 	r.DELETE("/", func(ctx *gin.Context) {
-		id := ctx.Query("id")
-		if id == "" {
+		id0 := ctx.Query("id")
+		if id0 == "" {
 			ctx.AbortWithError(400, fmt.Errorf("id to update not specified"))
 			return
 		}
 
-		e := resource.DB.Current.Transaction(func(tx *gorm.DB) error {
+		id, e := strconv.Atoi(id0)
+		if e != nil {
+			ctx.AbortWithError(400, fmt.Errorf("invalid id format"))
+			return
+		}
+
+		e = resource.DB.Transaction(func(tx *gorm.DB) error {
 			lib := db.Library{
 				ID: id,
 			}
 
-			if e := lib.Delete(tx); e != nil {
-				return e
+			if r := tx.Delete(&lib); r.Error != nil {
+				return r.Error
 			}
 
 			return nil

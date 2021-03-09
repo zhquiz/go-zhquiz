@@ -1,38 +1,85 @@
 package db
 
 import (
-	"database/sql/driver"
-	"errors"
-	"fmt"
+	"regexp"
+	"strconv"
 	"strings"
+	"unicode"
+
+	"golang.org/x/text/transform"
+	"golang.org/x/text/unicode/norm"
 )
 
-// StringArray type that is compat with both SQLite and PostGres
-type StringArray []string
+// SetPinyin sets the pinyin in parseable form
+func SetPinyin(p string) string {
+	segs := []string{}
 
-// Scan (internal) to-external method for StringArray Type
-func (sa *StringArray) Scan(value interface{}) error {
-	s, ok := value.(string)
-	if !ok {
-		return errors.New(fmt.Sprint("Not a string:", value))
+	for _, oldSeg := range regexp.MustCompile("[\\p{L}\\p{Mn}]+\\p{N}?").FindAllString(p, -1) {
+		newSeg := []rune{}
+		tone := -1
+
+		checkDia := func(c rune) {
+			switch c {
+			case '\u0300':
+				tone = 4
+			case '\u0301':
+				tone = 2
+			case '\u0305':
+				tone = 1
+			case '\u030c':
+				tone = 3
+			}
+		}
+
+		for _, c := range oldSeg {
+			switch {
+			case unicode.IsMark(c):
+				checkDia(c)
+			case unicode.IsNumber(c):
+				if i, e := strconv.Atoi(string(c)); e == nil {
+					tone = i
+				}
+			case unicode.IsLetter(c):
+				newSeg = append(newSeg, c)
+			}
+		}
+
+		t := transform.Chain(norm.NFD, transform.RemoveFunc(func(r rune) bool {
+			state := unicode.Is(unicode.Mn, r)
+
+			if state {
+				checkDia(r)
+			}
+
+			return state
+		}), norm.NFC)
+		seg, _, _ := transform.String(t, string(newSeg))
+
+		if tone == 0 {
+			tone = 5
+		}
+
+		if tone != -1 {
+			segs = append(segs, seg+"["+strconv.Itoa(tone)+"]")
+		} else {
+			segs = append(segs, seg)
+		}
 	}
 
-	if s == "" {
-		*sa = []string{}
-	} else if strings.HasPrefix(s, "\x1f") && strings.HasSuffix(s, "\x1f") {
-		*sa = strings.Split(s[1:len(s)-1], "\x1f")
-	} else {
-		return errors.New(fmt.Sprint("Invalid string:", value))
-	}
-
-	return nil
+	return strings.Join(segs, " ")
 }
 
-// Value (internal) to-database method for StringArray Type
-func (sa StringArray) Value() (driver.Value, error) {
-	if len(sa) == 0 {
-		return "", nil
+// MakePinyin makes pinyin in readable form
+func MakePinyin(p string) string {
+	segs := []string{}
+
+	for _, seg := range strings.Split(p, " ") {
+		if len(seg) > 3 && seg[len(seg)-1] == ']' && seg[len(seg)-3] == '[' {
+			seg = seg[:len(seg)-3] + string(seg[len(seg)-2])
+		}
+
+		segs = append(segs, seg)
 	}
 
-	return "\x1f" + strings.Join(sa, "\x1f") + "\x1f", nil
+	return strings.Join(segs, " ")
 }
