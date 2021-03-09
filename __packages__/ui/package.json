@@ -52,6 +52,9 @@
     "typescript": "~3.9.3",
     "vue-template-compiler": "^2.6.11"
   },
+  "resolutions": {
+    "**/elliptic": "^6.5.4"
+  },
   "importSort": {
     ".js, .ts": {
       "parser": "typescript",
