@@ -8,23 +8,33 @@ export const zh = new Loki('zhlevel', {
   autoload: true
 })
 
-export const zhSentence = zh.addCollection<{
+export interface ISentence {
   chinese: string;
   pinyin: string;
   english: string;
-}>('sentence', {
+}
+
+export const zhSentence = zh.addCollection<ISentence>('sentence', {
   indices: ['chinese'],
   unique: ['chinese']
 })
 
-const findSentenceQueue = new Set<string>()
+const findSentenceQueue = new Map<string, ISentence[]>()
 
 export function findSentenceSync (q: string, generate: number) {
-  return shuffle(
+  let prev = findSentenceQueue.get(q)
+  if (prev) {
+    return prev.slice(0, generate)
+  }
+
+  prev = shuffle(
     zhSentence.find({
       chinese: { $regex: new RegExp(q.replace(/[^\p{sc=Han}]/gu, '.*')) }
     })
-  ).slice(0, generate)
+  )
+  findSentenceQueue.set(q, prev)
+
+  return prev.slice(0, generate)
 }
 
 export async function findSentence (
@@ -38,18 +48,16 @@ export async function findSentence (
     }[]
   | null
 > {
-  if (findSentenceQueue.has(q)) {
-    const out = zhSentence.find({
-      chinese: { $regex: new RegExp(q.replace(/[^\p{sc=Han}]/gu, '.*')) }
-    })
+  const prev = findSentenceQueue.get(q)
 
-    if (out.length >= generate) {
-      return out.slice(0, generate)
+  if (prev) {
+    if (prev.length >= generate) {
+      return prev.slice(0, generate)
     }
 
     return null
   }
-  findSentenceQueue.add(q)
+  findSentenceQueue.set(q, [])
 
   const r = await api
     .get<{
@@ -83,7 +91,10 @@ export async function findSentence (
   })
 
   if (sentences.length) {
-    return zhSentence.insert(sentences) || null
+    zhSentence.insert(sentences)
+
+    findSentenceQueue.delete(q)
+    return findSentenceSync(q, generate)
   }
 
   return null
