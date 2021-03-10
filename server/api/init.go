@@ -84,11 +84,11 @@ func (res Resource) Register(r *gin.Engine, opts *Options) {
 		c.Next()
 	}, CotterAuthMiddleware())
 
+	rCharacter{Base: apiRouter}.init()
 	rExtra{Base: apiRouter}.init()
 
 	rUtil{Base: apiRouter}.init()
 
-	routerHanzi(apiRouter)
 	routerLibrary(apiRouter)
 	routerQuiz(apiRouter)
 	routerSentence(apiRouter)

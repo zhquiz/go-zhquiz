@@ -23,6 +23,8 @@ func (r rExtra) init() {
 	router.GET("/", r.getOne)
 	router.GET("/q", r.getQuery)
 	router.PUT("/", r.create)
+	router.PATCH("/", r.update)
+	router.DELETE("/", r.delete)
 }
 
 // @Produce json
