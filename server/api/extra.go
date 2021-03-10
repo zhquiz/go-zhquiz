@@ -12,6 +12,129 @@ import (
 	"gorm.io/gorm/clause"
 )
 
+type rExtra struct {
+	Base *gin.RouterGroup
+}
+
+func (r rExtra) init() {
+	router := r.Base.Group("/extra")
+
+	router.GET("/q", r.getQuery)
+}
+
+// @Accept json
+// @Produce json
+// @Param q query string false "text to search"
+// @Param sort query string false "column to sort by"
+// @Param page query int true "page number"
+// @Param limit query int true "number of contents per page"
+// @Success 200 {object} ExtraQueryResponse
+// @Router /extra/q [get]
+func (rExtra) getQuery(ctx *gin.Context) {
+	var query struct {
+		Q     string `form:"q"`
+		Sort  string `form:"sort"`
+		Page  string `form:"page"`
+		Limit string `form:"limit"`
+	}
+
+	if e := ctx.BindQuery(&query); e != nil {
+		ctx.AbortWithError(400, e)
+		return
+	}
+
+	if query.Sort == "" {
+		query.Sort = "-updatedAt"
+	}
+
+	sorter := query.Sort
+	sortDirection := ""
+
+	if string((query.Sort)[0]) == "-" {
+		sorter = string((query.Sort)[1:])
+		sortDirection = "desc"
+	}
+
+	sorter = map[string]string{
+		"updatedAt": "updated_at",
+	}[sorter]
+
+	if sorter == "" {
+		sorter = "updated_at"
+	}
+
+	page := 1
+	{
+		a, e := strconv.Atoi(query.Page)
+		if e != nil {
+			ctx.AbortWithError(400, e)
+			return
+		}
+		page = a
+	}
+
+	limit := 10
+	{
+		a, e := strconv.Atoi(query.Limit)
+		if e != nil {
+			ctx.AbortWithError(400, e)
+			return
+		}
+		limit = a
+	}
+
+	q := resource.DB.Model(&db.Extra{}).Where("userID = ")
+
+	var count int64
+
+	if r := q.Count(&count); r.Error != nil {
+		panic(r.Error)
+	}
+
+	out := ExtraQueryResponse{
+		Result: make([]ExtraItem, 0),
+		Count:  count,
+	}
+
+	var items []db.Extra
+
+	if r := q.
+		Order(sorter + " " + sortDirection).
+		Limit(limit).
+		Offset((page - 1) * limit).
+		Find(&items); r.Error != nil {
+		panic(r.Error)
+	}
+
+	for _, it := range items {
+		out.Result = append(out.Result, ExtraItem{
+			Entry:       it.Entry,
+			Type:        it.Type,
+			Reading:     it.Reading,
+			English:     it.English,
+			Description: it.Description,
+		})
+	}
+
+	ctx.JSON(200, out)
+}
+
+// ExtraItem is outputtable Extra item format
+type ExtraItem struct {
+	Entry       string   `json:"entry"`
+	Type        string   `json:"type"`
+	Reading     string   `json:"reading"`
+	English     string   `json:"english"`
+	Description string   `json:"description"`
+	Tag         []string `json:"tag"`
+}
+
+// ExtraQueryResponse -
+type ExtraQueryResponse struct {
+	Result []ExtraItem `json:"result"`
+	Count  int64       `json:"count"`
+}
+
 func routerExtra(apiRouter *gin.RouterGroup) {
 	r := apiRouter.Group(("/extra"))
 
@@ -26,107 +149,7 @@ func routerExtra(apiRouter *gin.RouterGroup) {
 	}
 
 	r.GET("/q", func(ctx *gin.Context) {
-		var query struct {
-			Q       string  `form:"q"`
-			Select  string  `form:"select"`
-			Sort    string  `form:"sort"`
-			Page    *string `form:"page"`
-			PerPage *string `form:"perPage"`
-		}
 
-		if e := ctx.BindQuery(&query); e != nil {
-			ctx.AbortWithError(400, e)
-			return
-		}
-
-		if query.Sort == "" {
-			query.Sort = "-updatedAt"
-		}
-
-		sorter := query.Sort
-		sortDirection := ""
-
-		if string((query.Sort)[0]) == "-" {
-			sorter = string((query.Sort)[1:])
-			sortDirection = " desc"
-		}
-
-		sorter = map[string]string{
-			"updatedAt": "updated_at",
-		}[sorter]
-
-		if sorter == "" {
-			sorter = "updated_at"
-		}
-
-		page := 1
-		{
-			a, e := strconv.Atoi(*query.Page)
-			if e != nil {
-				ctx.AbortWithError(400, e)
-				return
-			}
-			page = a
-		}
-
-		perPage := 10
-		{
-			a, e := strconv.Atoi(*query.PerPage)
-			if e != nil {
-				ctx.AbortWithError(400, e)
-				return
-			}
-			perPage = a
-		}
-
-		sel := []string{}
-
-		for _, s := range strings.Split(query.Select, ",") {
-			k := sMap[s]
-			if k != "" {
-				sel = append(sel, k)
-			}
-		}
-
-		if len(sel) == 0 {
-			ctx.AbortWithError(400, fmt.Errorf("not enough select"))
-			return
-		}
-
-		q := resource.DB.Model(&db.Extra{}).Joins("LEFT JOIN extra_q ON extra_q.id = extra.id")
-
-		if query.Q != "" {
-			q = q.Where(`extra.id IN (
-				SELECT id FROM extra_q WHERE extra_q MATCH ?
-			)`, query.Q)
-		}
-
-		q = q.Group("extra.id")
-
-		var count int64
-
-		if r := q.Count(&count); r.Error != nil {
-			panic(r.Error)
-		}
-
-		out := struct {
-			Result []map[string]interface{} `json:"result"`
-			Count  int64                    `json:"count"`
-		}{
-			Result: make([]map[string]interface{}, 0),
-			Count:  count,
-		}
-
-		if r := q.
-			Select(strings.Join(sel, ",")).
-			Order(sorter + sortDirection).
-			Limit(perPage).
-			Offset((page - 1) * perPage).
-			Find(&out.Result); r.Error != nil {
-			panic(r.Error)
-		}
-
-		ctx.JSON(200, out)
 	})
 
 	r.GET("/", func(ctx *gin.Context) {

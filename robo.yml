@@ -46,6 +46,8 @@ build-all:
     robo -c "{{ .robo.file }}" build-linux
 dist:
   command: |
+    swag init -g server/api/init.go
+
     cd __packages__/ui
     yarn build
     cd -

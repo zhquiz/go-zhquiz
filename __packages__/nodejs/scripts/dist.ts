@@ -43,6 +43,7 @@ glob.sync('./zhquiz-*').map((f) => {
     fs.ensureDirSync(`./dist/${filename}.app/Contents/Resources`)
 
     fs.copySync('./assets', `./dist/${filename}.app/Contents/MacOS/assets`)
+    fs.copySync('./docs', `./dist/${filename}.app/Contents/MacOS/docs`)
     fs.copySync('./public', `./dist/${filename}.app/Contents/MacOS/public`)
     fs.copyFileSync(
       './public/favicon.icns',
@@ -57,6 +58,7 @@ glob.sync('./zhquiz-*').map((f) => {
   } else {
     const zip = new AdmZip()
     zip.addLocalFolder('./assets', 'assets')
+    zip.addLocalFolder('./docs', 'docs')
     zip.addLocalFolder('./public', 'public')
     zip.addLocalFile(`./${f}`, /-windows/.test(f) ? 'zhquiz.exe' : '')
 
