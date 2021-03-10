@@ -8,6 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/zhquiz/go-zhquiz/server/db"
+	"github.com/zhquiz/go-zhquiz/server/util"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -20,6 +21,117 @@ func (r rExtra) init() {
 	router := r.Base.Group("/extra")
 
 	router.GET("/q", r.getQuery)
+}
+
+// @Accept json
+// @Produce json
+// @Param id query int true "entry ID to look for"
+// @Param select query string true "comma-separated list of selects"
+// @Success 200 {object} ExtraQueryResponse
+// @Router /extra/ [get]
+func (rExtra) getOne(ctx *gin.Context) {
+	var query struct {
+		ID     string `form:"id" binding:"required"`
+		Select string `form:"select" binding:"required"`
+	}
+
+	if e := ctx.BindQuery(&query); e != nil {
+		ctx.AbortWithError(400, e)
+		return
+	}
+
+	id, e := strconv.Atoi(query.ID)
+	if e != nil {
+		ctx.AbortWithError(400, e)
+		return
+	}
+
+	sMap := map[string]string{
+		"entry":       "`entry`",
+		"type":        "`type`",
+		"reading":     "`reading`",
+		"english":     "`english`",
+		"description": "`description`",
+		"tag":         "1",
+	}
+
+	sel := []string{}
+
+	for _, s := range strings.Split(query.Select, ",") {
+		k := sMap[s]
+		if k != "" {
+			sel = append(sel, k)
+		}
+	}
+
+	selSet := util.MakeSet(sel)
+	if selSet["tag"] {
+		sel = append(sel, sMap["entry"])
+	}
+
+	if len(sel) == 0 {
+		ctx.AbortWithError(400, fmt.Errorf("not enough select"))
+		return
+	}
+
+	u := userID(ctx)
+	if u == 0 {
+		return
+	}
+
+	var ex db.Extra
+
+	if r := resource.DB.
+		Model(&db.Extra{}).
+		Select(strings.Join(sel, ",")).
+		Where("id = ?", id).
+		Where("user_id = ?", u).
+		First(&ex); r.Error != nil {
+		if errors.Is(r.Error, gorm.ErrRecordNotFound) {
+			ctx.AbortWithStatus(404)
+			return
+		}
+		panic(r.Error)
+	}
+
+	out := ExtraItem{}
+
+	if selSet["entry"] {
+		out.Entry = &ex.Entry
+	}
+
+	if selSet["type"] {
+		out.Type = &ex.Type
+	}
+
+	if selSet["reading"] {
+		out.Reading = &ex.Reading
+	}
+
+	if selSet["english"] {
+		out.English = &ex.English
+	}
+
+	if selSet["description"] {
+		out.Description = &ex.Description
+	}
+
+	if selSet["tag"] {
+		tags := make([]string, 0)
+		dbTags := make([]db.Tag, 0)
+		if r := resource.DB.
+			Where("user_id = ?", u).
+			Where("`entry` = ?", ex.Entry).
+			Where("`type` = ?", ex.Type).
+			Find(&dbTags); r.Error != nil {
+			for _, t := range dbTags {
+				tags = append(tags, t.Name)
+			}
+		}
+		out.Tag = &tags
+	}
+
+	ctx.JSON(200, out)
 }
 
 // @Accept json
@@ -83,7 +195,12 @@ func (rExtra) getQuery(ctx *gin.Context) {
 		limit = a
 	}
 
-	q := resource.DB.Model(&db.Extra{}).Where("userID = ")
+	u := userID(ctx)
+	if u == 0 {
+		return
+	}
+
+	q := resource.DB.Model(&db.Extra{}).Where("user_id = ?", u)
 
 	var count int64
 
@@ -107,12 +224,25 @@ func (rExtra) getQuery(ctx *gin.Context) {
 	}
 
 	for _, it := range items {
+		tags := make([]string, 0)
+		dbTags := make([]db.Tag, 0)
+		if r := resource.DB.
+			Where("user_id = ?", u).
+			Where("`entry` = ?", it.Entry).
+			Where("`type` = ?", it.Type).
+			Find(&dbTags); r.Error != nil {
+			for _, t := range dbTags {
+				tags = append(tags, t.Name)
+			}
+		}
+
 		out.Result = append(out.Result, ExtraItem{
-			Entry:       it.Entry,
-			Type:        it.Type,
-			Reading:     it.Reading,
-			English:     it.English,
-			Description: it.Description,
+			Entry:       &it.Entry,
+			Type:        &it.Type,
+			Reading:     &it.Reading,
+			English:     &it.English,
+			Description: &it.Description,
+			Tag:         &tags,
 		})
 	}
 
@@ -121,12 +251,12 @@ func (rExtra) getQuery(ctx *gin.Context) {
 
 // ExtraItem is outputtable Extra item format
 type ExtraItem struct {
-	Entry       string   `json:"entry"`
-	Type        string   `json:"type"`
-	Reading     string   `json:"reading"`
-	English     string   `json:"english"`
-	Description string   `json:"description"`
-	Tag         []string `json:"tag"`
+	Entry       *string   `json:"entry"`
+	Type        *string   `json:"type"`
+	Reading     *string   `json:"reading"`
+	English     *string   `json:"english"`
+	Description *string   `json:"description"`
+	Tag         *[]string `json:"tag"`
 }
 
 // ExtraQueryResponse -
@@ -137,60 +267,6 @@ type ExtraQueryResponse struct {
 
 func routerExtra(apiRouter *gin.RouterGroup) {
 	r := apiRouter.Group(("/extra"))
-
-	sMap := map[string]string{
-		"id":          "extra.id id",
-		"chinese":     "extra.chinese chinese",
-		"pinyin":      "extra.pinyin pinyin",
-		"english":     "extra_q.english english",
-		"type":        "extra_q.type [type]",
-		"description": "extra.description [description]",
-		"tag":         "extra_q.tag tag",
-	}
-
-	r.GET("/q", func(ctx *gin.Context) {
-
-	})
-
-	r.GET("/", func(ctx *gin.Context) {
-		var query struct {
-			Entry  string `form:"entry" binding:"required"`
-			Select string `form:"select"`
-		}
-
-		if e := ctx.BindQuery(&query); e != nil {
-			ctx.AbortWithError(400, e)
-			return
-		}
-
-		sel := []string{}
-
-		for _, s := range strings.Split(query.Select, ",") {
-			k := sMap[s]
-			if k != "" {
-				sel = append(sel, k)
-			}
-		}
-
-		if len(sel) == 0 {
-			ctx.AbortWithError(400, fmt.Errorf("not enough select"))
-			return
-		}
-
-		out := map[string]interface{}{}
-
-		if r := resource.DB.
-			Model(&db.Extra{}).
-			Joins("LEFT JOIN extra_q ON extra_q.id = extra.id").
-			Select(strings.Join(sel, ",")).
-			Where("extra.chinese = ?", query.Entry).
-			Group("extra.id").
-			First(&out); r.Error != nil {
-			panic(r.Error)
-		}
-
-		ctx.JSON(200, out)
-	})
 
 	r.PUT("/", func(ctx *gin.Context) {
 		var body struct {

@@ -224,3 +224,13 @@ func CotterAuthMiddleware() gin.HandlerFunc {
 		c.Next()
 	}
 }
+
+func userID(ctx *gin.Context) int64 {
+	session := sessions.Default(ctx)
+	u := session.Get("userID")
+	if u == "" {
+		ctx.AbortWithStatus(401)
+		return 0
+	}
+	return u.(int64)
+}
