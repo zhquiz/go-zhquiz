@@ -84,9 +84,10 @@ func (res Resource) Register(r *gin.Engine, opts *Options) {
 		c.Next()
 	}, CotterAuthMiddleware())
 
+	rExtra{Base: apiRouter}.init()
+
 	rUtil{Base: apiRouter}.init()
 
-	routerExtra(apiRouter)
 	routerHanzi(apiRouter)
 	routerLibrary(apiRouter)
 	routerQuiz(apiRouter)
@@ -225,12 +226,12 @@ func CotterAuthMiddleware() gin.HandlerFunc {
 	}
 }
 
-func userID(ctx *gin.Context) int64 {
+func userID(ctx *gin.Context) int {
 	session := sessions.Default(ctx)
 	u := session.Get("userID")
 	if u == "" {
 		ctx.AbortWithStatus(401)
 		return 0
 	}
-	return u.(int64)
+	return u.(int)
 }

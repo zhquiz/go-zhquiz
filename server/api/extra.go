@@ -20,14 +20,15 @@ type rExtra struct {
 func (r rExtra) init() {
 	router := r.Base.Group("/extra")
 
+	router.GET("/", r.getOne)
 	router.GET("/q", r.getQuery)
+	router.PUT("/", r.create)
 }
 
-// @Accept json
 // @Produce json
 // @Param id query int true "entry ID to look for"
 // @Param select query string true "comma-separated list of selects"
-// @Success 200 {object} ExtraQueryResponse
+// @Success 200 {object} ExtraItem
 // @Router /extra/ [get]
 func (rExtra) getOne(ctx *gin.Context) {
 	var query struct {
@@ -134,7 +135,6 @@ func (rExtra) getOne(ctx *gin.Context) {
 	ctx.JSON(200, out)
 }
 
-// @Accept json
 // @Produce json
 // @Param q query string false "text to search"
 // @Param sort query string false "column to sort by"
@@ -251,10 +251,10 @@ func (rExtra) getQuery(ctx *gin.Context) {
 
 // ExtraItem is outputtable Extra item format
 type ExtraItem struct {
-	Entry       *string   `json:"entry"`
-	Type        *string   `json:"type"`
-	Reading     *string   `json:"reading"`
-	English     *string   `json:"english"`
+	Entry       *string   `json:"entry" binding:"required"`
+	Type        *string   `json:"type" binding:"required"`
+	Reading     *string   `json:"reading" binding:"required"`
+	English     *string   `json:"english" binding:"required"`
 	Description *string   `json:"description"`
 	Tag         *[]string `json:"tag"`
 }
@@ -265,275 +265,203 @@ type ExtraQueryResponse struct {
 	Count  int64       `json:"count"`
 }
 
-func routerExtra(apiRouter *gin.RouterGroup) {
-	r := apiRouter.Group(("/extra"))
+// @Accept json
+// @Produce json
+// @Param extraItem body ExtraItem true "extra item"
+// @Success 201 {object} CreateResponse
+// @Router /extra/ [put]
+func (rExtra) create(ctx *gin.Context) {
+	var body ExtraItem
 
-	r.PUT("/", func(ctx *gin.Context) {
-		var body struct {
-			Chinese     string `json:"chinese" binding:"required"`
-			Pinyin      string `json:"pinyin" binding:"required"`
-			English     string `json:"english" binding:"required"`
-			Type        string `json:"type"`
-			Description string `json:"description"`
-			Tag         string `json:"tag"`
-			Forced      bool   `json:"forced"`
+	if e := ctx.BindJSON(&body); e != nil {
+		ctx.AbortWithError(400, e)
+		return
+	}
+
+	it := db.Extra{
+		Entry:   *body.Entry,
+		Reading: *body.Reading,
+		English: *body.English,
+		Type:    *body.Type,
+	}
+
+	if body.Description != nil {
+		it.Description = *body.Description
+	}
+
+	e := resource.DB.Transaction(func(tx *gorm.DB) error {
+		if r := tx.Create(&it); r.Error != nil {
+			return r.Error
 		}
 
-		if e := ctx.BindJSON(&body); e != nil {
-			ctx.AbortWithError(400, e)
-			return
-		}
+		if body.Tag != nil && len(*body.Tag) > 0 {
+			tags := make([]db.Tag, 0)
 
-		checkVocab := func() bool {
-			var simplified string
-
-			if r := resource.Zh.Raw(`
-			SELECT simplified
-			FROM vocab
-			WHERE simplified = ? OR traditional = ?
-			LIMIT 1
-			`, body.Chinese, body.Chinese).First(&simplified); r.Error != nil {
-				if errors.Is(r.Error, gorm.ErrRecordNotFound) {
-					return false
-				}
-				panic(r.Error)
+			for _, t := range *body.Tag {
+				tags = append(tags, db.Tag{
+					UserID: 2,
+					Entry:  *body.Entry,
+					Type:   *body.Type,
+					Name:   t,
+				})
 			}
 
-			ctx.JSON(200, gin.H{
-				"existing": gin.H{
-					"type":  "vocab",
-					"entry": simplified,
-				},
-			})
-
-			return true
-		}
-
-		checkHanzi := func() bool {
-			var entry string
-			if r := resource.Zh.Raw(`
-			SELECT [entry]
-			FROM token
-			WHERE [entry] = ? AND english IS NOT NULL
-			LIMIT 1
-			`, body.Chinese).First(&entry); r.Error != nil {
-				if errors.Is(r.Error, gorm.ErrRecordNotFound) {
-					return false
-				}
-
-				panic(r.Error)
-			}
-
-			ctx.JSON(200, gin.H{
-				"existing": gin.H{
-					"type":  "hanzi",
-					"entry": entry,
-				},
-			})
-
-			return true
-		}
-
-		checkSentence := func() bool {
-			var chinese string
-			if r := resource.Zh.Raw(`
-			SELECT chinese
-			FROM sentence
-			WHERE chinese = ?
-			LIMIT 1
-			`, body.Chinese).First(&chinese); r.Error != nil {
-				if errors.Is(r.Error, gorm.ErrRecordNotFound) {
-					return false
-				}
-
-				panic(r.Error)
-			}
-
-			ctx.JSON(200, gin.H{
-				"existing": gin.H{
-					"type":  "sentence",
-					"entry": chinese,
-				},
-			})
-
-			return true
-		}
-
-		if !body.Forced {
-			if checkVocab() {
-				return
-			}
-
-			if len([]rune(body.Chinese)) == 1 {
-				if checkHanzi() {
-					return
-				}
-			} else {
-				if checkSentence() {
-					return
-				}
-			}
-		}
-
-		it := db.Extra{
-			Entry:       body.Chinese,
-			Reading:     body.Pinyin,
-			English:     body.English,
-			Type:        body.Type,
-			Description: body.Description,
-		}
-
-		if strings.TrimSpace(body.Tag) != "" {
-			resource.DB.Transaction(func(tx *gorm.DB) error {
-				if r := tx.Delete(
-					tx.
-						Where("user_id = ?", 2, body.Type).
-						Where("`type` = ?", body.Type).
-						Where("entry = ?", body.Chinese),
-				); r.Error != nil {
-					return r.Error
-				}
-
-				tags := make([]db.Tag, 0)
-
-				for _, t := range strings.Split(body.Tag, " ") {
-					tags = append(tags, db.Tag{
-						UserID: 2,
-						Entry:  body.Chinese,
-						Type:   body.Type,
-						Name:   t,
-					})
-				}
-
-				if r := tx.Clauses(clause.OnConflict{
-					DoNothing: true,
-				}).Create(&tags); r.Error != nil {
-					return r.Error
-				}
-
-				return nil
-			})
-		}
-
-		e := resource.DB.Transaction(func(tx *gorm.DB) error {
-			if r := tx.Create(&it); r.Error != nil {
+			if r := tx.Clauses(clause.OnConflict{
+				DoNothing: true,
+			}).Create(&tags); r.Error != nil {
 				return r.Error
 			}
-
-			return nil
-		})
-
-		if e != nil {
-			panic(e)
 		}
 
-		ctx.JSON(201, gin.H{
-			"id": it.ID,
-		})
+		return nil
 	})
 
-	r.PATCH("/", func(ctx *gin.Context) {
-		id0 := ctx.Query("id")
-		if id0 == "" {
-			ctx.AbortWithError(400, fmt.Errorf("id to update not specified"))
-			return
-		}
+	if e != nil {
+		panic(e)
+	}
 
-		id, e := strconv.Atoi(id0)
-		if e != nil {
-			ctx.AbortWithError(400, fmt.Errorf("invalid id format"))
-			return
-		}
-
-		var body struct {
-			Chinese     string `json:"chinese" binding:"required"`
-			Pinyin      string `json:"pinyin" binding:"required"`
-			English     string `json:"english" binding:"required"`
-			Type        string `json:"type"`
-			Description string `json:"description"`
-			Tag         string `json:"tag"`
-		}
-
-		if e := ctx.BindJSON(&body); e != nil {
-			ctx.AbortWithError(400, e)
-			return
-		}
-
-		resource.DB.Create(&db.Extra{
-			ID:          id,
-			Entry:       body.Chinese,
-			Reading:     body.Pinyin,
-			English:     body.English,
-			Type:        body.Type,
-			Description: body.Description,
-		})
-
-		if strings.TrimSpace(body.Tag) != "" {
-			resource.DB.Transaction(func(tx *gorm.DB) error {
-				if r := tx.Delete(
-					tx.
-						Where("user_id = ?", 2, body.Type).
-						Where("`type` = ?", body.Type).
-						Where("entry = ?", body.Chinese),
-				); r.Error != nil {
-					return r.Error
-				}
-
-				tags := make([]db.Tag, 0)
-
-				for _, t := range strings.Split(body.Tag, " ") {
-					tags = append(tags, db.Tag{
-						UserID: 2,
-						Entry:  body.Chinese,
-						Type:   body.Type,
-						Name:   t,
-					})
-				}
-
-				if r := tx.Clauses(clause.OnConflict{
-					DoNothing: true,
-				}).Create(&tags); r.Error != nil {
-					return r.Error
-				}
-
-				return nil
-			})
-		}
-
-		ctx.JSON(201, gin.H{
-			"result": "updated",
-		})
+	ctx.JSON(201, CreateResponse{
+		ID: it.ID,
 	})
+}
 
-	r.DELETE("/", func(ctx *gin.Context) {
-		id0 := ctx.Query("id")
-		if id0 == "" {
-			ctx.AbortWithError(400, fmt.Errorf("id to update not specified"))
-			return
+// @Accept json
+// @Produce json
+// @Param id query string true "item to update"
+// @Param extraItem body ExtraItem true "extra item"
+// @Success 201 {object} Response
+// @Router /extra/ [patch]
+func (rExtra) update(ctx *gin.Context) {
+	id0 := ctx.Query("id")
+	if id0 == "" {
+		ctx.AbortWithError(400, fmt.Errorf("id to update not specified"))
+		return
+	}
+
+	id, e := strconv.Atoi(id0)
+	if e != nil {
+		ctx.AbortWithError(400, fmt.Errorf("invalid id format"))
+		return
+	}
+
+	var body ExtraItem
+
+	if e := ctx.BindJSON(&body); e != nil {
+		ctx.AbortWithError(400, e)
+		return
+	}
+
+	it := db.Extra{
+		ID:      id,
+		Entry:   *body.Entry,
+		Reading: *body.Reading,
+		English: *body.English,
+		Type:    *body.Type,
+	}
+
+	if body.Description != nil {
+		if *body.Description == "" {
+			it.Description = " "
+		} else {
+			it.Description = *body.Description
+		}
+	}
+
+	u := userID(ctx)
+	if u == 0 {
+		ctx.AbortWithStatus(401)
+		return
+	}
+
+	if e := resource.DB.Transaction(func(tx *gorm.DB) error {
+		if r := resource.DB.Updates(&it); r.Error != nil {
+			return r.Error
 		}
 
-		id, e := strconv.Atoi(id0)
-		if e != nil {
-			ctx.AbortWithError(400, fmt.Errorf("invalid id format"))
-			return
-		}
-
-		e = resource.DB.Transaction(func(tx *gorm.DB) error {
-			if r := tx.Delete(&db.Extra{
-				ID: id,
+		if body.Tag != nil {
+			if r := resource.DB.Delete(&db.Tag{
+				UserID: u,
+				Entry:  *body.Entry,
+				Type:   *body.Type,
 			}); r.Error != nil {
 				return r.Error
 			}
 
-			return nil
-		})
+			if len(*body.Tag) > 0 {
+				tags := make([]db.Tag, 0)
 
-		if e != nil {
-			panic(e)
+				for _, t := range *body.Tag {
+					tags = append(tags, db.Tag{
+						UserID: u,
+						Entry:  *body.Entry,
+						Type:   *body.Type,
+						Name:   t,
+					})
+				}
+
+				if r := tx.Clauses(clause.OnConflict{
+					DoNothing: true,
+				}).Create(&tags); r.Error != nil {
+					return r.Error
+				}
+			}
 		}
 
-		ctx.JSON(201, gin.H{
-			"result": "deleted",
-		})
+		return nil
+	}); e != nil {
+		panic(e)
+	}
+
+	ctx.JSON(201, Response{
+		Message: "updated",
+	})
+}
+
+// @Produce json
+// @Param id query string true "item to delete"
+// @Success 201 {object} Response
+// @Router /extra/ [delete]
+func (rExtra) delete(ctx *gin.Context) {
+	id0 := ctx.Query("id")
+	if id0 == "" {
+		ctx.AbortWithError(400, fmt.Errorf("id to update not specified"))
+		return
+	}
+
+	id, e := strconv.Atoi(id0)
+	if e != nil {
+		ctx.AbortWithError(400, fmt.Errorf("invalid id format"))
+		return
+	}
+
+	u := userID(ctx)
+	if u == 0 {
+		ctx.AbortWithStatus(401)
+		return
+	}
+
+	if e := resource.DB.Transaction(func(tx *gorm.DB) error {
+		if r := tx.Delete(&db.Extra{
+			ID:     id,
+			UserID: u,
+		}); r.Error != nil {
+			return r.Error
+		}
+
+		// if r := resource.DB.Delete(&db.Tag{
+		// 	UserID: u,
+		// 	Entry:  *body.Entry,
+		// 	Type:   *body.Type,
+		// }); r.Error != nil {
+		// 	return r.Error
+		// }
+
+		return nil
+	}); e != nil {
+		panic(e)
+	}
+
+	ctx.JSON(201, Response{
+		Message: "deleted",
 	})
 }

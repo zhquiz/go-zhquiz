@@ -23,7 +23,6 @@ func (r rUtil) init() {
 	router.GET("/speak", r.speak)
 }
 
-// @Accept json
 // @Produce json
 // @Param q query string true "text to be cut"
 // @Success 200 {object} GetTokenizeResponse
@@ -48,7 +47,6 @@ type GetTokenizeResponse struct {
 	Result []string `json:"result"`
 }
 
-// @Accept json
 // @Produce octet-stream
 // @Param q query string true "text to speak"
 // @Router /util/speak [get]
