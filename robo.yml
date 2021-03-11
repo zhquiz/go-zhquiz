@@ -18,14 +18,14 @@ serve-dev:
     reflex -s -r '\.go$' -- robo -c "{{ .robo.file }}" serve
 build:
   command: |
-    go build --tags "sqlite_fts5 sqlite_json1" -o {{ .exe }}
+    go build --tags "{{ .sqliteTags }}" -o {{ .exe }}
 build-windows:
   command: |
     xgo \
       -ldflags="-H windowsgui" \
       -branch={{ .branch }} \
       -targets=windows/amd64 \
-      -out=zhquiz -tags="sqlite_fts5 sqlite_json1" \
+      -out=zhquiz -tags="{{ .sqliteTags }}" \
       {{ .repo }}
 build-mac:
   summary: |
@@ -34,22 +34,25 @@ build-mac:
     xgo \
       -branch={{ .branch }} \
       -targets=darwin/amd64 \
-      -out=zhquiz -tags="sqlite_fts5 sqlite_json1" \
+      -out=zhquiz -tags="{{ .sqliteTags }}" \
       {{ .repo }}
 build-linux:
   command: |
-    go build --tags "sqlite_fts5 sqlite_json1" -o "zhquiz-linux-amd64"
+    go build --tags "{{ .sqliteTags }}" -o "zhquiz-linux-amd64"
 build-all:
   command: |
     robo -c "{{ .robo.file }}" build-windows
     robo -c "{{ .robo.file }}" build-mac
     robo -c "{{ .robo.file }}" build-linux
-dist:
+prepare:
   command: |
     cd __packages__/ui
+    yarn
     yarn build
     cd -
-
+dist:
+  command: |
+    robo -c "{{ .robo.file }}" prepare
     robo -c "{{ .robo.file }}" build-all
 
     cd __packages__/nodejs
@@ -63,3 +66,4 @@ variables:
   repo: github.com/zhquiz/go-zhquiz
   branch: $(git branch --show-current)
   exe: '"$([ $(go env GOOS) = "windows" ] && echo "zhquiz.exe" || echo "zhquiz.app")"'
+  sqliteTags: sqlite_fts5 sqlite_json1
