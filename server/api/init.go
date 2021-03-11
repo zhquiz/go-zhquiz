@@ -63,9 +63,7 @@ func Prepare() Resource {
 }
 
 // Register registers API paths to Gin Engine.
-/*
-@BasePath /api
-*/
+// @BasePath /api
 func (res Resource) Register(r *gin.Engine, opts *Options) {
 	r.GET("/server/settings", func(ctx *gin.Context) {
 		ctx.JSON(200, gin.H{
