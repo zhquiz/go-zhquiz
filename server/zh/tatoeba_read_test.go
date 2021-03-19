@@ -28,14 +28,6 @@ func TestTatoebaRead(t *testing.T) {
 
 	out := make([]map[string]interface{}, 0)
 
-	// if r := db.Raw(`
-	// SELECT * FROM tatoeba LIMIT 10;
-	// `).Find(&out); r.Error != nil {
-	// 	log.Fatalln(r.Error)
-	// }
-
-	// fmt.Println(out)
-
 	if r := db.Raw(`
 	SELECT * FROM tatoeba WHERE id IN (
 		SELECT rowid FROM tatoeba_q(jieba_search('你们'))

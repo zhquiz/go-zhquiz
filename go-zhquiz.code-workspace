@@ -6,5 +6,10 @@
     {
       "path": "."
     }
-  ]
+  ],
+  "settings": {
+    "files.associations": {
+      "*.sql": "sqlite"
+    }
+  }
 }

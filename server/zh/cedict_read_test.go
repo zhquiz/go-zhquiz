@@ -1,8 +1,9 @@
-// +build alter
+// +build !alter
 
 package zh
 
 import (
+	"fmt"
 	"log"
 	"path"
 	"testing"
@@ -12,7 +13,7 @@ import (
 	"gorm.io/gorm/schema"
 )
 
-func TestTatoebaAlter(t *testing.T) {
+func TestCedictRead(t *testing.T) {
 	RegisterSQLiteCustom("sqlite_custom")
 
 	db, err := gorm.Open(&sqlite.Dialector{
@@ -27,10 +28,15 @@ func TestTatoebaAlter(t *testing.T) {
 		log.Fatalln(err)
 	}
 
-	if r := db.Exec(`
-	INSERT OR REPLACE INTO tatoeba (id, chinese, english, frequency, level)
-	SELECT id, chinese, english, frequency, level FROM tatoeba
-	`); r.Error != nil {
+	out := make([]map[string]interface{}, 0)
+
+	if r := db.Raw(`
+	SELECT * FROM cedict WHERE id IN (
+		SELECT rowid FROM cedict_q('hello')
+	) LIMIT 10;
+	`).Find(&out); r.Error != nil {
 		log.Fatalln(r.Error)
 	}
+
+	fmt.Println(out)
 }

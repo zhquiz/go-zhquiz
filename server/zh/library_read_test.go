@@ -13,7 +13,7 @@ import (
 	"gorm.io/gorm/schema"
 )
 
-func TestTokenRead(t *testing.T) {
+func TestLibraryRead(t *testing.T) {
 	RegisterSQLiteCustom("sqlite_custom")
 
 	db, err := gorm.Open(&sqlite.Dialector{
@@ -31,8 +31,8 @@ func TestTokenRead(t *testing.T) {
 	out := make([]map[string]interface{}, 0)
 
 	if r := db.Raw(`
-	SELECT * FROM token WHERE id IN (
-		SELECT rowid FROM token_q('HSK6')
+	SELECT * FROM library WHERE id IN (
+		SELECT rowid FROM library_q('HSK6')
 	) LIMIT 10;
 	`).Find(&out); r.Error != nil {
 		log.Fatalln(r.Error)

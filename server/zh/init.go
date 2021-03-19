@@ -18,13 +18,8 @@ import (
 
 var jieba jiebago.Segmenter
 
-// DB holds storage for current DB
-type DB struct {
-	Current *gorm.DB
-}
-
 // Connect connects to the database
-func Connect() DB {
+func Connect() *gorm.DB {
 	db, err := gorm.Open(&sqlite.Dialector{
 		DriverName: "sqlite_custom",
 		DSN:        path.Join(shared.ExecDir, "assets", "zh.db") + "?mode=ro",
@@ -38,9 +33,7 @@ func Connect() DB {
 		log.Fatalln(err)
 	}
 
-	return DB{
-		Current: db,
-	}
+	return db
 }
 
 // RegisterSQLiteCustom registers custom SQLite driver
