@@ -12,7 +12,7 @@ require (
 	github.com/google/go-cmp v0.5.4 // indirect
 	github.com/jkomyno/nanoid v0.0.0-20170914145641-30c81465692e
 	github.com/joho/godotenv v1.3.0
-	github.com/mattn/go-sqlite3 v2.0.3+incompatible // indirect
+	github.com/mattn/go-sqlite3 v2.0.3+incompatible
 	github.com/ncruces/zenity v0.5.2
 	github.com/stretchr/testify v1.5.1 // indirect
 	github.com/wangbin/jiebago v0.3.2
