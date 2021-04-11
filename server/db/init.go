@@ -51,6 +51,18 @@ func Connect() DB {
 		&Sentence{},
 	)
 
+	var nUser int64
+
+	if r := output.Current.Model(&User{}).Count(&nUser); r.Error != nil {
+		panic(r.Error)
+	}
+
+	if nUser == 0 {
+		if r := output.Current.Create(&User{}); r.Error != nil {
+			panic(r.Error)
+		}
+	}
+
 	if r := output.Current.Raw("SELECT Name FROM sqlite_master WHERE type='table' AND name='quiz_q'").First(&struct {
 		Name string
 	}{}); r.Error != nil {
@@ -172,7 +184,7 @@ func parseChinese(s string) string {
 
 func parsePinyin(s string) string {
 	out := make([]string, 0)
-	re := regexp.MustCompile("\\d+$")
+	re := regexp.MustCompile(`\d+$`)
 
 	for _, c := range strings.Split(s, " ") {
 		out = append(out, re.ReplaceAllString(c, ""))

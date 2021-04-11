@@ -514,7 +514,7 @@ func routerQuiz(apiRouter *gin.RouterGroup) {
 				if pinyin == "" || english == "" {
 					pSegs := make([]string, 0)
 					eSegs := make([]string, 0)
-					reHan := regexp.MustCompile("\\p{Han}+")
+					reHan := regexp.MustCompile(`\p{Han}+`)
 
 					for _, seg := range cutChinese(entry) {
 						if reHan.MatchString(seg) {
@@ -766,7 +766,7 @@ func qSearch(q string) *gorm.DB {
 	qBuilder := resource.DB.Current.Model(&db.Quiz{})
 	segs := make([]string, 0)
 
-	reCmp := regexp.MustCompile("([><]=?)(\\d+)")
+	reCmp := regexp.MustCompile(`([><]=?)(\d+)`)
 
 	parseV := func(k string, v string, myBuilder *gorm.DB) error {
 		for _, m := range reCmp.FindAllSubmatch([]byte(v), -1) {
@@ -779,6 +779,8 @@ func qSearch(q string) *gorm.DB {
 		if n, e := strconv.Atoi(v); e == nil {
 			myBuilder = myBuilder.Where(fmt.Sprintf("%s = ?", k), n)
 		}
+
+		qBuilder = myBuilder
 
 		return nil
 	}

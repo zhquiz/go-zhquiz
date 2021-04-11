@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 
 	"github.com/gin-gonic/gin"
-	"github.com/go-playground/validator/v10"
 	"github.com/wangbin/jiebago"
 	"github.com/zhquiz/go-zhquiz/server/db"
 	"github.com/zhquiz/go-zhquiz/server/zh"
@@ -15,7 +14,6 @@ import (
 )
 
 var resource Resource
-var validate *validator.Validate = validator.New()
 var jieba jiebago.Segmenter
 
 // Resource is a struct for reuse and cleanup.
@@ -58,16 +56,7 @@ func (res Resource) Register(r *gin.Engine, opts *Options) {
 		})
 	})
 
-	apiRouter := r.Group("/api", func(c *gin.Context) {
-		cookie, _ := c.Cookie("csrf_token")
-
-		if cookie != opts.Token {
-			c.AbortWithStatus(401)
-			return
-		}
-
-		c.Next()
-	})
+	apiRouter := r.Group("/api")
 
 	routerChinese(apiRouter)
 	routerExtra(apiRouter)

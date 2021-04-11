@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"net/http"
 	"net/url"
 	"regexp"
 	"strconv"
@@ -143,8 +144,8 @@ func routerSentence(apiRouter *gin.RouterGroup) {
 		}
 
 		if query.Q != "" {
-			if regexp.MustCompile("\\p{Han}").MatchString(query.Q) {
-				cond["q"] = "%" + string(regexp.MustCompile("[^\\p{Han}]+").ReplaceAll([]byte(query.Q), []byte("%"))) + "%"
+			if regexp.MustCompile(`\p{Han}`).MatchString(query.Q) {
+				cond["q"] = "%" + string(regexp.MustCompile(`[^\p{Han}]+`).ReplaceAll([]byte(query.Q), []byte("%"))) + "%"
 				andCond = append(andCond, "chinese LIKE @q")
 			} else {
 				andCond = append(andCond, `id IN (
@@ -252,7 +253,12 @@ func routerSentence(apiRouter *gin.RouterGroup) {
 
 			if len(out.Result) <= generate {
 				func() {
-					doc, err := goquery.NewDocument(fmt.Sprintf("http://www.jukuu.com/search.php?q=%s", url.QueryEscape(query.Q)))
+					resp, err := http.Get(fmt.Sprintf("http://www.jukuu.com/search.php?q=%s", url.QueryEscape(query.Q)))
+					if err != nil {
+						return
+					}
+
+					doc, err := goquery.NewDocumentFromReader(resp.Body)
 					if err != nil {
 						return
 					}

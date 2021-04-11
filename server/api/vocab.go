@@ -70,7 +70,7 @@ func routerVocab(apiRouter *gin.RouterGroup) {
 			"q": "%" + query.Q + "%",
 		}
 
-		if regexp.MustCompile("^[^\\p{Han}]+$").MatchString(query.Q) {
+		if regexp.MustCompile(`^[^\p{Han}]+$`).MatchString(query.Q) {
 			cond["q"] = query.Q
 			where = "simplified IN (SELECT entry FROM token_q WHERE token_q MATCH @q)"
 		}
