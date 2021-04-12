@@ -36,6 +36,11 @@ const originalOpen = window.open
 window.open = function (url) {
   return new Tab({ url }).iframeElement?.contentWindow || null
 }
+window.openExternal = function (url) {
+  fetch(`/api/openURL?url=${encodeURIComponent(url)}`, {
+    method: 'POST'
+  })
+}
 
 const tabList: Tab[] = []
 

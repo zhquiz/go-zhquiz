@@ -30,12 +30,12 @@ int display_height() {
 int display_width() {
 	Display* d = XOpenDisplay(NULL);
 	Screen*  s = DefaultScreenOfDisplay(d);
-	return s->width;
+	return s->width - 50;
 }
 int display_height() {
 	Display* d = XOpenDisplay(NULL);
 	Screen*  s = DefaultScreenOfDisplay(d);
-	return s->height;
+	return s->height - 50;
 }
 #endif
 */
@@ -78,7 +78,7 @@ func main() {
 
 		w.SetSize(int(C.display_width()), int(C.display_height()), webview.HintNone)
 		w.SetTitle("ZhQuiz")
-		w.Navigate(url)
+		w.Navigate(url + "/etabs.html")
 		w.Run()
 	} else {
 		c := make(chan os.Signal, 2)

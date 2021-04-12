@@ -58,6 +58,20 @@ func (res Resource) Register(r *gin.Engine, opts *Options) {
 
 	apiRouter := r.Group("/api")
 
+	apiRouter.POST("/openURL", func(c *gin.Context) {
+		url, _ := c.GetQuery("url")
+		if url == "" {
+			c.AbortWithStatus(400)
+			return
+		}
+
+		shared.OpenURL(url)
+
+		c.JSON(201, gin.H{
+			"result": "opened",
+		})
+	})
+
 	routerChinese(apiRouter)
 	routerExtra(apiRouter)
 	routerHanzi(apiRouter)

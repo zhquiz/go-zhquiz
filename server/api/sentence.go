@@ -38,9 +38,7 @@ func routerSentence(apiRouter *gin.RouterGroup) {
 		var result Result
 
 		if r := resource.Zh.Current.Raw(`
-		SELECT Chinese, (
-			SELECT english FROM sentence_q WHERE id = sentence.id
-		) English
+		SELECT Chinese, English
 		FROM sentence
 		WHERE chinese = ?
 		`, query.Entry).First(&result); r.Error != nil {
@@ -171,44 +169,12 @@ func routerSentence(apiRouter *gin.RouterGroup) {
 		}
 
 		if r := resource.Zh.Current.Raw(fmt.Sprintf(`
-		SELECT ID, Chinese
+		SELECT ID, Chinese, English
 		FROM sentence
 		WHERE %s
 		%s
 		`, strings.Join(andCond, " AND "), order), cond).Find(&result); r.Error != nil {
 			panic(r.Error)
-		}
-
-		if len(result) > 0 {
-			engMap := map[int64]string{}
-
-			ids := make([]int64, 0)
-			for _, r := range result {
-				ids = append(ids, r.ID)
-			}
-
-			rows, err := resource.Zh.Current.Raw(`
-			SELECT ID, English FROM sentence_q
-			WHERE ID IN ?
-			`, ids).Rows()
-			if err != nil {
-				panic(err)
-			}
-
-			for rows.Next() {
-				var id int64
-				var english string
-				if e := rows.Scan(&id, &english); e != nil {
-					panic(e)
-				}
-
-				engMap[id] = english
-			}
-
-			for i, r := range result {
-				r.English = engMap[r.ID]
-				result[i] = r
-			}
 		}
 
 		for i, it := range result {
@@ -423,7 +389,7 @@ func routerSentence(apiRouter *gin.RouterGroup) {
 		var result []Result
 
 		if r := resource.Zh.Current.Raw(fmt.Sprintf(`
-		SELECT ID, chinese Result, Level
+		SELECT ID, chinese Result, Level, English
 		FROM sentence
 		WHERE %s
 		`, where), cond).Find(&result); r.Error != nil {
@@ -449,14 +415,6 @@ func routerSentence(apiRouter *gin.RouterGroup) {
 
 		rand.Seed(time.Now().UnixNano())
 		r := result[rand.Intn(len(result))]
-
-		if e := resource.Zh.Current.Raw(`
-		SELECT English
-		FROM sentence_q
-		WHERE id = ?
-		`, r.ID).Row().Scan(&r.English); e != nil {
-			panic(e)
-		}
 
 		ctx.JSON(200, r)
 	})

@@ -122,13 +122,7 @@ export default class AppLayout extends Vue {
     ]
   }
 
-  openInNewTab = window.parent
-    ? (url: string, title?: string) => {
-      window.parent.open(url, title)
-    }
-    : (url: string) => {
-      open(url, '_blank', 'noopener noreferrer')
-    }
+  openInNewTab = window.parent?.openExternal || ((url: string) => window.open(url, '_blank', 'noopener noreferrer'))
 
   get level () {
     const { level } = this.$store.state.settings
