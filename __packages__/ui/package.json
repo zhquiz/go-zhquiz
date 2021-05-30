@@ -3,9 +3,9 @@
   "version": "0.2.0",
   "private": true,
   "scripts": {
-    "dev": "concurrently 'yarn serve' 'cd ../.. && robo serve-dev'",
+    "dev": "concurrently 'yarn serve' 'cd ../desktop && robo serve-dev'",
     "serve": "vue-cli-service serve",
-    "build": "vue-cli-service build --dest ../../public --skip-plugins @vue/cli-plugin-eslint",
+    "build": "vue-cli-service build --dest ../desktop/public --skip-plugins @vue/cli-plugin-eslint",
     "lint": "vue-cli-service lint"
   },
   "dependencies": {
