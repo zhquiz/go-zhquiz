@@ -10,15 +10,8 @@
   src: url('/fonts/NotoSansCJKsc-Regular.otf') format('opentype');
 }
 
-@font-face {
-  font-family: HanaMin;
-  font-display: swap;
-  src: url('/fonts/HanaMinA.ttf') format('truetype'),
-    url('/fonts/HanaMinB.ttf') format('truetype');
-}
-
 .font-han {
-  font-family: 'Noto Serif TC', 'Noto Serif SC', 'HanaMin', sans-serif;
+  font-family: 'Noto Serif TC', 'Noto Serif SC', sans-serif;
 }
 
 .font-zh-simp {

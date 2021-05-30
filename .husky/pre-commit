@@ -1,0 +1,8 @@
+#!/bin/bash
+. "$(dirname "$0")/_/husky.sh"
+
+if git diff --quiet HEAD^ HEAD __packages__/ui/;
+then
+  cd __packages__/ui
+  yarn build
+fi
