@@ -1,4 +1,4 @@
-name: build-desktop
+name: pkg
 
 on:
   push:
@@ -35,15 +35,15 @@ jobs:
       - name: Build (non-Windows)
         if: matrix.platform != 'windows-latest'
         run: |
-          cd packages/desktop
-          go build -o ../../emojazz
+          cd __packages__/desktop
+          go build --tags "sqlite_fts5 sqlite_json1" -o ../../zhquiz
 
       - name: Build (Windows)
         if: matrix.platform == 'windows-latest'
         run: |
-          cd packages\\desktop
-          go build --tags no_fallback -ldflags="-H windowsgui" -o ..\\..\\emojazz-no_fallback.exe
-          go build -ldflags="-H windowsgui" -o ..\\..\\emojazz.exe
+          cd __packages__\\desktop
+          go build --tags "sqlite_fts5 sqlite_json1 no_fallback" -ldflags="-H windowsgui" -o ..\\..\\zhquiz-no_fallback.exe
+          go build --tags "sqlite_fts5 sqlite_json1" -ldflags="-H windowsgui" -o ..\\..\\zhquiz.exe
 
       ############ Packaging (Linux) ############
 
@@ -51,18 +51,17 @@ jobs:
         if: matrix.platform == 'ubuntu-latest'
         run: |
           mkdir dist
-          mkdir dist/img
-          mv emojazz dist/emojazz
-          mv packages/desktop/config.yaml packages/nodejs/assets/*.yaml dist/
-          mv packages/desktop/public dist/public
+          cp zhquiz LICENSE README.md dist/
+          cp -r __packages__/desktop/assets dist/
+          cp -r __packages__/desktop/public dist/
           cd dist
-          tar -czf ../emojazz-linux.tar.gz *
+          tar -czf ../zhquiz-linux.tar.gz *
       - name: Upload binaries to release (Linux)
         if: matrix.platform == 'ubuntu-latest'
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: emojazz-linux.tar.gz
+          file: zhquiz-linux.tar.gz
           tag: release-${{ github.ref }}
           overwrite: true
           body: Executable for Linux
@@ -72,19 +71,19 @@ jobs:
       - name: Packaging (macOS)
         if: matrix.platform == 'macos-latest'
         run: |
-          mkdir dist
-          mkdir dist/img
-          mv emojazz dist/emojazz.app
-          mv packages/desktop/config.yaml packages/nodejs/assets/*.yaml dist/
-          mv packages/desktop/public dist/public
+          mkdir -p dist/zhquiz.app/Contents/MacOS
+          cp __packages__/desktop/Info.plist dist/zhquiz.app/Contents/
+          cp zhquiz LICENSE README.md dist/zhquiz.app/Contents/MacOS/
+          cp -r __packages__/desktop/assets dist/zhquiz.app/Contents/MacOS/
+          cp -r __packages__/desktop/public dist/zhquiz.app/Contents/MacOS/
           cd dist
-          zip -r ../emojazz-macos.zip *
+          zip -r ../zhquiz-macos.zip zhquiz.app
       - name: Upload binaries to release (macOS)
         if: matrix.platform == 'macos-latest'
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: emojazz-macos.zip
+          file: zhquiz-macos.zip
           tag: release-${{ github.ref }}
           overwrite: true
           body: Executable for macOS
@@ -95,31 +94,38 @@ jobs:
         if: matrix.platform == 'windows-latest'
         run: |
           mkdir dist-no_fallback
-          mkdir dist-no_fallback\\img
-          cp emojazz-no_fallback.exe dist-no_fallback\\emojazz.exe
-          cp packages\\desktop\\config.yaml dist-no_fallback
-          cp packages\\nodejs\\assets\\*.yaml dist-no_fallback
-          cp -r packages\\desktop\\public dist-no_fallback\\public
+
+          cp zhquiz-no_fallback.exe dist-no_fallback\\zhquiz.exe
+          cp LICENSE dist-no_fallback\\LICENSE
+          cp README.md dist-no_fallback\\README.md
+
+          cp -r __packages__\\desktop\\assets dist-no_fallback\\assets
+          cp -r __packages__\\desktop\\public dist-no_fallback\\public
+
           cd dist-no_fallback
-          tar -cf ..\\emojazz-windows-no_fallback.tar *
+          tar -cf ..\\zhquiz-windows-no_fallback.tar *
           cd -
 
           mkdir dist
-          mkdir dist\\img
-          cp emojazz.exe dist\\emojazz.exe
+
           curl https://raw.githubusercontent.com/webview/webview/master/dll/x64/WebView2Loader.dll --output dist\\WebView2Loader.dll
           curl https://raw.githubusercontent.com/webview/webview/master/dll/x64/webview.dll --output dist\\webview.dll
-          cp packages\\desktop\\config.yaml dist
-          cp packages\\nodejs\\assets\\*.yaml dist
-          cp -r packages\\desktop\\public dist\\public
+          
+          cp zhquiz.exe dist\\zhquiz.exe
+          cp LICENSE dist\\LICENSE
+          cp README.md dist\\README.md
+
+          cp -r __packages__\\desktop\\assets dist\\assets
+          cp -r __packages__\\desktop\\public dist\\public
+
           cd dist
-          tar -cf ..\\emojazz-windows.tar *
+          tar -cf ..\\zhquiz-windows.tar *
       - name: Upload binaries to release (Windows no_fallback)
         if: matrix.platform == 'windows-latest'
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: emojazz-windows-no_fallback.tar
+          file: zhquiz-windows-no_fallback.tar
           tag: release-${{ github.ref }}
           overwrite: true
           body: Executable for Windows
@@ -128,7 +134,7 @@ jobs:
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: emojazz-windows.tar
+          file: zhquiz-windows.tar
           tag: release-${{ github.ref }}
           overwrite: true
           body: Executable for Windows
