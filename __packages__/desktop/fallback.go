@@ -1,3 +1,5 @@
+//+build !no_fallback
+
 package main
 
 /*
@@ -43,47 +45,36 @@ import "C"
 import (
 	"fmt"
 	"net/http"
-	"os"
-	"os/signal"
-	"syscall"
+	"net/url"
 	"time"
 
 	"github.com/webview/webview"
-	"github.com/zhquiz/go-zhquiz/server"
-	"github.com/zhquiz/go-zhquiz/server/api"
-	"github.com/zhquiz/go-zhquiz/shared"
 )
 
-func main() {
-	shared.Load()
+func fallback(title string, u string) {
+	w := webview.New(false)
+	defer w.Destroy()
+	w.SetTitle(title)
+	w.SetSize(int(C.display_width()), int(C.display_height()), 0)
+	w.Navigate("data:text/html," + url.PathEscape(fmt.Sprintf(`
+	<html>
+		<head><title>%s</title></head>
+	</html>
+	`, title)))
 
-	res := api.Prepare()
-	defer res.Cleanup()
-
-	server.Serve(&res)
-
-	if !shared.IsDebug() {
-		url := fmt.Sprintf("http://localhost:%d", shared.Port())
-
-		for {
-			time.Sleep(1 * time.Second)
-			_, err := http.Head(url)
-			if err == nil {
-				break
+	go func() {
+		w.Dispatch(func() {
+			for {
+				time.Sleep(1 * time.Second)
+				_, err := http.Head(u)
+				if err == nil {
+					break
+				}
 			}
-		}
 
-		w := webview.New(true)
-		defer w.Destroy()
+			w.Navigate(u + "/etabs.html")
+		})
+	}()
 
-		w.SetSize(int(C.display_width()), int(C.display_height()), webview.HintNone)
-		w.SetTitle("ZhQuiz")
-		w.Navigate(url + "/etabs.html")
-		w.Run()
-	} else {
-		c := make(chan os.Signal, 2)
-		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-
-		<-c
-	}
+	w.Run()
 }

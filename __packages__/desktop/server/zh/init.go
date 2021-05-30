@@ -4,7 +4,7 @@ import (
 	"log"
 	"path"
 
-	"github.com/zhquiz/go-zhquiz/shared"
+	"github.com/zhquiz/zhquiz-desktop/shared"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/schema"

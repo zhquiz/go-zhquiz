@@ -1,6 +1,9 @@
 {
   "folders": [
     {
+      "path": "__packages__/desktop"
+    },
+    {
       "path": "__packages__/ui"
     },
     {

@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/jkomyno/nanoid"
-	"github.com/zhquiz/go-zhquiz/server/zh"
+	"github.com/zhquiz/zhquiz-desktop/server/zh"
 	"gorm.io/gorm"
 )
 

@@ -1,0 +1,34 @@
+desktop:
+  command: |
+    robo -c "{{ .robo.file }}" build
+    ./{{ .exe }}
+serve:
+  command: |
+    robo -c "{{ .robo.file }}" build
+    DEBUG=1 ./{{ .exe }}
+dev:
+  command: |
+    cd ../ui
+    yarn dev
+serve-dev:
+  command: |
+    export PORT=${SERVER_PORT:-5000}
+    # increase the file watch limit, might be required on MacOS
+    ulimit -n 1000
+    reflex -s -r '\.go$' -- robo -c "{{ .robo.file }}" serve
+build:
+  command: |
+    go build --tags "{{ .sqliteTags }}" -o {{ .exe }}
+prepare:
+  command: |
+    cd ../ui
+    yarn
+    yarn build
+    cd -
+
+##########
+# Settings
+
+variables:
+  exe: '"$([ $(go env GOOS) = "windows" ] && echo "zhquiz.exe" || echo "zhquiz.app")"'
+  sqliteTags: sqlite_fts5 sqlite_json1

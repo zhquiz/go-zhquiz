@@ -8,9 +8,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/wangbin/jiebago"
-	"github.com/zhquiz/go-zhquiz/server/db"
-	"github.com/zhquiz/go-zhquiz/server/zh"
-	"github.com/zhquiz/go-zhquiz/shared"
+	"github.com/zhquiz/zhquiz-desktop/server/db"
+	"github.com/zhquiz/zhquiz-desktop/server/zh"
+	"github.com/zhquiz/zhquiz-desktop/shared"
 )
 
 var resource Resource

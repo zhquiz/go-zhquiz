@@ -12,9 +12,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/jkomyno/nanoid"
-	"github.com/zhquiz/go-zhquiz/server/db"
-	"github.com/zhquiz/go-zhquiz/server/util"
-	"github.com/zhquiz/go-zhquiz/server/zh"
+	"github.com/zhquiz/zhquiz-desktop/server/db"
+	"github.com/zhquiz/zhquiz-desktop/server/util"
+	"github.com/zhquiz/zhquiz-desktop/server/zh"
 	"gorm.io/gorm"
 )
 

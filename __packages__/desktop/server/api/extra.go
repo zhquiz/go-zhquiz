@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/zhquiz/go-zhquiz/server/db"
+	"github.com/zhquiz/zhquiz-desktop/server/db"
 	"gorm.io/gorm"
 )
 

@@ -6,7 +6,7 @@ ZhQuiz, a full-offline Chinese quizzing desktop app
 
 ## Downloads
 
-See <https://github.com/zhquiz/go-zhquiz/releases>.
+See <https://github.com/zhquiz/zhquiz-desktop/releases>.
 
 Download and unzip the file depending on your operating system. Double click on `zhquiz.exe` or `zhquiz.app`.
 
