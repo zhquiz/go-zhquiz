@@ -7,6 +7,9 @@
       "path": "__packages__/ui"
     },
     {
+      "path": "__packages__/python"
+    },
+    {
       "path": "."
     }
   ],
