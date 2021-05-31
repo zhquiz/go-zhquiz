@@ -3,12 +3,12 @@ package db
 import (
 	"errors"
 	"log"
+	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
 
 	"github.com/wangbin/jiebago"
-	"github.com/zhquiz/zhquiz-desktop/server/zh"
 	"github.com/zhquiz/zhquiz-desktop/shared"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -16,19 +16,10 @@ import (
 )
 
 var jieba jiebago.Segmenter
-var zhDB zh.DB
-
-// DB is the storage for current DB
-type DB struct {
-	Current *gorm.DB
-}
 
 // Connect connects to DATABASE_URL
-func Connect() DB {
+func Connect() *gorm.DB {
 	jieba.LoadDictionary(filepath.Join(shared.ExecDir, "assets", "dict.txt"))
-	zhDB = zh.Connect()
-
-	output := DB{}
 
 	db, err := gorm.Open(sqlite.Open(filepath.Join(shared.UserDataDir(), "data.db")), &gorm.Config{
 		NamingStrategy: schema.NamingStrategy{
@@ -39,120 +30,56 @@ func Connect() DB {
 		log.Fatalln(err)
 	}
 
-	output = DB{
-		Current: db,
-	}
-
-	output.Current.AutoMigrate(
+	db.AutoMigrate(
 		&User{},
 		&Quiz{},
-		&Extra{},
-		&Library{},
-		&Sentence{},
+		&ChineseBase{},
+		&LibraryBase{},
 	)
 
-	var nUser int64
+	// Create a user, if not exist yet
+	func() {
+		var nUser int64
 
-	if r := output.Current.Model(&User{}).Count(&nUser); r.Error != nil {
-		panic(r.Error)
-	}
-
-	if nUser == 0 {
-		if r := output.Current.Create(&User{}); r.Error != nil {
+		if r := db.Model(&User{}).Count(&nUser); r.Error != nil {
 			panic(r.Error)
 		}
-	}
 
-	if r := output.Current.Raw("SELECT Name FROM sqlite_master WHERE type='table' AND name='quiz_q'").First(&struct {
-		Name string
-	}{}); r.Error != nil {
-		if errors.Is(r.Error, gorm.ErrRecordNotFound) {
-			output.Current.Exec(`
-			CREATE VIRTUAL TABLE "quiz_q" USING fts5 (
-				[id], [entry], [pinyin], [english], [description], [tag],
-				[type], [direction], [source]
-			);
-			`)
-
-			var quizzes []Quiz
-			output.Current.Find(&quizzes)
-
-			output.Current.Transaction(func(tx *gorm.DB) error {
-				for _, q := range quizzes {
-					q.Create(tx)
-				}
-
-				return nil
-			})
-		} else {
-			log.Fatalln(r.Error)
+		if nUser == 0 {
+			if r := db.Create(&User{}); r.Error != nil {
+				panic(r.Error)
+			}
 		}
-	}
+	}()
 
-	if r := output.Current.Raw("SELECT Name FROM sqlite_master WHERE type='table' AND name='extra_q'").First(&struct {
+	if r := db.Raw("SELECT Name FROM sqlite_master WHERE type='table' AND name='chinese'").First(&struct {
 		Name string
 	}{}); r.Error != nil {
 		if errors.Is(r.Error, gorm.ErrRecordNotFound) {
-			output.Current.Exec(`
-			CREATE VIRTUAL TABLE extra_q USING fts5(
-				[id],
-				[chinese],
-				[pinyin],
-				[english],
-				[type],
-				[description],
-				[tag]
-			);
-			`)
-
-			var extras []Extra
-			output.Current.Find(&extras)
-
-			output.Current.Transaction(func(tx *gorm.DB) error {
-				for _, ex := range extras {
-					ex.Create(tx)
+			if e := db.Transaction(func(tx *gorm.DB) error {
+				if r := tx.Exec(`
+				CREATE VIRTUAL TABLE chinese USING fts5 (
+					id,
+					source,
+					[type],
+					chinese,
+					alt,
+					pinyin,
+					english,
+					[description],
+					[tag],
+					tokenize = porter
+				)
+				`); r.Error != nil {
+					return r.Error
 				}
 
-				return nil
-			})
-		} else {
-			log.Fatalln(r.Error)
-		}
-	}
-
-	if r := output.Current.Raw("SELECT Name FROM sqlite_master WHERE type='table' AND name='library_q'").First(&struct {
-		Name string
-	}{}); r.Error != nil {
-		if errors.Is(r.Error, gorm.ErrRecordNotFound) {
-			output.Current.Exec(`
-			CREATE VIRTUAL TABLE library_q USING fts5(
-				[id],
-				[title],
-				[entry],
-				[description],
-				[tag]
-			);
-			`)
-
-			if e := output.Current.Transaction(func(tx *gorm.DB) error {
-				var libs []map[string]interface{}
-				if r := zhDB.Current.Raw("SELECT title, entries FROM library").Find(&libs); r.Error != nil {
-					log.Fatalln(r.Error)
+				dbCedict, err := gorm.Open(sqlite.Open(path.Join(shared.ExecDir, "assets", "cedict.db") + "?mode=ro"))
+				if err != nil {
+					return err
 				}
-
-				for _, a := range libs {
-					lib := Library{
-						ID:    " " + a["title"].(string),
-						Title: a["title"].(string),
-					}
-
-					if e := lib.Entries.Scan(a["entries"]); e != nil {
-						return e
-					}
-
-					if e := lib.Create(tx); e != nil {
-						return e
-					}
+				if r := dbCedict.Raw("SELECT simplified, traditional, pinyin, english FROM cedict"); r.Error != nil {
+					return r.Error
 				}
 
 				return nil
@@ -164,7 +91,35 @@ func Connect() DB {
 		}
 	}
 
-	return output
+	if r := db.Raw("SELECT Name FROM sqlite_master WHERE type='table' AND name='library'").First(&struct {
+		Name string
+	}{}); r.Error != nil {
+		if errors.Is(r.Error, gorm.ErrRecordNotFound) {
+			if e := db.Transaction(func(tx *gorm.DB) error {
+				if r := tx.Exec(`
+				CREATE VIRTUAL TABLE library USING fts5 (
+					id,
+					title,
+					entry,
+					[description],
+					[tag],
+					[type],
+					tokenize = porter
+				)
+				`); r.Error != nil {
+					return r.Error
+				}
+
+				return nil
+			}); e != nil {
+				panic(e)
+			}
+		} else {
+			log.Fatalln(r.Error)
+		}
+	}
+
+	return db
 }
 
 func parseChinese(s string) string {

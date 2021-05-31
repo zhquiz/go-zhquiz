@@ -2,9 +2,12 @@ package db
 
 import (
 	"database/sql/driver"
+	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
+
+	"gorm.io/gorm"
+	"gorm.io/gorm/schema"
 )
 
 // StringArray type that is compat with both SQLite and PostGres
@@ -17,22 +20,19 @@ func (sa *StringArray) Scan(value interface{}) error {
 		return errors.New(fmt.Sprint("Not a string:", value))
 	}
 
-	if s == "" {
-		*sa = []string{}
-	} else if strings.HasPrefix(s, "\x1f") && strings.HasSuffix(s, "\x1f") {
-		*sa = strings.Split(s[1:len(s)-1], "\x1f")
-	} else {
-		return errors.New(fmt.Sprint("Invalid string:", value))
-	}
-
-	return nil
+	result := make([]string, 0)
+	err := json.Unmarshal([]byte(s), &result)
+	*sa = result
+	return err
 }
 
 // Value (internal) to-database method for StringArray Type
 func (sa StringArray) Value() (driver.Value, error) {
-	if len(sa) == 0 {
-		return "", nil
-	}
+	bytes, err := json.Marshal(sa)
+	return string(bytes), err
+}
 
-	return "\x1f" + strings.Join(sa, "\x1f") + "\x1f", nil
+// GormDBDataType represents UserMeta's data type
+func (StringArray) GormDBDataType(_db *gorm.DB, _ *schema.Field) string {
+	return "JSON"
 }

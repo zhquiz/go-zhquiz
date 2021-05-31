@@ -13,17 +13,11 @@ import (
 
 // User holds user data
 type User struct {
-	ID        string `gorm:"primaryKey"`
+	ID        uint `gorm:"primarykey"`
 	CreatedAt time.Time
 	UpdatedAt time.Time
 
 	Meta UserMeta
-}
-
-// BeforeCreate forces single user
-func (u *User) BeforeCreate(tx *gorm.DB) (err error) {
-	u.ID = "_"
-	return
 }
 
 // UserMeta holds User's settings
@@ -52,29 +46,24 @@ type UserMeta struct {
 
 // Scan scan value into Jsonb, implements sql.Scanner interface
 func (j *UserMeta) Scan(value interface{}) error {
-	bytes, ok := value.([]byte)
+	s, ok := value.(string)
 	if !ok {
-		return errors.New(fmt.Sprint("Failed to unmarshal JSONB value:", value))
+		return errors.New(fmt.Sprint("Failed to unmarshal JSON value:", value))
 	}
 
 	result := UserMeta{}
-	err := json.Unmarshal(bytes, &result)
+	err := json.Unmarshal([]byte(s), &result)
 	*j = result
 	return err
 }
 
 // Value return json value, implement driver.Valuer interface
 func (j UserMeta) Value() (driver.Value, error) {
-	return json.Marshal(j)
+	bytes, err := json.Marshal(j)
+	return string(bytes), err
 }
 
 // GormDBDataType represents UserMeta's data type
-func (UserMeta) GormDBDataType(db *gorm.DB, _ *schema.Field) string {
-	switch db.Dialector.Name() {
-	case "mysql", "sqlite":
-		return "JSON"
-	case "postgres":
-		return "JSONB"
-	}
-	return "TEXT"
+func (UserMeta) GormDBDataType(_db *gorm.DB, _ *schema.Field) string {
+	return "JSON"
 }

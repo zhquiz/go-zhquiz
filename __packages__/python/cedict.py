@@ -1,5 +1,6 @@
 import sqlite3
 import requests
+import json
 from zipfile import ZipFile
 import re
 from wordfreq import word_frequency
@@ -21,7 +22,7 @@ if __name__ == "__main__":
             simplified      TEXT NOT NULL,
             traditional     TEXT,
             pinyin          TEXT NOT NULL,
-            english         TEXT NOT NULL,
+            english         JSON NOT NULL,
             frequency       FLOAT
         );
 
@@ -33,7 +34,7 @@ if __name__ == "__main__":
             simplified = ""
             traditional = ""
             pinyin = ""
-            english = ""
+            english = []
 
             if row.startswith("#"):
                 continue
@@ -66,7 +67,7 @@ if __name__ == "__main__":
             if not m:
                 continue
 
-            english = " / ".join(m.group(1).split("/"))
+            english = m.group(1).split("/")
 
             sql.execute(
                 """
@@ -77,7 +78,7 @@ if __name__ == "__main__":
                     simplified,
                     traditional,
                     pinyin,
-                    english,
+                    json.dumps(english, ensure_ascii=False),
                     word_frequency(simplified, "zh") * 10 ** 6,
                 ),
             )
