@@ -5,22 +5,16 @@ import (
 	"log"
 	"path"
 	"path/filepath"
-	"regexp"
 	"strings"
 
-	"github.com/wangbin/jiebago"
 	"github.com/zhquiz/zhquiz-desktop/shared"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/schema"
 )
 
-var jieba jiebago.Segmenter
-
 // Connect connects to DATABASE_URL
 func Connect() *gorm.DB {
-	jieba.LoadDictionary(filepath.Join(shared.ExecDir, "assets", "dict.txt"))
-
 	db, err := gorm.Open(sqlite.Open(filepath.Join(shared.UserDataDir(), "data.db")), &gorm.Config{
 		NamingStrategy: schema.NamingStrategy{
 			SingularTable: true,
@@ -56,30 +50,133 @@ func Connect() *gorm.DB {
 		Name string
 	}{}); r.Error != nil {
 		if errors.Is(r.Error, gorm.ErrRecordNotFound) {
-			if e := db.Transaction(func(tx *gorm.DB) error {
-				if r := tx.Exec(`
-				CREATE VIRTUAL TABLE chinese USING fts5 (
-					id,
-					source,
-					[type],
-					chinese,
-					alt,
-					pinyin,
-					english,
-					[description],
-					[tag],
-					tokenize = porter
-				)
-				`); r.Error != nil {
-					return r.Error
-				}
+			if r := db.Exec(`
+			CREATE VIRTUAL TABLE chinese USING fts5 (
+				id,
+				source,
+				[type],
+				chinese,
+				alt,
+				pinyin,
+				english,
+				[description],
+				[tag],
+				tokenize = porter
+			)
+			`); r.Error != nil {
+				panic(r.Error)
+			}
 
+			if e := db.Transaction(func(tx *gorm.DB) error {
 				dbCedict, err := gorm.Open(sqlite.Open(path.Join(shared.ExecDir, "assets", "cedict.db") + "?mode=ro"))
 				if err != nil {
 					return err
 				}
-				if r := dbCedict.Raw("SELECT simplified, traditional, pinyin, english FROM cedict"); r.Error != nil {
-					return r.Error
+				rows, err := dbCedict.Raw(`
+				SELECT
+					simplified chinese,
+					json_group_array(DISTINCT traditional) alt,
+					json_group_array(DISTINCT pinyin) pinyin,
+					json_group_array(DISTINCT json_each.value) english,
+					frequency
+				FROM cedict, json_each(english)
+				GROUP BY simplified
+				`).Rows()
+				if err != nil {
+					return err
+				}
+				defer rows.Close()
+
+				items := make([]Chinese, 0)
+				for rows.Next() {
+					var c Chinese
+					dbCedict.ScanRows(rows, &c)
+
+					c.Type = "vocab"
+					c.Source = "cedict"
+					c.Alt = cleanStringArray(c.Alt)
+
+					items = append(items, c)
+				}
+
+				if e := Chinese.BaseCreate(Chinese{}, tx, items...); e != nil {
+					return e
+				}
+
+				return nil
+			}); e != nil {
+				panic(e)
+			}
+
+			if e := db.Transaction(func(tx *gorm.DB) error {
+				dbCedict, err := gorm.Open(sqlite.Open(path.Join(shared.ExecDir, "assets", "junda.db") + "?mode=ro"))
+				if err != nil {
+					return err
+				}
+				rows, err := dbCedict.Raw(`
+				SELECT
+					[character] chinese,
+					json_array(pinyin) pinyin,
+					json_array(english) english,
+					raw_freq frequency
+				FROM hanzi
+				`).Rows()
+				if err != nil {
+					return err
+				}
+				defer rows.Close()
+
+				items := make([]Chinese, 0)
+				for rows.Next() {
+					var c Chinese
+					dbCedict.ScanRows(rows, &c)
+
+					c.Type = "hanzi"
+					c.Source = "junda"
+					c.Pinyin = strings.Split(c.Pinyin[0], "/")
+					c.English = strings.Split(c.English[0], "/")
+
+					items = append(items, c)
+				}
+
+				if e := Chinese.BaseCreate(Chinese{}, tx, items...); e != nil {
+					return e
+				}
+
+				return nil
+			}); e != nil {
+				panic(e)
+			}
+
+			if e := db.Transaction(func(tx *gorm.DB) error {
+				dbCedict, err := gorm.Open(sqlite.Open(path.Join(shared.ExecDir, "assets", "tatoeba.db") + "?mode=ro"))
+				if err != nil {
+					return err
+				}
+				rows, err := dbCedict.Raw(`
+				SELECT
+					cmn chinese,
+					json_array(eng) english
+				FROM cmn_eng
+				`).Rows()
+				if err != nil {
+					return err
+				}
+				defer rows.Close()
+
+				items := make([]Chinese, 0)
+				for rows.Next() {
+					var c Chinese
+					dbCedict.ScanRows(rows, &c)
+
+					c.Type = "sentence"
+					c.Source = "tatoeba"
+
+					items = append(items, c)
+				}
+
+				if e := Chinese.BaseCreate(Chinese{}, tx, items...); e != nil {
+					return e
 				}
 
 				return nil
@@ -122,28 +219,13 @@ func Connect() *gorm.DB {
 	return db
 }
 
-func parseChinese(s string) string {
-	out := make([]string, 0)
-	func(ch <-chan string) {
-		for word := range ch {
-			out = append(out, word)
+func cleanStringArray(s []string) []string {
+	cleaned := make([]string, 0)
+	for _, r := range s {
+		if r != "" {
+			cleaned = append(cleaned, r)
 		}
-	}(jieba.CutAll(s))
-
-	if len(out) == 0 {
-		out = append(out, s)
 	}
 
-	return strings.Join(out, " ")
-}
-
-func parsePinyin(s string) string {
-	out := make([]string, 0)
-	re := regexp.MustCompile(`\d+$`)
-
-	for _, c := range strings.Split(s, " ") {
-		out = append(out, re.ReplaceAllString(c, ""))
-	}
-
-	return strings.Join(out, " ")
+	return cleaned
 }

@@ -27,7 +27,7 @@ type LibraryBase struct {
 }
 
 // BaseCreate ensures base create
-func (Library) BaseCreate(tx *gorm.DB, items ...*Library) error {
+func (Library) BaseCreate(tx *gorm.DB, items ...Library) error {
 	bases := make([]LibraryBase, len(items))
 	for i, base := range bases {
 		base.UserID = items[i].UserID
@@ -50,7 +50,7 @@ func (Library) BaseCreate(tx *gorm.DB, items ...*Library) error {
 }
 
 // BaseUpdate ensures base update
-func (Library) BaseUpdate(tx *gorm.DB, items ...*Library) error {
+func (Library) BaseUpdate(tx *gorm.DB, items ...Library) error {
 	bases := make([]LibraryBase, len(items))
 	for i, base := range bases {
 		base.ID = items[i].ID
@@ -70,7 +70,7 @@ func (Library) BaseUpdate(tx *gorm.DB, items ...*Library) error {
 }
 
 // BaseDelete ensures base delete
-func (Library) BaseDelete(tx *gorm.DB, items ...*Library) error {
+func (Library) BaseDelete(tx *gorm.DB, items ...Library) error {
 	bases := make([]LibraryBase, len(items))
 	for i, base := range bases {
 		base.ID = items[i].ID

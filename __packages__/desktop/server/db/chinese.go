@@ -18,6 +18,7 @@ type Chinese struct {
 	English     StringArray `json:"english"`
 	Description string      `json:"description"`
 	Tag         StringArray `json:"tag"`
+	Frequency   float32     `json:"-"`
 }
 
 // ChineseBase is constraint indexed model for Chinese
@@ -32,7 +33,7 @@ type ChineseBase struct {
 }
 
 // BaseCreate ensures base create
-func (Chinese) BaseCreate(tx *gorm.DB, items ...*Chinese) error {
+func (Chinese) BaseCreate(tx *gorm.DB, items ...Chinese) error {
 	bases := make([]ChineseBase, len(items))
 	for i, base := range bases {
 		base.UserID = items[i].UserID
@@ -57,7 +58,7 @@ func (Chinese) BaseCreate(tx *gorm.DB, items ...*Chinese) error {
 }
 
 // BaseUpdate ensures base update
-func (Chinese) BaseUpdate(tx *gorm.DB, items ...*Chinese) error {
+func (Chinese) BaseUpdate(tx *gorm.DB, items ...Chinese) error {
 	bases := make([]ChineseBase, len(items))
 	for i, base := range bases {
 		base.ID = items[i].ID
@@ -79,7 +80,7 @@ func (Chinese) BaseUpdate(tx *gorm.DB, items ...*Chinese) error {
 }
 
 // BaseDelete ensures base delete
-func (Chinese) BaseDelete(tx *gorm.DB, items ...*Chinese) error {
+func (Chinese) BaseDelete(tx *gorm.DB, items ...Chinese) error {
 	bases := make([]ChineseBase, len(items))
 	for i, base := range bases {
 		base.ID = items[i].ID
