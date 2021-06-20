@@ -109,7 +109,7 @@ mecab = ["mecab-python3", "ipadic", "mecab-ko-dic"]
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8"
-content-hash = "9fe7345aea241de52ff223d94ca3ca2644c3febed6fce3aedea3273d2982406e"
+content-hash = "f6841d98f0fc809967980feb9b8e6f8b96a790413e00ea269b301bb5bd45d4ea"
 
 [metadata.files]
 certifi = [

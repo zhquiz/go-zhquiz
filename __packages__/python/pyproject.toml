@@ -10,6 +10,7 @@ python = "^3.8"
 wordfreq = "^2.5.0"
 jieba = "^0.42.1"
 requests = "^2.25.1"
+regex = "^2021.4.4"
 
 [tool.poetry.dev-dependencies]
 
