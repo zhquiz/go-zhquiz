@@ -15,6 +15,7 @@
     "adm-zip": "^0.5.1",
     "better-sqlite3": "^7.1.2",
     "fast-glob": "^3.2.5",
-    "fs-extra": "^9.1.0"
+    "fs-extra": "^9.1.0",
+    "rimraf": "^5.0.1"
   }
 }

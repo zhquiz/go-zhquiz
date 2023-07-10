@@ -29,15 +29,59 @@ const cmds = {
     });
   },
   prepare() {
-    spawnSync("yarn", "build", { cwd: "__packages__/ui", stdio: "inherit" });
+    spawnSync("yarn", {
+      cwd: "__packages__/nodejs",
+      stdio: "inherit",
+      shell: true,
+    });
+    spawnSync("yarn", {
+      cwd: "__packages__/ui",
+      stdio: "inherit",
+      shell: true,
+    });
+    spawnSync("yarn", ["build"], {
+      cwd: "__packages__/ui",
+      stdio: "inherit",
+      shell: true,
+    });
   },
-  publish() {
-    cmds.prepare();
-    cmds["publish-all"]();
+  dist() {
+    // cmds.prepare();
+    cmds["publish-native"]();
     spawnSync("yarn", ["ts-node", "scripts/dist.ts"], {
-      cwd: "__packages/nodejs",
+      cwd: "__packages__/nodejs",
+      stdio: "inherit",
+      shell: true,
+    });
+  },
+  "publish-native"() {
+    // https://github.com/webview/webview#mingw-w64-requirements
+    spawnSync("windres", ["-o", "res.syso", "main.rc"], {
+      shell: true,
       stdio: "inherit",
     });
+
+    // https://github.com/webview/webview#windows-preparation
+    spawnSync(
+      "go",
+      [
+        "build",
+        "--ldflags",
+        "-H windowsgui",
+        "--tags",
+        SQLITE_TAGS,
+        "-o",
+        `zhquiz-windows.exe`,
+      ],
+      {
+        env: {
+          ...process.env,
+          CGO_CXXFLAGS: `-I${process.cwd()}\\libs\\webview2\\build\\native\\include`,
+          CGO_LDFLAGS: `-L${process.cwd()}\\libs\\webview2\\build\\native\\x64`,
+        },
+        stdio: "inherit",
+      }
+    );
   },
   "publish-windows"() {
     spawnSync(

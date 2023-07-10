@@ -29,5 +29,4 @@
 /zhquiz.*
 /dist/
 /libs/
-
-/assets/zh.db
+*.syso

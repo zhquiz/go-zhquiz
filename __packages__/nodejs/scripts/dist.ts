@@ -1,11 +1,11 @@
 import AdmZip from 'adm-zip'
-import { execSync } from 'child_process'
 import fs from 'fs-extra'
 import glob from 'fast-glob'
+import { sync as rimraf } from 'rimraf'
 
 process.chdir('../..')
 
-execSync('rm -rf ./dist')
+rimraf('./dist')
 fs.ensureDirSync('./dist')
 
 glob.sync('./zhquiz-*').map((f) => {
@@ -58,7 +58,7 @@ glob.sync('./zhquiz-*').map((f) => {
     const zip = new AdmZip()
     zip.addLocalFolder('./assets', 'assets')
     zip.addLocalFolder('./public', 'public')
-    zip.addLocalFile(`./${f}`, /-windows/.test(f) ? 'zhquiz.exe' : '')
+    zip.addLocalFile(`./${f}`, '.', /-windows/.test(f) ? 'zhquiz.exe' : '')
 
     zip.writeZip(`./dist/${f.replace(/\.[^.-]+$/, '')}.zip`)
   }
