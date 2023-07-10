@@ -1,10 +1,10 @@
 {
   "folders": [
     {
-      "path": "__packages__/ui"
+      "path": "."
     },
     {
-      "path": "."
-    }
+      "path": "__packages__/ui"
+    },
   ]
 }

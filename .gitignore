@@ -28,5 +28,6 @@
 /zhquiz-*
 /zhquiz.*
 /dist/
+/libs/
 
 /assets/zh.db

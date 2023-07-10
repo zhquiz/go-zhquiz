@@ -29,3 +29,7 @@ However, for offline, it will fallback to operating system's default TTS.
 ## Customization
 
 After the first run, `.env.local` will be created. You can customize default behaviors there.
+
+## Development
+
+Basic commands can be run with `node runner.js`
