@@ -35,13 +35,29 @@
             <div v-if="current.direction === 'te'">
               <h4>Vocab Traditional-English</h4>
 
-              <div class="font-zh-trad text-w-normal" style="font-size: 1.7rem">
+              <div
+                class="font-zh-trad text-w-normal"
+                style="font-size: 1.7rem"
+                lang="zh-TW"
+              >
                 <span
                   v-for="(it, i) in current.traditional || []"
                   :key="i"
                   class="traditional"
                 >
                   {{ it }}
+                </span>
+              </div>
+
+              <div v-if="sentences[0]" style="margin-top: 0.5em;" lang="zh-CN">
+                <span
+                  class="has-context"
+                  :title="sentences[0].pinyin"
+                  @contextmenu.prevent="
+                    ev => openContext(ev, sentences[0].chinese, 'sentence')
+                  "
+                >
+                  {{ sentences[0].chinese }}
                 </span>
               </div>
             </div>
@@ -80,6 +96,18 @@
 
               <div class="font-zh-simp text-w-normal" style="font-size: 2rem">
                 {{ current.entry }}
+              </div>
+
+              <div v-if="sentences[0]" style="margin-top: 0.5em;" lang="zh-CN">
+                <span
+                  class="has-context"
+                  :title="sentences[0].pinyin"
+                  @contextmenu.prevent="
+                    ev => openContext(ev, sentences[0].chinese, 'sentence')
+                  "
+                >
+                  {{ sentences[0].chinese }}
+                </span>
               </div>
             </div>
           </div>
@@ -124,7 +152,7 @@
                   class="has-context"
                   :title="it.pinyin"
                   @contextmenu.prevent="
-                    (ev) => openContext(ev, it.chinese, 'sentence')
+                    ev => openContext(ev, it.chinese, 'sentence')
                   "
                 >
                   {{ it.chinese }}
@@ -160,7 +188,7 @@
                   class="has-context"
                   :title="it.pinyin"
                   @contextmenu.prevent="
-                    (ev) => openContext(ev, it.chinese, 'sentence')
+                    ev => openContext(ev, it.chinese, 'sentence')
                   "
                 >
                   {{ it.chinese }}
@@ -192,7 +220,7 @@
                 v-for="(it, i) in current.traditional"
                 :key="i"
                 class="traditional has-context"
-                @contextmenu.prevent="(ev) => openContext(ev, it)"
+                @contextmenu.prevent="ev => openContext(ev, it)"
               >
                 {{ it }}
               </span>
@@ -214,7 +242,7 @@
                   class="has-context"
                   :title="it.pinyin"
                   @contextmenu.prevent="
-                    (ev) => openContext(ev, it.chinese, 'sentence')
+                    ev => openContext(ev, it.chinese, 'sentence')
                   "
                 >
                   {{ it.chinese }}
@@ -332,25 +360,26 @@
 </template>
 
 <script lang="ts">
-import { Vue, Component, Prop, Ref } from 'vue-property-decorator'
+import { Vue, Component, Prop, Ref, Watch } from 'vue-property-decorator'
 import toPinyin from 'chinese-to-pinyin'
 import ContextMenu from './ContextMenu.vue'
 import { api } from '@/assets/api'
 import { findSentence, findSentenceSync, zhSentence } from '@/assets/db'
+import { speak } from '@/assets/speak'
 
 export type IQuizType = 'hanzi' | 'vocab' | 'sentence' | 'extra'
 
 export interface IQuizData {
-  id: string;
-  type?: IQuizType;
-  direction?: string;
-  srsLevel?: number;
-  nextReview?: string;
-  wrongStreak?: number;
-  stat?: unknown;
-  entry?: string;
-  source?: string;
-  tag?: string[];
+  id: string
+  type?: IQuizType
+  direction?: string
+  srsLevel?: number
+  nextReview?: string
+  wrongStreak?: number
+  stat?: unknown
+  entry?: string
+  source?: string
+  tag?: string[]
 }
 
 @Component({
@@ -372,7 +401,7 @@ export default class QuizCard extends Vue {
   quizIndex = -1
 
   quizData: {
-    [quizId: string]: IQuizData;
+    [quizId: string]: IQuizData
   } = {}
 
   dictionaryData = {
@@ -386,9 +415,9 @@ export default class QuizCard extends Vue {
   sentenceKey = 0
 
   get sentences (): {
-    chinese: string;
-    pinyin: string;
-    english: string;
+    chinese: string
+    pinyin: string
+    english: string
   }[] {
     return findSentenceSync(this.current.entry as string, 5)
   }
@@ -403,6 +432,20 @@ export default class QuizCard extends Vue {
   endQuiz () {
     this.isQuizModal = false
     this.$emit('quiz:ended')
+  }
+
+  @Watch('isQuizShownAnswer')
+  async onShownAnswer () {
+    if (
+      this.isQuizShownAnswer &&
+      this.current.type === 'vocab' &&
+      this.current.direction !== 'ec'
+    ) {
+      await speak(this.current.entry as string)
+      if (this.sentences[0]) {
+        await speak(this.sentences[0].chinese)
+      }
+    }
   }
 
   async doMark (type: 'right' | 'wrong' | 'repeat') {
@@ -498,7 +541,7 @@ export default class QuizCard extends Vue {
 
   doMask (s: string, ...ws: string[]) {
     // eslint-disable-next-line array-callback-return
-    ws.map((w) => {
+    ws.map(w => {
       s = s.replace(
         new RegExp(
           `(^| |[^a-z])(${w
@@ -532,7 +575,7 @@ export default class QuizCard extends Vue {
           result: [r]
         }
       } = await api.get<{
-        result: IQuizData[];
+        result: IQuizData[]
       }>('/api/quiz/many', {
         params: {
           ids: [quizId],
@@ -574,9 +617,9 @@ export default class QuizCard extends Vue {
     if (type === 'sentence') {
       await api
         .get<{
-          id: string;
-          chinese: string;
-          english: string;
+          id: string
+          chinese: string
+          english: string
         }>('/api/sentence', {
           params: {
             entry,
@@ -607,8 +650,8 @@ export default class QuizCard extends Vue {
           const {
             data: { pinyin, english }
           } = await api.get<{
-            pinyin: string;
-            english: string;
+            pinyin: string
+            english: string
           }>('/api/hanzi', {
             params: {
               entry,
@@ -631,10 +674,10 @@ export default class QuizCard extends Vue {
             (await api
               .get<{
                 result: {
-                  traditional?: string;
-                  pinyin: string;
-                  english: string;
-                }[];
+                  traditional?: string
+                  pinyin: string
+                  english: string
+                }[]
               }>('/api/vocab', {
                 params: {
                   entry,
@@ -645,7 +688,7 @@ export default class QuizCard extends Vue {
                 return {
                   traditional: result
                     .map(({ traditional }) => traditional || '')
-                    .filter((r) => r)
+                    .filter(r => r)
                     .filter((a, i, arr) => arr.indexOf(a) === i),
                   pinyin: result
                     .map(({ pinyin }) => pinyin)
@@ -670,8 +713,8 @@ export default class QuizCard extends Vue {
           const {
             data: { pinyin, english }
           } = await api.get<{
-            pinyin: string;
-            english: string;
+            pinyin: string
+            english: string
           }>('/api/extra', {
             params: {
               entry,

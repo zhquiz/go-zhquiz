@@ -126,18 +126,23 @@ const cmds = {
   },
 };
 
-const cmdList = Object.keys(cmds);
+let cmd;
+if ((cmd = cmds[process.argv[2]])) {
+  cmd();
+} else {
+  const cmdList = Object.keys(cmds);
 
-const rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout,
-});
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
 
-rl.question(
-  `Choose a command:\n${cmdList.map((k, i) => `${i}: ${k}`).join("\n")}\n-- `,
-  (answer) => {
-    const cmd = cmds[cmdList[Number(answer)]];
-    cmd?.();
-    rl.close();
-  }
-);
+  rl.question(
+    `Choose a command:\n${cmdList.map((k, i) => `${i}: ${k}`).join("\n")}\n-- `,
+    (answer) => {
+      const cmd = cmds[cmdList[Number(answer)]];
+      cmd?.();
+      rl.close();
+    }
+  );
+}

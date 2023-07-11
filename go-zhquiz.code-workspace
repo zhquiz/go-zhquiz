@@ -6,5 +6,8 @@
     {
       "path": "__packages__/ui"
     },
-  ]
+  ],
+  "settings": {
+    "vue.codeActions.enabled": false
+  }
 }

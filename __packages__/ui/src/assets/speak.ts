@@ -2,15 +2,17 @@ import { token } from './api'
 
 const allVoices: Record<string, string> = {}
 
-export async function speak (s: string, forceOffline?: boolean) {
+export async function speak(s: string, forceOffline?: boolean) {
   if (!forceOffline && navigator.onLine) {
     const audio = new Audio(
       `/api/chinese/speak?q=${encodeURIComponent(s)}&token=${encodeURIComponent(
         token
       )}`
     )
-    await audio.play().catch(() => speak(s, true))
-    return
+    return new Promise((resolve) => {
+      audio.play().catch(() => resolve(speak(s, true)))
+      audio.addEventListener('ended', resolve)
+    })
   }
 
   if (Object.keys(allVoices).length === 0) {

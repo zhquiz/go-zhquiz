@@ -4,18 +4,14 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
-	"net/http"
-	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/PuerkitoBio/goquery"
 	"github.com/gin-gonic/gin"
 	"github.com/zhquiz/go-zhquiz/server/db"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 func routerSentence(apiRouter *gin.RouterGroup) {
@@ -215,64 +211,6 @@ func routerSentence(apiRouter *gin.RouterGroup) {
 					Chinese: s.Chinese,
 					English: s.English,
 				})
-			}
-
-			if len(out.Result) <= generate {
-				func() {
-					resp, err := http.Get(fmt.Sprintf("http://www.jukuu.com/search.php?q=%s", url.QueryEscape(query.Q)))
-					if err != nil {
-						return
-					}
-
-					doc, err := goquery.NewDocumentFromReader(resp.Body)
-					if err != nil {
-						return
-					}
-
-					moreResult := make([]Result, generate)
-
-					doc.Find("table tr.c td:last-child").Each(func(i int, item *goquery.Selection) {
-						if i < len(moreResult) {
-							moreResult[i].Chinese = item.Text()
-						}
-					})
-
-					doc.Find("table tr.e td:last-child").Each(func(i int, item *goquery.Selection) {
-						if i < len(moreResult) {
-							moreResult[i].English = item.Text()
-						}
-					})
-
-					var dbSentences []db.Sentence
-
-					for _, r := range moreResult {
-						if r.Chinese != "" {
-							dbSentences = append(dbSentences, db.Sentence{
-								Chinese: r.Chinese,
-								English: r.English,
-							})
-						}
-					}
-
-					if len(dbSentences) > 0 {
-						if r := resource.DB.Current.Clauses(clause.OnConflict{
-							DoNothing: true,
-						}).Create(dbSentences); r.Error != nil {
-							panic(r.Error)
-						}
-					}
-
-					if r := resource.DB.Current.Where("chinese LIKE ?", cond["q"]).Limit(generate - len(out.Result)).Order("RANDOM()").Find(&dbSentences); r.Error != nil {
-						panic(r.Error)
-					}
-
-					for _, s := range dbSentences {
-						out.Result = append(out.Result, Result{
-							Chinese: s.Chinese,
-							English: s.English,
-						})
-					}
-				}()
 			}
 
 			if len(out.Result) > generate {
