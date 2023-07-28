@@ -1,0 +1,23 @@
+{
+  "name": "go-zhquiz",
+  "version": "1.0.0",
+  "description": "Desktop app for Chinese vocabulary and Hanzi SRS",
+  "main": "runner.js",
+  "repository": "git@github.com:zhquiz/go-zhquiz.git",
+  "author": "Pacharapol Withayasakpunt <polv@polv.cc>",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "desktop": "node . desktop",
+    "serve": "node . serve",
+    "build": "node . build",
+    "prepare": "node . prepare",
+    "dist": "node . dist",
+    "publish-native": "node . publish-native",
+    "publish-windows": "node . publish-windows",
+    "publish-mac": "node . publish-mac",
+    "publish-linux": "node . publish-linux",
+    "publish-all": "node . publish-all",
+    "start": "node ."
+  }
+}

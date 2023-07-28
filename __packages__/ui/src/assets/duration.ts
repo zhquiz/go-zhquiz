@@ -72,7 +72,7 @@ export class Duration {
   /**
    * Parse milliseconds (i.e. epoch) to Duration, based on before present time
    */
-  static of (msec: number) {
+  static of(msec: number) {
     const to = new Date()
     const output = new this(new Date(+to - msec), to)
     output.sign = ''
@@ -80,7 +80,7 @@ export class Duration {
     return output
   }
 
-  constructor (
+  constructor(
     /**
      * Starting Date
      */
@@ -165,7 +165,7 @@ export class Duration {
   /**
    * To JSON-serializable OrderedDict
    */
-  toOrderedDict (): [DurationUnit, number][] {
+  toOrderedDict(): [DurationUnit, number][] {
     return [
       ['ms', this.ms],
       ['s', this.s],
@@ -183,7 +183,7 @@ export class Duration {
    *
    * Works with `${duration}` also
    */
-  toString ({
+  toString({
     sign = true,
     granularity,
     maxUnit,
@@ -193,6 +193,10 @@ export class Duration {
     const odict = this.toOrderedDict()
     const smallestIndex = odict.map(([k]) => k).indexOf(smallest)
     const filteredDict = odict.filter(([, v], i) => v && i >= smallestIndex)
+
+    if (filteredDict.every(([_k, v]) => v === 0)) {
+      return `${(sign && this.sign === '-' ? '>' : '<')} ${this.sign}1${smallest}`
+    }
 
     const str = filteredDict
       .slice(granularity ? filteredDict.length - granularity : 0)
@@ -208,7 +212,7 @@ export class Duration {
     return str
   }
 
-  private _parse (
+  private _parse(
     current: (d: Date) => number,
     upper?: {
       get: (d: Date) => number;
@@ -234,7 +238,7 @@ export class Duration {
 /**
  * Date adding functions
  */
-export function addDate (d: Date): Record<DurationUnit, (n: number) => Date> {
+export function addDate(d: Date): Record<DurationUnit, (n: number) => Date> {
   return {
     /**
      * Milliseconds

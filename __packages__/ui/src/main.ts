@@ -48,7 +48,8 @@ Vue.filter('duration', (v: any) => {
   return v
     ? new Duration(new Date(v), new Date()).toString({
       sign: false,
-      granularity: 2
+      granularity: 2,
+      smallest: 'min'
     })
     : ''
 })
